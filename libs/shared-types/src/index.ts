@@ -7,6 +7,13 @@ export interface SsoProvider {
 
 export type Role = 'user' | 'author' | 'admin';
 
+export interface ChatMessage {
+  id: string;
+  from: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface User {
   _id: string;
   email: string;

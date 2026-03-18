@@ -346,6 +346,128 @@ body {
   margin-bottom: 1rem;
 }
 
+/* Chat grid */
+.chat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* Chat window */
+.chat-window {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+  height: 480px;
+}
+
+.chat-header {
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #eee;
+  background: #fafafa;
+  color: #333;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-empty {
+  color: #aaa;
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 0.9rem;
+}
+
+.chat-message {
+  background: #f7f7f7;
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  max-width: 80%;
+}
+
+.chat-message-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.chat-from {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #0070f3;
+}
+
+.chat-time {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.chat-text {
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #333;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid #eee;
+  background: white;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: none;
+  line-height: 1.4;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: #0070f3;
+}
+
+.chat-send {
+  padding: 0.6rem 1.25rem;
+  background: #0070f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: background 0.2s;
+}
+
+.chat-send:hover:not(:disabled) {
+  background: #005bb5;
+}
+
+.chat-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Loading */
 .loading {
   display: flex;

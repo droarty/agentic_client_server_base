@@ -151,10 +151,11 @@ npx nx e2e web-e2e
 
 `mongosh` is not included in the manual binary download. Install it separately:
 
+Download the latest `.zip` for **macOS arm64** from the [mongosh releases page](https://github.com/mongodb-js/mongosh/releases/latest), then:
+
 ```bash
-curl -L https://downloads.mongodb.org/osx/mongosh-2.3.9-darwin-arm64.zip -o /tmp/mongosh.zip
-unzip /tmp/mongosh.zip -d /tmp/mongosh
-cp /tmp/mongosh/mongosh-2.3.9-darwin-arm64/bin/mongosh ~/bin/mongosh
+unzip ~/Downloads/mongosh-*-darwin-arm64.zip -d /tmp/mongosh
+cp /tmp/mongosh/mongosh-*/bin/mongosh ~/bin/mongosh
 chmod +x ~/bin/mongosh
 ```
 
