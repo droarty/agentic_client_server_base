@@ -14,6 +14,16 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+// WebSocket message types (client ↔ server)
+export type WsClientMessage =
+  | { type: 'auth'; token: string }
+  | { type: 'chat'; channel: string; message: ChatMessage };
+
+export type WsServerMessage =
+  | { type: 'auth_success' }
+  | { type: 'auth_error'; message: string }
+  | { type: 'chat'; channel: string; message: ChatMessage };
+
 export interface User {
   _id: string;
   email: string;

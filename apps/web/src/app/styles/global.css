@@ -430,6 +430,22 @@ body {
   background: white;
 }
 
+.chat-target-select {
+  padding: 0.6rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.chat-target-select:focus {
+  outline: none;
+  border-color: #0070f3;
+}
+
 .chat-input {
   flex: 1;
   padding: 0.6rem 0.75rem;

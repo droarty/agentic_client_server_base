@@ -1,16 +1,26 @@
 import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
 import { ChatMessage } from '@multiplayer-base/shared-types';
+import { eventManager } from '../services/EventManager';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ChatWindowProps {
   chatKey: string;
-  messages: ChatMessage[];
-  onSend: (text: string) => void;
+  targets?: string[];
   placeholder?: string;
 }
 
-export function ChatWindow({ chatKey, messages, onSend, placeholder = 'Type a message...' }: ChatWindowProps) {
+export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...' }: ChatWindowProps) {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
+  const [selectedTarget, setSelectedTarget] = useState<string>(targets?.[0] ?? chatKey);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return eventManager.subscribe(chatKey, (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+  }, [chatKey]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,7 +30,13 @@ export function ChatWindow({ chatKey, messages, onSend, placeholder = 'Type a me
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    onSend(trimmed);
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      from: user?.email ?? 'Unknown',
+      text: trimmed,
+      timestamp: new Date().toISOString(),
+    };
+    eventManager.publish(selectedTarget, msg);
     setText('');
   };
 
@@ -29,14 +45,23 @@ export function ChatWindow({ chatKey, messages, onSend, placeholder = 'Type a me
       e.preventDefault();
       const trimmed = text.trim();
       if (!trimmed) return;
-      onSend(trimmed);
+      const msg: ChatMessage = {
+        id: crypto.randomUUID(),
+        from: user?.email ?? 'Unknown',
+        text: trimmed,
+        timestamp: new Date().toISOString(),
+      };
+      eventManager.publish(selectedTarget, msg);
       setText('');
     }
   };
 
+  const targetList = targets ?? [chatKey];
+
   return (
     <div className="chat-window">
       <div className="chat-header">{chatKey}</div>
+
       <div className="chat-messages">
         {messages.length === 0 && (
           <p className="chat-empty">No messages yet. Say hello!</p>
@@ -56,6 +81,18 @@ export function ChatWindow({ chatKey, messages, onSend, placeholder = 'Type a me
       </div>
 
       <form className="chat-form" onSubmit={handleSubmit}>
+        {targetList.length > 1 && (
+          <select
+            className="chat-target-select"
+            value={selectedTarget}
+            onChange={(e) => setSelectedTarget(e.target.value)}
+            aria-label="Send to"
+          >
+            {targetList.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        )}
         <textarea
           className="chat-input"
           value={text}

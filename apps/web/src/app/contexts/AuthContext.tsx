@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthResponse } from '@multiplayer-base/shared-types';
 import { apiLogin, apiRegister, apiGetMe } from '../services/api';
+import { eventManager } from '../services/EventManager';
 
 interface AuthContextValue {
   user: User | null;
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((fetchedUser) => {
         setUser(fetchedUser);
         localStorage.setItem('user', JSON.stringify(fetchedUser));
+        eventManager.connect();
       })
       .catch(() => {
         localStorage.removeItem('token');
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
+    eventManager.connect();
   };
 
   const register = async (email: string, password: string, confirmPassword: string) => {
@@ -56,9 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
+    eventManager.connect();
   };
 
   const logout = () => {
+    eventManager.disconnect();
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
