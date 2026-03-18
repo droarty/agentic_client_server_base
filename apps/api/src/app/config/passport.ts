@@ -42,6 +42,11 @@ export function configurePassport() {
             }
           }
 
+          // Cannot create a user without an email
+          if (!googleEmail) {
+            return done(null, false);
+          }
+
           // Create a new user
           user = new User({
             email: googleEmail,

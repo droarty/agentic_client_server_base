@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { register, login } from '../controllers/auth.controller';
-import { googleCallback } from '../controllers/oauth.controller';
+import { googleCallback, exchangeCode } from '../controllers/oauth.controller';
 import { env } from '../config/env';
 
 export const authRoutes = Router();
@@ -9,6 +9,7 @@ export const authRoutes = Router();
 // Email / password
 authRoutes.post('/register', register);
 authRoutes.post('/login', login);
+authRoutes.post('/exchange', exchangeCode);
 
 // Google OAuth
 authRoutes.get(

@@ -1,19 +1,27 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { apiExchangeOAuthCode } from '../services/api';
 
 export function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
+
   useEffect(() => {
-    const token = searchParams.get('token');
+    const code = searchParams.get('code');
     const error = searchParams.get('error');
 
-    if (error || !token) {
+    if (error || !code) {
       window.location.replace('/login?error=oauth_failed');
       return;
     }
 
-    localStorage.setItem('token', token);
-    window.location.replace('/dashboard');
+    apiExchangeOAuthCode(code)
+      .then((token) => {
+        localStorage.setItem('token', token);
+        window.location.replace('/dashboard');
+      })
+      .catch(() => {
+        window.location.replace('/login?error=oauth_failed');
+      });
   }, []);
 
   return <div className="loading">Signing you in...</div>;

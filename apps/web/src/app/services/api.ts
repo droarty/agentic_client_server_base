@@ -50,3 +50,8 @@ export async function apiUpdateUserRoles(userId: string, roles: Role[]): Promise
   const { data } = await client.patch<User>(`/api/users/${userId}/roles`, { roles });
   return data;
 }
+
+export async function apiExchangeOAuthCode(code: string): Promise<string> {
+  const { data } = await client.post<{ token: string }>('/api/auth/exchange', { code });
+  return data.token;
+}
