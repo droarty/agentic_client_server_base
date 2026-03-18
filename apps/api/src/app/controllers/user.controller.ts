@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { getAllUsers, getUserById, updateUser } from '../services/user.service';
+import { serializeUser } from '../services/auth.service';
 
 export async function getUsers(_req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -18,7 +19,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
       res.status(404).json({ message: 'User not found' });
       return;
     }
-    res.json(user);
+    res.json(serializeUser(user));
   } catch (err) {
     next(err);
   }
@@ -28,13 +29,7 @@ export async function updateMe(req: AuthRequest, res: Response, next: NextFuncti
   try {
     const { email, currentPassword, newPassword } = req.body;
     const user = await updateUser(req.userId!, { email, currentPassword, newPassword });
-
-    res.json({
-      _id: user._id,
-      email: user.email,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    });
+    res.json(serializeUser(user));
   } catch (err) {
     next(err);
   }

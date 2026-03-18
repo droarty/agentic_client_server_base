@@ -1,6 +1,15 @@
+export interface SsoProvider {
+  provider: string;
+  providerId: string;
+  email: string;
+  displayName?: string;
+}
+
 export interface User {
   _id: string;
   email: string;
+  hasPassword: boolean;
+  ssoProviders: SsoProvider[];
   createdAt: string;
   updatedAt: string;
 }

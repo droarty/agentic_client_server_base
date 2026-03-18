@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 
 export function App() {
   return (
@@ -29,6 +30,7 @@ export function App() {
               </PrivateRoute>
             }
           />
+          <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

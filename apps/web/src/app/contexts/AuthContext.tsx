@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthResponse } from '@multiplayer-base/shared-types';
-import { apiLogin, apiRegister } from '../services/api';
+import { apiLogin, apiRegister, apiGetMe } from '../services/api';
 
 interface AuthContextValue {
   user: User | null;
@@ -10,6 +10,7 @@ interface AuthContextValue {
   register: (email: string, password: string, confirmPassword: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User) => void;
+  setToken: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -21,12 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+    if (!storedToken) {
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    setToken(storedToken);
+
+    apiGetMe()
+      .then((fetchedUser) => {
+        setUser(fetchedUser);
+        localStorage.setItem('user', JSON.stringify(fetchedUser));
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setToken(null);
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -53,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, setToken }}>
       {children}
     </AuthContext.Provider>
   );

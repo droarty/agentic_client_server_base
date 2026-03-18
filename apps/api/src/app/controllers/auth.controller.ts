@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, generateToken } from '../services/auth.service';
+import { registerUser, loginUser, generateToken, serializeUser } from '../services/auth.service';
 
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -23,15 +23,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
     const user = await registerUser(email, password);
     const token = generateToken(user._id.toString());
 
-    res.status(201).json({
-      token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    });
+    res.status(201).json({ token, user: serializeUser(user) });
   } catch (err) {
     next(err);
   }
@@ -49,15 +41,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     const user = await loginUser(email, password);
     const token = generateToken(user._id.toString());
 
-    res.json({
-      token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    });
+    res.json({ token, user: serializeUser(user) });
   } catch (err) {
     next(err);
   }
