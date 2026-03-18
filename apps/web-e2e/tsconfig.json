@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc",
+    "module": "CommonJS",
+    "types": ["node", "@wdio/globals/types", "expect-webdriverio"]
+  },
+  "include": ["src/**/*.ts", "wdio.conf.ts"]
+}

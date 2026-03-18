@@ -1,0 +1,17 @@
+{
+  "name": "web-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/web-e2e/src",
+  "projectType": "application",
+  "implicitDependencies": ["web", "api"],
+  "targets": {
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "wdio run apps/web-e2e/wdio.conf.ts",
+        "color": true
+      }
+    }
+  },
+  "tags": ["type:e2e", "scope:web"]
+}
