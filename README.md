@@ -145,6 +145,63 @@ npx nx test web
 npx nx e2e web-e2e
 ```
 
+## Accessing MongoDB Directly
+
+### Install mongosh (MongoDB Shell)
+
+`mongosh` is not included in the manual binary download. Install it separately:
+
+```bash
+curl -L https://downloads.mongodb.org/osx/mongosh-2.3.9-darwin-arm64.zip -o /tmp/mongosh.zip
+unzip /tmp/mongosh.zip -d /tmp/mongosh
+cp /tmp/mongosh/mongosh-2.3.9-darwin-arm64/bin/mongosh ~/bin/mongosh
+chmod +x ~/bin/mongosh
+```
+
+**Homebrew (after CLT update):**
+```bash
+brew install mongosh
+```
+
+### Connect
+
+```bash
+~/bin/mongosh mongodb://localhost:27017/multiplayer_base
+```
+
+### Common Commands
+
+```js
+// List all users
+db.users.find().pretty()
+
+// Find a specific user
+db.users.findOne({ email: "you@example.com" })
+
+// Promote a user to admin
+db.users.updateOne(
+  { email: "you@example.com" },
+  { $set: { roles: ["user", "admin"] } }
+)
+
+// Give a user all roles
+db.users.updateOne(
+  { email: "you@example.com" },
+  { $set: { roles: ["user", "author", "admin"] } }
+)
+
+// List all collections
+show collections
+
+// Exit
+exit
+```
+
+### GUI Alternative
+
+**MongoDB Compass** (official, free) — download from [mongodb.com/products/compass](https://www.mongodb.com/products/compass).
+Connect with: `mongodb://localhost:27017`
+
 ## API Endpoints
 
 All routes prefixed with `/api`.
@@ -157,6 +214,7 @@ All routes prefixed with `/api`.
 | `GET` | `/api/users` | JWT | List all users |
 | `GET` | `/api/users/me` | JWT | Get current user |
 | `PATCH` | `/api/users/me` | JWT | Update email or password |
+| `PATCH` | `/api/users/:id/roles` | JWT + admin | Set a user's roles |
 
 ## Environment Variables
 

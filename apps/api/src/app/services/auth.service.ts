@@ -11,6 +11,7 @@ export function serializeUser(user: IUser) {
     _id: user._id,
     email: user.email,
     hasPassword: !!user.password,
+    roles: user.roles,
     ssoProviders: user.ssoProviders.map((p) => ({
       provider: p.provider,
       email: p.email,

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, User, UpdateUserRequest } from '@multiplayer-base/shared-types';
+import { AuthResponse, User, UpdateUserRequest, Role } from '@multiplayer-base/shared-types';
 
 const API_URL = (typeof process !== 'undefined' && process.env['API_URL']) || 'http://localhost:3000';
 
@@ -43,5 +43,10 @@ export async function apiGetMe(): Promise<User> {
 
 export async function apiUpdateMe(updates: UpdateUserRequest): Promise<User> {
   const { data } = await client.patch<User>('/api/users/me', updates);
+  return data;
+}
+
+export async function apiUpdateUserRoles(userId: string, roles: Role[]): Promise<User> {
+  const { data } = await client.patch<User>(`/api/users/${userId}/roles`, { roles });
   return data;
 }

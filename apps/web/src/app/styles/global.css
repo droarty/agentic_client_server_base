@@ -243,6 +243,79 @@ body {
   border-bottom: none;
 }
 
+/* Dashboard */
+.dashboard-welcome {
+  margin-bottom: 1.5rem;
+  color: #555;
+}
+
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.role-card {
+  display: block;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.role-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #0070f3;
+}
+
+.role-card h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+  color: #0070f3;
+}
+
+.role-card p {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+/* Profile list */
+.profile-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.95rem;
+}
+
+.profile-list dt {
+  font-weight: 600;
+  color: #555;
+}
+
+.profile-list dd {
+  color: #333;
+}
+
+/* Role cell */
+.role-cell {
+  text-align: center;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  background: #e8f0fe;
+  color: #1a73e8;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 /* Settings */
 .settings-card {
   background: white;

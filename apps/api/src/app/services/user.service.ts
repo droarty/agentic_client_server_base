@@ -1,7 +1,19 @@
 import { User, IUser } from '../models/user.model';
 
 export async function getAllUsers(): Promise<IUser[]> {
-  return User.find({}, { password: 0 }).sort({ createdAt: -1 });
+  return User.find({}, { password: 0, ssoProviders: 0 }).sort({ createdAt: -1 });
+}
+
+export async function setUserRoles(id: string, roles: string[]): Promise<IUser> {
+  const user = await User.findById(id);
+  if (!user) {
+    const err = new Error('User not found') as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+  user.roles = roles;
+  await user.save();
+  return user;
 }
 
 export async function getUserById(id: string): Promise<IUser | null> {

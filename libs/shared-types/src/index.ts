@@ -5,10 +5,13 @@ export interface SsoProvider {
   displayName?: string;
 }
 
+export type Role = 'user' | 'author' | 'admin';
+
 export interface User {
   _id: string;
   email: string;
   hasPassword: boolean;
+  roles: Role[];
   ssoProviders: SsoProvider[];
   createdAt: string;
   updatedAt: string;

@@ -1,54 +1,39 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { User } from '@multiplayer-base/shared-types';
 import { useAuth } from '../contexts/AuthContext';
-import { apiGetUsers } from '../services/api';
+import { PageHeader } from '../components/PageHeader';
+
+interface RoleCard {
+  role: 'user' | 'author' | 'admin';
+  path: string;
+  label: string;
+  description: string;
+}
+
+const ROLE_CARDS: RoleCard[] = [
+  { role: 'user',   path: '/dashboard/user',   label: 'User Dashboard',   description: 'Your profile and account overview.' },
+  { role: 'author', path: '/dashboard/author', label: 'Author Dashboard', description: 'Manage and publish your content.' },
+  { role: 'admin',  path: '/dashboard/admin',  label: 'Admin Dashboard',  description: 'Manage users and roles.' },
+];
 
 export function DashboardPage() {
-  const { user, logout } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    apiGetUsers()
-      .then(setUsers)
-      .catch(() => setError('Failed to load users'))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { user } = useAuth();
+  const accessibleCards = ROLE_CARDS.filter((c) => user?.roles.includes(c.role));
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1>Dashboard</h1>
-        <nav>
-          <span>Welcome, {user?.email}</span>
-          <Link to="/settings" className="btn-secondary">Settings</Link>
-          <button onClick={logout} className="btn-secondary">Logout</button>
-        </nav>
-      </header>
-
+      <PageHeader title="Dashboard" />
       <main>
-        <h2>Users</h2>
-        {isLoading && <p>Loading users...</p>}
-        {error && <div className="error-message" role="alert">{error}</div>}
-        {!isLoading && !error && (
-          <table className="users-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u._id}>
-                  <td>{u.email}</td>
-                  <td>{new Date(u.createdAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <p className="dashboard-welcome">Welcome back, <strong>{user?.email}</strong></p>
+        <div className="role-cards">
+          {accessibleCards.map((card) => (
+            <Link key={card.role} to={card.path} className="role-card">
+              <h2>{card.label}</h2>
+              <p>{card.description}</p>
+            </Link>
+          ))}
+        </div>
+        {accessibleCards.length === 0 && (
+          <p className="hint">You have no role-specific dashboards assigned yet.</p>
         )}
       </main>
     </div>
