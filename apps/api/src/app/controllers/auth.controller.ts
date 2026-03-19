@@ -21,7 +21,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
     }
 
     const user = await registerUser(email, password);
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user._id.toString(), user.email);
 
     res.status(201).json({ token, user: serializeUser(user) });
   } catch (err) {
@@ -39,7 +39,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     }
 
     const user = await loginUser(email, password);
-    const token = generateToken(user._id.toString());
+    const token = generateToken(user._id.toString(), user.email);
 
     res.json({ token, user: serializeUser(user) });
   } catch (err) {

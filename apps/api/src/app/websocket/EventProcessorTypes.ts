@@ -1,10 +1,10 @@
-import { AnyMessage } from '@multiplayer-base/shared-types';
+import { InboundMessage } from '@multiplayer-base/shared-types';
 
 export const PUBSUB_CHANNEL = 'multiplayer:chat';
 
 export interface WorkerInput {
-  channel: string;
-  message: AnyMessage;
+  message: InboundMessage;
+  userEmail: string;
 }
 
 export interface DeliveryInstruction {

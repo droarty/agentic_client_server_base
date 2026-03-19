@@ -6,7 +6,7 @@ import { env } from '../config/env';
 
 export function googleCallback(req: Request, res: Response): void {
   const user = req.user as IUser;
-  const token = generateToken(user._id.toString());
+  const token = generateToken(user._id.toString(), user.email);
   const code = createOAuthCode(token);
   res.redirect(`${env.CLIENT_URL}/auth/callback?code=${code}`);
 }

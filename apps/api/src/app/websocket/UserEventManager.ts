@@ -15,6 +15,7 @@ const serverId = randomUUID();
 interface AuthenticatedSocket extends WebSocket {
   socketId?: string;
   userId?: string;
+  userEmail?: string;
   isAuthenticated?: boolean;
 }
 
@@ -31,7 +32,6 @@ export class UserEventManager {
       console.error('Redis subscribe error:', err)
     );
 
-    // Receive delivery instructions published by whichever server processed the event
     redisSub.on('message', (_ch, data) => {
       const { frame, socketIds }: DeliveryInstruction = JSON.parse(data);
       for (const socketId of socketIds) {
@@ -63,8 +63,8 @@ export class UserEventManager {
           if (msg.type === 'subscribe') {
             void addSocketToChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
-            void addSocketToChannel(socketId, msg.channel);
-            this.eventProcessor.process(msg.channel, msg.message);
+            void addSocketToChannel(socketId, msg.message.channel);
+            this.eventProcessor.process(msg.message, ws.userEmail!);
           }
         }
       } catch {
@@ -85,8 +85,9 @@ export class UserEventManager {
     authTimeout: ReturnType<typeof setTimeout>
   ): Promise<void> {
     try {
-      const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+      const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string; email: string };
       ws.userId = payload.userId;
+      ws.userEmail = payload.email;
       ws.isAuthenticated = true;
       clearTimeout(authTimeout);
       this.localSockets.set(ws.socketId!, ws);

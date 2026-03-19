@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
-import { AnyMessage, ChatMessage, ColorfulChatMessage } from '@multiplayer-base/shared-types';
+import {
+  OutboundMessage,
+  AddTextMessage,
+  AddColorfulTextMessage,
+} from '@multiplayer-base/shared-types';
 import { eventManager } from '../services/EventManager';
-import { useAuth } from '../contexts/AuthContext';
 
 const COLORS = ['#e74c3c', '#e67e22', '#27ae60', '#2980b9', '#8e44ad', '#e91e63'];
 
@@ -12,8 +15,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...' }: ChatWindowProps) {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<AnyMessage[]>([]);
+  const [messages, setMessages] = useState<OutboundMessage[]>([]);
   const [text, setText] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<string>(targets?.[0] ?? chatKey);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
 
   useEffect(() => {
     return eventManager.subscribe(chatKey, (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => [...prev, msg as OutboundMessage]);
     });
   }, [chatKey]);
 
@@ -29,16 +31,17 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const buildMessage = (trimmed: string): AnyMessage => {
+  const buildMessage = (trimmed: string): AddTextMessage | AddColorfulTextMessage => {
     const base = {
-      id: crypto.randomUUID(),
-      from: user?.email ?? 'Unknown',
+      from: 'client' as const,
+      to: 'server' as const,
+      channel: selectedTarget,
       timestamp: new Date().toISOString(),
     };
     if (selectedColor) {
-      return { ...base, type: 'colorful-chat', text: trimmed, color: selectedColor } satisfies ColorfulChatMessage;
+      return { ...base, type: 'add-colorful-text', text: trimmed, color: selectedColor } satisfies AddColorfulTextMessage;
     }
-    return { ...base, type: 'chat', text: trimmed } satisfies ChatMessage;
+    return { ...base, type: 'add-text', text: trimmed } satisfies AddTextMessage;
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -72,12 +75,12 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
         {messages.map((msg) => (
           <div key={msg.id} className="chat-message">
             <div className="chat-message-header">
-              <span className="chat-from">{msg.from}</span>
+              <span className="chat-from">{msg.authorEmail}</span>
               <span className="chat-time">
                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
-            {msg.type === 'colorful-chat' ? (
+            {msg.type === 'display-colorful-text' ? (
               <p className="chat-text" style={{ color: msg.color }}>{msg.text}</p>
             ) : (
               <p className="chat-text">{msg.text}</p>

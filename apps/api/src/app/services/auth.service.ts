@@ -2,8 +2,8 @@ import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/user.model';
 import { env } from '../config/env';
 
-export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions);
+export function generateToken(userId: string, email: string): string {
+  return jwt.sign({ userId, email }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions);
 }
 
 export function serializeUser(user: IUser) {

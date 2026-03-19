@@ -1,6 +1,6 @@
-import { AnyMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 
-type MessageCallback = (message: AnyMessage) => void;
+type MessageCallback = (message: OutboundMessage) => void;
 
 const WS_URL = 'ws://localhost:3000';
 const MAX_RECONNECT_DELAY = 30000;
@@ -41,7 +41,7 @@ class EventManager {
             this.send({ type: 'subscribe', channel });
           });
         } else if (msg.type === 'channel-message') {
-          this.notify(msg.channel, msg.message);
+          this.notify(msg.message.channel, msg.message);
         }
       } catch {
         // ignore malformed messages
@@ -81,9 +81,9 @@ class EventManager {
     return () => this.subscribers.get(channel)?.delete(callback);
   }
 
-  publish(channel: string, message: AnyMessage): void {
+  publish(channel: string, message: InboundMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN && this.isAuthenticated) {
-      this.send({ type: 'channel-message', channel, message });
+      this.send({ type: 'channel-message', message });
     }
   }
 
@@ -91,7 +91,7 @@ class EventManager {
     this.ws?.send(JSON.stringify(msg));
   }
 
-  private notify(channel: string, message: AnyMessage): void {
+  private notify(channel: string, message: OutboundMessage): void {
     this.subscribers.get(channel)?.forEach((cb) => cb(message));
   }
 

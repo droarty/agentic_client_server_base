@@ -1,6 +1,6 @@
 import { Worker } from 'worker_threads';
 import { join } from 'path';
-import { AnyMessage } from '@multiplayer-base/shared-types';
+import { InboundMessage } from '@multiplayer-base/shared-types';
 import type { WorkerInput } from './EventProcessorTypes';
 
 export class EventProcessor {
@@ -28,8 +28,8 @@ export class EventProcessor {
   }
 
   // Fire and forget — the worker owns the full pipeline including Redis publish
-  process(channel: string, message: AnyMessage): void {
-    this.worker.postMessage({ channel, message } satisfies WorkerInput);
+  process(message: InboundMessage, userEmail: string): void {
+    this.worker.postMessage({ message, userEmail } satisfies WorkerInput);
   }
 
   shutdown(): void {

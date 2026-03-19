@@ -1,6 +1,13 @@
 import { parentPort } from 'worker_threads';
+import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
-import { WsServerMessage } from '@multiplayer-base/shared-types';
+import {
+  OutboundMessage,
+  DisplayTextMessage,
+  DisplayColorfulTextMessage,
+  WsServerMessage,
+} from '@multiplayer-base/shared-types';
+import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -8,23 +15,34 @@ const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
 
 redis.on('error', (err) => console.error('EventProcessorWorker Redis error:', err.message));
 
-import { PUBSUB_CHANNEL, DeliveryInstruction, WorkerInput } from './EventProcessorTypes';
+function toOutbound(input: WorkerInput): OutboundMessage {
+  const { message, userEmail } = input;
+  const base = {
+    id: randomUUID(),
+    from: 'server' as const,
+    to: 'client' as const,
+    channel: message.channel,
+    timestamp: new Date().toISOString(),
+    authorEmail: userEmail,
+    text: message.text,
+  };
 
-parentPort!.on('message', async ({ channel, message }: WorkerInput) => {
-  // --- Processing pipeline ---
-  // This is where future logic lives: filtering, transformation, persistence, etc.
-  // Processing may be long-running. It may decide not to send anything at all.
+  if (message.type === 'add-colorful-text') {
+    return { ...base, type: 'display-colorful-text', color: message.color } satisfies DisplayColorfulTextMessage;
+  }
+  return { ...base, type: 'display-text' } satisfies DisplayTextMessage;
+}
 
-  const socketIds = await redis.smembers(`channel:${channel}`);
+parentPort!.on('message', async (input: WorkerInput) => {
+  const outbound = toOutbound(input);
+  const socketIds = await redis.smembers(`channel:${outbound.channel}`);
 
-  // Processing decided there are no recipients — nothing to send
   if (socketIds.length === 0) return;
 
   const frame = JSON.stringify(
-    { type: 'channel-message', channel, message } satisfies WsServerMessage
+    { type: 'channel-message', message: outbound } satisfies WsServerMessage
   );
 
-  // Publish the delivery instruction — all server instances will deliver to their local sockets
   await redis.publish(
     PUBSUB_CHANNEL,
     JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction)
