@@ -11,11 +11,14 @@ async function bootstrap() {
   const app = createApp();
   const server = createServer(app);
 
-  new UserEventManager(server);
+  const uem = new UserEventManager(server);
 
   server.listen(env.PORT, () => {
     console.log(`API server listening on port ${env.PORT}`);
   });
+
+  process.once('SIGTERM', () => { uem.shutdown(); server.close(); });
+  process.once('SIGINT',  () => { uem.shutdown(); server.close(); });
 }
 
 bootstrap().catch((err) => {

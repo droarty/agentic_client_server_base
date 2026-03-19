@@ -101,6 +101,10 @@ export class UserEventManager {
     }
   }
 
+  shutdown(): void {
+    this.eventProcessor.shutdown();
+  }
+
   private send(ws: WebSocket, msg: WsServerMessage): void {
     ws.send(JSON.stringify(msg));
   }
