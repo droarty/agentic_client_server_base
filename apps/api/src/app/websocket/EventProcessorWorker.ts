@@ -1,6 +1,7 @@
 import { parentPort } from 'worker_threads';
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
+import { MongoClient } from 'mongodb';
 import {
   OutboundMessage,
   DisplayTextMessage,
@@ -14,6 +15,11 @@ const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
 });
 
 redis.on('error', (err) => console.error('EventProcessorWorker Redis error:', err.message));
+
+const mongoUri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017/multiplayer_base';
+const mongoClient = new MongoClient(mongoUri);
+const dbReady = mongoClient.connect();
+dbReady.catch((err) => console.error('EventProcessorWorker MongoDB error:', err.message));
 
 function toOutbound(input: WorkerInput): OutboundMessage {
   const { message } = input;
@@ -35,7 +41,19 @@ function toOutbound(input: WorkerInput): OutboundMessage {
 
 parentPort!.on('message', async (input: WorkerInput) => {
   const outbound = toOutbound(input);
-  const socketIds = await redis.smembers(`channel:${outbound.channel}`);
+
+  const [socketIds] = await Promise.all([
+    redis.smembers(`channel:${outbound.channel}`),
+    dbReady.then(() =>
+      mongoClient
+        .db()
+        .collection('chatdocuments')
+        .updateOne(
+          { currentChannelId: outbound.channel },
+          { $push: { messages: outbound } }
+        )
+    ),
+  ]);
 
   if (socketIds.length === 0) return;
 

@@ -8,12 +8,14 @@ export interface SsoProvider {
 export type Role = 'user' | 'author' | 'admin';
 
 export * from './message.types';
+import type { OutboundMessage } from './message.types';
 
 export interface ChatDocument {
   _id: string;
   name: string;
   type: 'chat';
   currentChannelId: string;
+  messages: OutboundMessage[];
   createdAt: string;
   updatedAt: string;
 }

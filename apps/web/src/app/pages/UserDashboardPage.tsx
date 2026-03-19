@@ -110,6 +110,7 @@ export function UserDashboardPage() {
             <ChatWindow
               chatKey={activeDoc.currentChannelId}
               title={activeDoc.name}
+              initialMessages={activeDoc.messages}
             />
           </div>
         )}
