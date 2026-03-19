@@ -6,7 +6,8 @@ import { AnyMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/
 import { env } from '../config/env';
 import { redis, redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';
-import { addSocketToChannel, getChannelSockets } from '../redis/channel.registry';
+import { addSocketToChannel } from '../redis/channel.registry';
+import { EventProcessor } from './EventProcessor';
 
 const PUBSUB_CHANNEL = 'multiplayer:chat';
 const serverId = randomUUID();
@@ -24,35 +25,24 @@ interface PubSubPayload {
 
 export class UserEventManager {
   private wss: WebSocketServer;
-  // In-memory map of socketId → ws for sockets connected to THIS server instance
   private localSockets = new Map<string, AuthenticatedSocket>();
+  private eventProcessor: EventProcessor;
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server });
+    this.eventProcessor = new EventProcessor(this.localSockets);
     this.wss.on('connection', (ws: AuthenticatedSocket) => this.handleConnection(ws));
 
-    // Subscribe to Redis pub/sub so this server delivers messages published by any server
     redisSub.subscribe(PUBSUB_CHANNEL).catch((err) =>
       console.error('Redis subscribe error:', err)
     );
 
     redisSub.on('message', (_ch, data) => {
       const payload: PubSubPayload = JSON.parse(data);
-      void this.deliverToLocalSockets(payload.channel, payload.message);
+      void this.eventProcessor.process(payload.channel, payload.message);
     });
 
     console.log(`WebSocket server attached (serverId: ${serverId})`);
-  }
-
-  private async deliverToLocalSockets(channel: string, message: AnyMessage): Promise<void> {
-    const socketIds = await getChannelSockets(channel);
-    const frame = JSON.stringify({ type: 'channel-message', channel, message } satisfies WsServerMessage);
-    for (const socketId of socketIds) {
-      const ws = this.localSockets.get(socketId);
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(frame);
-      }
-    }
   }
 
   private handleConnection(ws: AuthenticatedSocket): void {
@@ -73,7 +63,6 @@ export class UserEventManager {
           if (msg.type === 'subscribe') {
             void addSocketToChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
-            // Sending to a channel implicitly subscribes the socket to it
             void addSocketToChannel(socketId, msg.channel);
             void redis.publish(
               PUBSUB_CHANNEL,
