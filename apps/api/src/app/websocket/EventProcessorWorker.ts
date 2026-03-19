@@ -16,14 +16,14 @@ const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
 redis.on('error', (err) => console.error('EventProcessorWorker Redis error:', err.message));
 
 function toOutbound(input: WorkerInput): OutboundMessage {
-  const { message, userEmail } = input;
+  const { message } = input;
   const base = {
     id: randomUUID(),
     from: 'server' as const,
     to: 'client' as const,
     channel: message.channel,
     timestamp: new Date().toISOString(),
-    authorEmail: userEmail,
+    authorEmail: message.senderEmail,
     text: message.text,
   };
 

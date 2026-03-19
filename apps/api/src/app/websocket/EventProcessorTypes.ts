@@ -4,7 +4,6 @@ export const PUBSUB_CHANNEL = 'multiplayer:chat';
 
 export interface WorkerInput {
   message: InboundMessage;
-  userEmail: string;
 }
 
 export interface DeliveryInstruction {

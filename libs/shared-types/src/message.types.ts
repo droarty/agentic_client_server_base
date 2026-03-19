@@ -13,6 +13,7 @@ export interface AddTextMessage extends Message {
   type: 'add-text';
   from: 'client';
   to: 'server';
+  senderEmail: string;
   text: string;
 }
 
@@ -20,6 +21,7 @@ export interface AddColorfulTextMessage extends Message {
   type: 'add-colorful-text';
   from: 'client';
   to: 'server';
+  senderEmail: string;
   text: string;
   color: string;
 }

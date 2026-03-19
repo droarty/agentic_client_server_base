@@ -28,8 +28,8 @@ export class EventProcessor {
   }
 
   // Fire and forget — the worker owns the full pipeline including Redis publish
-  process(message: InboundMessage, userEmail: string): void {
-    this.worker.postMessage({ message, userEmail } satisfies WorkerInput);
+  process(message: InboundMessage): void {
+    this.worker.postMessage({ message } satisfies WorkerInput);
   }
 
   shutdown(): void {

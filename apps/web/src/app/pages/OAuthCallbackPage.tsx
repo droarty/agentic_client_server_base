@@ -1,11 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiExchangeOAuthCode } from '../services/api';
 
 export function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
+  const didExchange = useRef(false);
 
   useEffect(() => {
+    if (didExchange.current) return;
+    didExchange.current = true;
+
     const code = searchParams.get('code');
     const error = searchParams.get('error');
 

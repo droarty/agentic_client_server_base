@@ -64,7 +64,7 @@ export class UserEventManager {
             void addSocketToChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
             void addSocketToChannel(socketId, msg.message.channel);
-            this.eventProcessor.process(msg.message, ws.userEmail!);
+            this.eventProcessor.process({ ...msg.message, senderEmail: ws.userEmail! });
           }
         }
       } catch {
