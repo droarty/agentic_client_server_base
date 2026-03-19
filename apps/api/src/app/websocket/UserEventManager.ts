@@ -2,14 +2,14 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import { AnyMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 import { env } from '../config/env';
-import { redis, redisSub } from '../redis/redis.client';
+import { redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';
 import { addSocketToChannel } from '../redis/channel.registry';
 import { EventProcessor } from './EventProcessor';
+import { PUBSUB_CHANNEL, DeliveryInstruction } from './EventProcessorTypes';
 
-const PUBSUB_CHANNEL = 'multiplayer:chat';
 const serverId = randomUUID();
 
 interface AuthenticatedSocket extends WebSocket {
@@ -18,28 +18,28 @@ interface AuthenticatedSocket extends WebSocket {
   isAuthenticated?: boolean;
 }
 
-interface PubSubPayload {
-  channel: string;
-  message: AnyMessage;
-}
-
 export class UserEventManager {
   private wss: WebSocketServer;
   private localSockets = new Map<string, AuthenticatedSocket>();
-  private eventProcessor: EventProcessor;
+  private eventProcessor = new EventProcessor();
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server });
-    this.eventProcessor = new EventProcessor(this.localSockets);
     this.wss.on('connection', (ws: AuthenticatedSocket) => this.handleConnection(ws));
 
     redisSub.subscribe(PUBSUB_CHANNEL).catch((err) =>
       console.error('Redis subscribe error:', err)
     );
 
+    // Receive delivery instructions published by whichever server processed the event
     redisSub.on('message', (_ch, data) => {
-      const payload: PubSubPayload = JSON.parse(data);
-      void this.eventProcessor.process(payload.channel, payload.message);
+      const { frame, socketIds }: DeliveryInstruction = JSON.parse(data);
+      for (const socketId of socketIds) {
+        const ws = this.localSockets.get(socketId);
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(frame);
+        }
+      }
     });
 
     console.log(`WebSocket server attached (serverId: ${serverId})`);
@@ -64,10 +64,7 @@ export class UserEventManager {
             void addSocketToChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
             void addSocketToChannel(socketId, msg.channel);
-            void redis.publish(
-              PUBSUB_CHANNEL,
-              JSON.stringify({ channel: msg.channel, message: msg.message } satisfies PubSubPayload)
-            );
+            this.eventProcessor.process(msg.channel, msg.message);
           }
         }
       } catch {
