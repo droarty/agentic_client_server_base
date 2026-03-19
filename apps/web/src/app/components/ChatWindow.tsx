@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
-import { ChatMessage } from '@multiplayer-base/shared-types';
+import { AnyMessage, ChatMessage, ColorfulChatMessage } from '@multiplayer-base/shared-types';
 import { eventManager } from '../services/EventManager';
 import { useAuth } from '../contexts/AuthContext';
+
+const COLORS = ['#e74c3c', '#e67e22', '#27ae60', '#2980b9', '#8e44ad', '#e91e63'];
 
 interface ChatWindowProps {
   chatKey: string;
@@ -11,9 +13,10 @@ interface ChatWindowProps {
 
 export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...' }: ChatWindowProps) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<AnyMessage[]>([]);
   const [text, setText] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<string>(targets?.[0] ?? chatKey);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,17 +29,23 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const buildMessage = (trimmed: string): AnyMessage => {
+    const base = {
+      id: crypto.randomUUID(),
+      from: user?.email ?? 'Unknown',
+      timestamp: new Date().toISOString(),
+    };
+    if (selectedColor) {
+      return { ...base, type: 'colorful-chat', text: trimmed, color: selectedColor } satisfies ColorfulChatMessage;
+    }
+    return { ...base, type: 'chat', text: trimmed } satisfies ChatMessage;
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed) return;
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      from: user?.email ?? 'Unknown',
-      text: trimmed,
-      timestamp: new Date().toISOString(),
-    };
-    eventManager.publish(selectedTarget, msg);
+    eventManager.publish(selectedTarget, buildMessage(trimmed));
     setText('');
   };
 
@@ -45,13 +54,7 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
       e.preventDefault();
       const trimmed = text.trim();
       if (!trimmed) return;
-      const msg: ChatMessage = {
-        id: crypto.randomUUID(),
-        from: user?.email ?? 'Unknown',
-        text: trimmed,
-        timestamp: new Date().toISOString(),
-      };
-      eventManager.publish(selectedTarget, msg);
+      eventManager.publish(selectedTarget, buildMessage(trimmed));
       setText('');
     }
   };
@@ -74,7 +77,11 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
-            <p className="chat-text">{msg.text}</p>
+            {msg.type === 'colorful-chat' ? (
+              <p className="chat-text" style={{ color: msg.color }}>{msg.text}</p>
+            ) : (
+              <p className="chat-text">{msg.text}</p>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -93,14 +100,29 @@ export function ChatWindow({ chatKey, targets, placeholder = 'Type a message...'
             ))}
           </select>
         )}
-        <textarea
-          className="chat-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          rows={1}
-        />
+        <div className="chat-input-area">
+          <div className="chat-color-swatches">
+            {COLORS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className={`chat-color-swatch${selectedColor === color ? ' active' : ''}`}
+                style={{ backgroundColor: color }}
+                onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                aria-label={`Color ${color}`}
+              />
+            ))}
+          </div>
+          <textarea
+            className="chat-input"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            style={selectedColor ? { color: selectedColor } : undefined}
+            rows={1}
+          />
+        </div>
         <button type="submit" className="chat-send" disabled={!text.trim()}>
           Send
         </button>

@@ -430,6 +430,37 @@ body {
   background: white;
 }
 
+.chat-input-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.chat-color-swatches {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.chat-color-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.chat-color-swatch:hover {
+  transform: scale(1.2);
+}
+
+.chat-color-swatch.active {
+  border-color: #333;
+  transform: scale(1.2);
+}
+
 .chat-target-select {
   padding: 0.6rem 0.5rem;
   border: 1px solid #ddd;
@@ -447,7 +478,6 @@ body {
 }
 
 .chat-input {
-  flex: 1;
   padding: 0.6rem 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;

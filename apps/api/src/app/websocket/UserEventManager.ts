@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import { ChatMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { AnyMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 import { env } from '../config/env';
 import { redis, redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';
@@ -19,7 +19,7 @@ interface AuthenticatedSocket extends WebSocket {
 
 interface PubSubPayload {
   channel: string;
-  message: ChatMessage;
+  message: AnyMessage;
 }
 
 export class UserEventManager {
@@ -44,9 +44,9 @@ export class UserEventManager {
     console.log(`WebSocket server attached (serverId: ${serverId})`);
   }
 
-  private async deliverToLocalSockets(channel: string, message: ChatMessage): Promise<void> {
+  private async deliverToLocalSockets(channel: string, message: AnyMessage): Promise<void> {
     const socketIds = await getChannelSockets(channel);
-    const frame = JSON.stringify({ type: 'chat', channel, message } satisfies WsServerMessage);
+    const frame = JSON.stringify({ type: 'channel-message', channel, message } satisfies WsServerMessage);
     for (const socketId of socketIds) {
       const ws = this.localSockets.get(socketId);
       if (ws?.readyState === WebSocket.OPEN) {
@@ -72,7 +72,7 @@ export class UserEventManager {
         } else if (ws.isAuthenticated) {
           if (msg.type === 'subscribe') {
             void addSocketToChannel(socketId, msg.channel);
-          } else if (msg.type === 'chat') {
+          } else if (msg.type === 'channel-message') {
             // Sending to a channel implicitly subscribes the socket to it
             void addSocketToChannel(socketId, msg.channel);
             void redis.publish(

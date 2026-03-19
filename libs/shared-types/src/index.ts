@@ -7,23 +7,37 @@ export interface SsoProvider {
 
 export type Role = 'user' | 'author' | 'admin';
 
-export interface ChatMessage {
+// Base type for all messages sent through a channel
+export interface Message {
+  type: string;
   id: string;
   from: string;
-  text: string;
   timestamp: string;
 }
+
+export interface ChatMessage extends Message {
+  type: 'chat';
+  text: string;
+}
+
+export interface ColorfulChatMessage extends Message {
+  type: 'colorful-chat';
+  text: string;
+  color: string;
+}
+
+export type AnyMessage = ChatMessage | ColorfulChatMessage;
 
 // WebSocket message types (client ↔ server)
 export type WsClientMessage =
   | { type: 'auth'; token: string }
   | { type: 'subscribe'; channel: string }
-  | { type: 'chat'; channel: string; message: ChatMessage };
+  | { type: 'channel-message'; channel: string; message: AnyMessage };
 
 export type WsServerMessage =
   | { type: 'auth_success' }
   | { type: 'auth_error'; message: string }
-  | { type: 'chat'; channel: string; message: ChatMessage };
+  | { type: 'channel-message'; channel: string; message: AnyMessage };
 
 export interface User {
   _id: string;

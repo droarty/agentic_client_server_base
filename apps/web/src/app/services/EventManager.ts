@@ -1,6 +1,6 @@
-import { ChatMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { AnyMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 
-type MessageCallback = (message: ChatMessage) => void;
+type MessageCallback = (message: AnyMessage) => void;
 
 const WS_URL = 'ws://localhost:3000';
 const MAX_RECONNECT_DELAY = 30000;
@@ -37,11 +37,10 @@ class EventManager {
         const msg = JSON.parse(event.data) as WsServerMessage;
         if (msg.type === 'auth_success') {
           this.isAuthenticated = true;
-          // Re-subscribe to all active channels after (re)connecting
           this.subscribedChannels.forEach((channel) => {
             this.send({ type: 'subscribe', channel });
           });
-        } else if (msg.type === 'chat') {
+        } else if (msg.type === 'channel-message') {
           this.notify(msg.channel, msg.message);
         }
       } catch {
@@ -75,7 +74,6 @@ class EventManager {
     this.subscribedChannels.add(channel);
     this.connect();
 
-    // If already authenticated, tell the server immediately
     if (this.ws?.readyState === WebSocket.OPEN && this.isAuthenticated) {
       this.send({ type: 'subscribe', channel });
     }
@@ -83,9 +81,9 @@ class EventManager {
     return () => this.subscribers.get(channel)?.delete(callback);
   }
 
-  publish(channel: string, message: ChatMessage): void {
+  publish(channel: string, message: AnyMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN && this.isAuthenticated) {
-      this.send({ type: 'chat', channel, message });
+      this.send({ type: 'channel-message', channel, message });
     }
   }
 
@@ -93,7 +91,7 @@ class EventManager {
     this.ws?.send(JSON.stringify(msg));
   }
 
-  private notify(channel: string, message: ChatMessage): void {
+  private notify(channel: string, message: AnyMessage): void {
     this.subscribers.get(channel)?.forEach((cb) => cb(message));
   }
 
