@@ -17,6 +17,7 @@ export interface ChatMessage {
 // WebSocket message types (client ↔ server)
 export type WsClientMessage =
   | { type: 'auth'; token: string }
+  | { type: 'subscribe'; channel: string }
   | { type: 'chat'; channel: string; message: ChatMessage };
 
 export type WsServerMessage =

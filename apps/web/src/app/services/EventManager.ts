@@ -8,6 +8,8 @@ const MAX_RECONNECT_DELAY = 30000;
 class EventManager {
   private ws: WebSocket | null = null;
   private subscribers = new Map<string, Set<MessageCallback>>();
+  private subscribedChannels = new Set<string>();
+  private isAuthenticated = false;
   private reconnectDelay = 1000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = false;
@@ -26,13 +28,20 @@ class EventManager {
 
     this.ws.onopen = () => {
       this.reconnectDelay = 1000;
+      this.isAuthenticated = false;
       this.send({ type: 'auth', token });
     };
 
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as WsServerMessage;
-        if (msg.type === 'chat') {
+        if (msg.type === 'auth_success') {
+          this.isAuthenticated = true;
+          // Re-subscribe to all active channels after (re)connecting
+          this.subscribedChannels.forEach((channel) => {
+            this.send({ type: 'subscribe', channel });
+          });
+        } else if (msg.type === 'chat') {
           this.notify(msg.channel, msg.message);
         }
       } catch {
@@ -41,6 +50,7 @@ class EventManager {
     };
 
     this.ws.onclose = () => {
+      this.isAuthenticated = false;
       if (this.shouldReconnect) this.scheduleReconnect();
     };
 
@@ -51,6 +61,7 @@ class EventManager {
 
   disconnect(): void {
     this.shouldReconnect = false;
+    this.isAuthenticated = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
@@ -61,12 +72,19 @@ class EventManager {
       this.subscribers.set(channel, new Set());
     }
     this.subscribers.get(channel)!.add(callback);
+    this.subscribedChannels.add(channel);
     this.connect();
+
+    // If already authenticated, tell the server immediately
+    if (this.ws?.readyState === WebSocket.OPEN && this.isAuthenticated) {
+      this.send({ type: 'subscribe', channel });
+    }
+
     return () => this.subscribers.get(channel)?.delete(callback);
   }
 
   publish(channel: string, message: ChatMessage): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws?.readyState === WebSocket.OPEN && this.isAuthenticated) {
       this.send({ type: 'chat', channel, message });
     }
   }
