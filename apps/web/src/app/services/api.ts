@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, User, UpdateUserRequest, Role } from '@multiplayer-base/shared-types';
+import { AuthResponse, User, UpdateUserRequest, Role, ChatDocument } from '@multiplayer-base/shared-types';
 
 const API_URL = (typeof process !== 'undefined' && process.env['API_URL']) || 'http://localhost:3000';
 
@@ -54,4 +54,19 @@ export async function apiUpdateUserRoles(userId: string, roles: Role[]): Promise
 export async function apiExchangeOAuthCode(code: string): Promise<string> {
   const { data } = await client.post<{ token: string }>('/api/auth/exchange', { code });
   return data.token;
+}
+
+export async function apiGetDocuments(): Promise<ChatDocument[]> {
+  const { data } = await client.get<ChatDocument[]>('/api/documents');
+  return data;
+}
+
+export async function apiCreateDocument(name: string): Promise<ChatDocument> {
+  const { data } = await client.post<ChatDocument>('/api/documents', { name });
+  return data;
+}
+
+export async function apiGetDocument(id: string): Promise<ChatDocument> {
+  const { data } = await client.get<ChatDocument>(`/api/documents/${id}`);
+  return data;
 }

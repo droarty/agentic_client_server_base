@@ -9,6 +9,15 @@ export type Role = 'user' | 'author' | 'admin';
 
 export * from './message.types';
 
+export interface ChatDocument {
+  _id: string;
+  name: string;
+  type: 'chat';
+  currentChannelId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   _id: string;
   email: string;

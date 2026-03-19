@@ -514,6 +514,91 @@ body {
   cursor: not-allowed;
 }
 
+/* Document section */
+.doc-section {
+  margin-top: 2rem;
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  max-width: 540px;
+}
+
+.doc-empty {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.doc-list {
+  list-style: none;
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.doc-item:hover {
+  background: #f5f9ff;
+  border-color: #0070f3;
+}
+
+.doc-item.active {
+  background: #e8f0fe;
+  border-color: #0070f3;
+}
+
+.doc-name {
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.doc-meta {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.doc-create-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.doc-create-input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.doc-create-input:focus {
+  outline: none;
+  border-color: #0070f3;
+}
+
+.doc-create-btn {
+  width: auto;
+  margin-top: 0;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+}
+
+.doc-chat-area {
+  margin-top: 2rem;
+}
+
 /* Loading */
 .loading {
   display: flex;
