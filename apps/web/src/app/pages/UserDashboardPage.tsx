@@ -1,9 +1,21 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, Suspense } from 'react';
 import { ChatDocument } from '@multiplayer-base/shared-types';
 import { useAuth } from '../contexts/AuthContext';
 import { PageHeader } from '../components/PageHeader';
-import { ChatWindow } from '../components/ChatWindow';
+import { getDocumentComponent } from '../registry/documentRegistry';
 import { apiGetDocuments, apiCreateDocument, apiGetDocument } from '../services/api';
+
+function ActiveDocView({ doc }: { doc: ChatDocument }) {
+  const DocComponent = getDocumentComponent(doc.type);
+  if (!DocComponent) return null;
+  return (
+    <div className="doc-chat-area">
+      <Suspense fallback={<p className="doc-empty">Loading…</p>}>
+        <DocComponent key={doc._id} doc={doc} />
+      </Suspense>
+    </div>
+  );
+}
 
 export function UserDashboardPage() {
   const { user } = useAuth();
@@ -105,16 +117,7 @@ export function UserDashboardPage() {
           </form>
         </div>
 
-        {activeDoc && (
-          <div className="doc-chat-area">
-            <ChatWindow
-              key={activeDoc._id}
-              chatKey={activeDoc.currentChannelId}
-              title={activeDoc.name}
-              initialMessages={activeDoc.messages}
-            />
-          </div>
-        )}
+        {activeDoc && <ActiveDocView doc={activeDoc} />}
       </main>
     </div>
   );
