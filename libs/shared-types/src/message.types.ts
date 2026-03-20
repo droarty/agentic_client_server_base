@@ -53,6 +53,36 @@ export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 
+// ── AI service messages (server ↔ ai-service) ─────────────────────────────
+
+export interface AiRequestMessage {
+  type: 'ai-request';
+  from: 'server';
+  to: 'ai-service';
+  channel: string;
+  timestamp: string;
+  prompt: string;
+  originalText: string;
+}
+
+export interface ValidTextAiResponse {
+  type: 'valid-text';
+  from: 'ai-service';
+  to: 'server';
+  channel: string;
+  timestamp: string;
+}
+
+export interface InappropriateTextAiResponse {
+  type: 'inappropriate-text';
+  from: 'ai-service';
+  to: 'server';
+  channel: string;
+  timestamp: string;
+}
+
+export type AiResponse = ValidTextAiResponse | InappropriateTextAiResponse;
+
 // ── WebSocket protocol envelopes ──────────────────────────────────────────
 
 export type WsClientMessage =

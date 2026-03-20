@@ -6,9 +6,11 @@ import {
   OutboundMessage,
   DisplayTextMessage,
   DisplayColorfulTextMessage,
+  AiRequestMessage,
   WsServerMessage,
 } from '@multiplayer-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
+import { AIEventManager } from './AIEventManager';
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -21,7 +23,9 @@ const mongoClient = new MongoClient(mongoUri);
 const dbReady = mongoClient.connect();
 dbReady.catch((err) => console.error('EventProcessorWorker MongoDB error:', err.message));
 
-function toOutbound(input: WorkerInput): OutboundMessage {
+const aiEventManager = new AIEventManager();
+
+async function toOutbound(input: WorkerInput): Promise<OutboundMessage> {
   const { message } = input;
   const base = {
     id: randomUUID(),
@@ -30,17 +34,44 @@ function toOutbound(input: WorkerInput): OutboundMessage {
     channel: message.channel,
     timestamp: new Date().toISOString(),
     authorEmail: message.senderEmail,
-    text: message.text,
   };
 
-  if (message.type === 'add-colorful-text') {
-    return { ...base, type: 'display-colorful-text', color: message.color } satisfies DisplayColorfulTextMessage;
+  if (message.type === 'add-text') {
+    const aiRequest: AiRequestMessage = {
+      type: 'ai-request',
+      from: 'server',
+      to: 'ai-service',
+      channel: message.channel,
+      timestamp: new Date().toISOString(),
+      prompt: `Please review the following text for inappropriate content and respond with a JSON message of type "valid-text" if acceptable or "inappropriate-text" if not: "${message.text}"`,
+      originalText: message.text,
+    };
+
+    const aiResponse = await aiEventManager.process(aiRequest);
+
+    if (aiResponse.type === 'valid-text') {
+      return { ...base, type: 'display-text', text: message.text } satisfies DisplayTextMessage;
+    } else {
+      return {
+        ...base,
+        type: 'display-colorful-text',
+        text: 'inappropriate text',
+        color: 'red',
+      } satisfies DisplayColorfulTextMessage;
+    }
   }
-  return { ...base, type: 'display-text' } satisfies DisplayTextMessage;
+
+  // add-colorful-text
+  return {
+    ...base,
+    type: 'display-colorful-text',
+    text: message.text,
+    color: message.color,
+  } satisfies DisplayColorfulTextMessage;
 }
 
 parentPort!.on('message', async (input: WorkerInput) => {
-  const outbound = toOutbound(input);
+  const outbound = await toOutbound(input);
 
   const [socketIds] = await Promise.all([
     redis.smembers(`channel:${outbound.channel}`),
@@ -50,7 +81,7 @@ parentPort!.on('message', async (input: WorkerInput) => {
         .collection('chatdocuments')
         .updateOne(
           { currentChannelId: outbound.channel },
-          { $push: { messages: outbound } }
+          { $push: { messages: outbound } } as any
         )
     ),
   ]);
