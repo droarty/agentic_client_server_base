@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent, KeyboardEvent, Suspense } from 'react';
 import {
   OutboundMessage,
   AddTextMessage,
   AddColorfulTextMessage,
 } from '@multiplayer-base/shared-types';
 import { eventManager } from '../services/EventManager';
+import { getMessageComponent } from '../registry/messageRegistry';
 
 const COLORS = ['#e74c3c', '#e67e22', '#27ae60', '#2980b9', '#8e44ad', '#e91e63'];
 
@@ -74,21 +75,15 @@ export function ChatWindow({ chatKey, title, initialMessages, targets, placehold
         {messages.length === 0 && (
           <p className="chat-empty">No messages yet. Say hello!</p>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className="chat-message">
-            <div className="chat-message-header">
-              <span className="chat-from">{msg.authorEmail}</span>
-              <span className="chat-time">
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-            {msg.type === 'display-colorful-text' ? (
-              <p className="chat-text" style={{ color: msg.color }}>{msg.text}</p>
-            ) : (
-              <p className="chat-text">{msg.text}</p>
-            )}
-          </div>
-        ))}
+        {messages.map((msg) => {
+          const MsgComponent = getMessageComponent(msg.type);
+          if (!MsgComponent) return null;
+          return (
+            <Suspense key={msg.id} fallback={<div className="chat-message" />}>
+              <MsgComponent message={msg} />
+            </Suspense>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
