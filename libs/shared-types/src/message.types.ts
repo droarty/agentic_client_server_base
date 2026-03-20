@@ -58,6 +58,7 @@ export type AnyMessage = InboundMessage | OutboundMessage;
 export type WsClientMessage =
   | { type: 'auth'; token: string }
   | { type: 'subscribe'; channel: string }
+  | { type: 'unsubscribe'; channel: string }
   | { type: 'channel-message'; message: InboundMessage };
 
 export type WsServerMessage =

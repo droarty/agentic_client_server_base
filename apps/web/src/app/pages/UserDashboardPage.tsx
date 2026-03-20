@@ -108,6 +108,7 @@ export function UserDashboardPage() {
         {activeDoc && (
           <div className="doc-chat-area">
             <ChatWindow
+              key={activeDoc._id}
               chatKey={activeDoc.currentChannelId}
               title={activeDoc.name}
               initialMessages={activeDoc.messages}

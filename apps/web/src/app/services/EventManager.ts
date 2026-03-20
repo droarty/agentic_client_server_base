@@ -78,7 +78,18 @@ class EventManager {
       this.send({ type: 'subscribe', channel });
     }
 
-    return () => this.subscribers.get(channel)?.delete(callback);
+    return () => {
+      const subs = this.subscribers.get(channel);
+      if (!subs) return;
+      subs.delete(callback);
+      if (subs.size === 0) {
+        this.subscribers.delete(channel);
+        this.subscribedChannels.delete(channel);
+        if (this.ws?.readyState === WebSocket.OPEN && this.isAuthenticated) {
+          this.send({ type: 'unsubscribe', channel });
+        }
+      }
+    };
   }
 
   publish(channel: string, message: InboundMessage): void {

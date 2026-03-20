@@ -6,7 +6,7 @@ import { WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types
 import { env } from '../config/env';
 import { redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';
-import { addSocketToChannel } from '../redis/channel.registry';
+import { addSocketToChannel, removeSocketFromChannel } from '../redis/channel.registry';
 import { EventProcessor } from './EventProcessor';
 import { PUBSUB_CHANNEL, DeliveryInstruction } from './EventProcessorTypes';
 
@@ -62,6 +62,8 @@ export class UserEventManager {
         } else if (ws.isAuthenticated) {
           if (msg.type === 'subscribe') {
             void addSocketToChannel(socketId, msg.channel);
+          } else if (msg.type === 'unsubscribe') {
+            void removeSocketFromChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
             void addSocketToChannel(socketId, msg.message.channel);
             this.eventProcessor.process({ ...msg.message, senderEmail: ws.userEmail! });
