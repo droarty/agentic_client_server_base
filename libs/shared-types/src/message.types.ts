@@ -26,7 +26,7 @@ export interface AddColorfulTextMessage extends Message {
   color: string;
 }
 
-export type InboundMessage = AddTextMessage | AddColorfulTextMessage;
+export type InboundMessage = AddTextMessage | AddColorfulTextMessage | AiResponse;
 
 // ── Outbound (server → client) ────────────────────────────────────────────
 
@@ -55,14 +55,14 @@ export type AnyMessage = InboundMessage | OutboundMessage;
 
 // ── AI service messages (server ↔ ai-service) ─────────────────────────────
 
-export interface AiRequestMessage {
-  type: 'ai-request';
+export interface ValidateTextMessage {
+  type: 'validate-text';
   from: 'server';
   to: 'ai-service';
   channel: string;
   timestamp: string;
-  prompt: string;
-  originalText: string;
+  text: string;
+  senderEmail?: string;
 }
 
 export interface ValidTextAiResponse {
@@ -71,6 +71,8 @@ export interface ValidTextAiResponse {
   to: 'server';
   channel: string;
   timestamp: string;
+  text: string;
+  senderEmail?: string;
 }
 
 export interface InappropriateTextAiResponse {
@@ -79,6 +81,7 @@ export interface InappropriateTextAiResponse {
   to: 'server';
   channel: string;
   timestamp: string;
+  senderEmail?: string;
 }
 
 export type AiResponse = ValidTextAiResponse | InappropriateTextAiResponse;

@@ -6,7 +6,7 @@ import {
   OutboundMessage,
   DisplayTextMessage,
   DisplayColorfulTextMessage,
-  AiRequestMessage,
+  ValidateTextMessage,
   WsServerMessage,
 } from '@multiplayer-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
@@ -25,54 +25,7 @@ dbReady.catch((err) => console.error('EventProcessorWorker MongoDB error:', err.
 
 const aiEventManager = new AIEventManager();
 
-async function toOutbound(input: WorkerInput): Promise<OutboundMessage> {
-  const { message } = input;
-  const base = {
-    id: randomUUID(),
-    from: 'server' as const,
-    to: 'client' as const,
-    channel: message.channel,
-    timestamp: new Date().toISOString(),
-    authorEmail: message.senderEmail,
-  };
-
-  if (message.type === 'add-text') {
-    const aiRequest: AiRequestMessage = {
-      type: 'ai-request',
-      from: 'server',
-      to: 'ai-service',
-      channel: message.channel,
-      timestamp: new Date().toISOString(),
-      prompt: `Please review the following text for inappropriate content and respond with a JSON message of type "valid-text" if acceptable or "inappropriate-text" if not: "${message.text}"`,
-      originalText: message.text,
-    };
-
-    const aiResponse = await aiEventManager.process(aiRequest);
-
-    if (aiResponse.type === 'valid-text') {
-      return { ...base, type: 'display-text', text: message.text } satisfies DisplayTextMessage;
-    } else {
-      return {
-        ...base,
-        type: 'display-colorful-text',
-        text: 'inappropriate text',
-        color: 'red',
-      } satisfies DisplayColorfulTextMessage;
-    }
-  }
-
-  // add-colorful-text
-  return {
-    ...base,
-    type: 'display-colorful-text',
-    text: message.text,
-    color: message.color,
-  } satisfies DisplayColorfulTextMessage;
-}
-
-parentPort!.on('message', async (input: WorkerInput) => {
-  const outbound = await toOutbound(input);
-
+async function publishOutbound(outbound: OutboundMessage): Promise<void> {
   const [socketIds] = await Promise.all([
     redis.smembers(`channel:${outbound.channel}`),
     dbReady.then(() =>
@@ -96,4 +49,55 @@ parentPort!.on('message', async (input: WorkerInput) => {
     PUBSUB_CHANNEL,
     JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction)
   );
+}
+
+parentPort!.on('message', async (input: WorkerInput) => {
+  const { message } = input;
+  const base = {
+    id: randomUUID(),
+    from: 'server' as const,
+    to: 'client' as const,
+    channel: message.channel,
+    timestamp: new Date().toISOString(),
+    authorEmail: message.senderEmail,
+  };
+
+  if (message.type === 'add-text') {
+    const validateMsg: ValidateTextMessage = {
+      type: 'validate-text',
+      from: 'server',
+      to: 'ai-service',
+      channel: message.channel,
+      timestamp: new Date().toISOString(),
+      text: message.text,
+      senderEmail: message.senderEmail,
+    };
+    aiEventManager.publish(validateMsg); // fire-and-forget
+    return;
+  }
+
+  if (message.type === 'valid-text') {
+    await publishOutbound(
+      { ...base, type: 'display-text', text: message.text } satisfies DisplayTextMessage
+    );
+    return;
+  }
+
+  if (message.type === 'inappropriate-text') {
+    await publishOutbound({
+      ...base,
+      type: 'display-colorful-text',
+      text: 'inappropriate text',
+      color: 'red',
+    } satisfies DisplayColorfulTextMessage);
+    return;
+  }
+
+  // add-colorful-text
+  await publishOutbound({
+    ...base,
+    type: 'display-colorful-text',
+    text: message.text,
+    color: message.color,
+  } satisfies DisplayColorfulTextMessage);
 });
