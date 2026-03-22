@@ -10,4 +10,7 @@ export const env = {
   GOOGLE_CLIENT_SECRET: process.env['GOOGLE_CLIENT_SECRET'] || '',
   GOOGLE_CALLBACK_URL: process.env['GOOGLE_CALLBACK_URL'] || 'http://localhost:3000/api/auth/google/callback',
   REDIS_URL: process.env['REDIS_URL'] || 'redis://localhost:6379',
+  AI_SERVICE_TYPE: (process.env['AI_SERVICE_TYPE'] || 'anthropic') as 'anthropic' | 'openai',
+  ANTHROPIC_API_KEY: process.env['ANTHROPIC_API_KEY'] || '',
+  OPENAI_API_KEY: process.env['OPENAI_API_KEY'] || '',
 } as const;

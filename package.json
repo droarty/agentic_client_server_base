@@ -20,6 +20,7 @@
     "e2e:web": "nx e2e web-e2e"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "axios": "^1.7.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
