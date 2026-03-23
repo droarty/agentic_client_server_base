@@ -1,9 +1,10 @@
 import { DisplayTextMessage as DisplayTextMsg } from '@multiplayer-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
+import { TargetPortal } from '../TargetPortal';
 
 export function DisplayTextMessage({ message }: MessageViewProps) {
   const msg = message as DisplayTextMsg;
-  return (
+  const content = (
     <div className="chat-message">
       <div className="chat-message-header">
         <span className="chat-from">{msg.authorEmail}</span>
@@ -14,4 +15,9 @@ export function DisplayTextMessage({ message }: MessageViewProps) {
       <p className="chat-text">{msg.text}</p>
     </div>
   );
+
+  if (msg.targetId) {
+    return <TargetPortal targetId={msg.targetId}>{content}</TargetPortal>;
+  }
+  return content;
 }

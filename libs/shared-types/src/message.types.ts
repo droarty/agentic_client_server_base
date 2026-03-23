@@ -37,6 +37,7 @@ export interface DisplayTextMessage extends Message {
   id: string;
   authorEmail: string;
   text: string;
+  targetId?: string;
 }
 
 export interface DisplayColorfulTextMessage extends Message {
@@ -47,9 +48,54 @@ export interface DisplayColorfulTextMessage extends Message {
   authorEmail: string;
   text: string;
   color: string;
+  targetId?: string;
 }
 
-export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage;
+export interface PanelItem {
+  locationId: string;
+  widthProportion: number;
+  overflowX?: string;
+  overflowY?: string;
+}
+
+export interface HorizontalWorkspaceMessage extends Message {
+  type: 'horizontal-workspace';
+  from: 'server';
+  to: 'client';
+  panels: PanelItem[];
+  targetId?: string;
+}
+
+export interface VerticalWorkspaceMessage extends Message {
+  type: 'vertical-workspace';
+  from: 'server';
+  to: 'client';
+  panels: PanelItem[];
+  targetId?: string;
+}
+
+export interface TabItem {
+  title: string;
+  locationId: string;
+}
+
+export interface SimpleTabMessage extends Message {
+  type: 'simple-tab';
+  from: 'server';
+  to: 'client';
+  tabs: TabItem[];
+  targetId?: string;
+}
+
+export interface DisplayJsonMessage extends Message {
+  type: 'display-json';
+  from: 'server';
+  to: 'client';
+  json: object;
+  targetId?: string;
+}
+
+export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 
