@@ -64,6 +64,35 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .findOne({ _id: new ObjectId(documentId) });
       return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
     }
+    if (queryName === 'create-document') {
+      const name = (context.message['name'] as string | undefined)?.trim();
+      const type = (context.message['type'] as string | undefined) ?? 'chat';
+      if (!name) return { document: null, documents: [] };
+      const userId = context.user?.['id'] as string | undefined;
+      const { randomUUID } = await import('crypto');
+      const now = new Date();
+      const result = await db.collection('chatdocuments').insertOne({
+        name,
+        type,
+        userId,
+        currentChannelId: randomUUID(),
+        messages: [],
+        createdAt: now,
+        updatedAt: now,
+      });
+      const newDoc = await db.collection('chatdocuments').findOne({ _id: result.insertedId });
+      const rawDocs = await db
+        .collection('chatdocuments')
+        .find(
+          { userId, type: { $ne: 'user-dashboard' } },
+          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+        )
+        .toArray();
+      return {
+        document: JSON.parse(JSON.stringify(newDoc)),
+        documents: JSON.parse(JSON.stringify(rawDocs)),
+      };
+    }
     return {};
   } catch (err) {
     console.error('executeQuery error:', err);

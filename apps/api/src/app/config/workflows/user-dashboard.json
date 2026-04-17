@@ -48,6 +48,30 @@
           }
         }
       ]
+    },
+    "create-document": {
+      "transformer": "simple",
+      "condition": "$message.name",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "create-document", "responseType": "document-created-result" }
+        }
+      ]
+    },
+    "document-created-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "type": "update-state",
+            "state": {
+              "documents": "$message.documents",
+              "selectedDocument": "$message.document"
+            }
+          }
+        }
+      ]
     }
   }
 }

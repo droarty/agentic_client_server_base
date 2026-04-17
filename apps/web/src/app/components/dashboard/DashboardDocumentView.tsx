@@ -31,6 +31,7 @@ function DashboardContent({ channelId }: { channelId: string }) {
         selectedId={selectedDocument?._id ?? null}
         onSelect={(id) => emit('select-document', { documentId: id })}
         onRefresh={() => emit('get-document-list')}
+        onCreate={(name) => emit('create-document', { name, type: 'chat' })}
       />
       {selectedDocument && <DocumentPanel doc={selectedDocument} />}
     </div>
