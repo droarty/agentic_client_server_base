@@ -9,6 +9,7 @@ import { registerSocket, unregisterSocket } from '../redis/socket.registry';
 import { addSocketToChannel, removeSocketFromChannel } from '../redis/channel.registry';
 import { EventProcessor } from './EventProcessor';
 import { PUBSUB_CHANNEL, DeliveryInstruction } from './EventProcessorTypes';
+import { ChatDocumentModel } from '../models/document.model';
 
 const serverId = randomUUID();
 
@@ -94,11 +95,38 @@ export class UserEventManager {
       clearTimeout(authTimeout);
       this.localSockets.set(ws.socketId!, ws);
       await registerSocket(ws.socketId!, payload.userId, serverId);
-      this.send(ws, { type: 'auth_success' });
+
+      const dashboardChannelId = await this.ensureDashboardDocument(payload.userId);
+      await addSocketToChannel(ws.socketId!, dashboardChannelId);
+
+      this.send(ws, { type: 'auth_success', dashboardChannelId });
+
+      this.eventProcessor.fire(
+        {
+          type: 'initialize',
+          channel: dashboardChannelId,
+          timestamp: new Date().toISOString(),
+          from: 'server',
+          to: 'server',
+        },
+        { id: payload.userId, email: payload.email }
+      );
     } catch {
       this.send(ws, { type: 'auth_error', message: 'Invalid token' });
       ws.close(4001, 'Authentication failed');
     }
+  }
+
+  private async ensureDashboardDocument(userId: string): Promise<string> {
+    let doc = await ChatDocumentModel.findOne({ type: 'user-dashboard', userId });
+    if (!doc) {
+      doc = await ChatDocumentModel.create({
+        name: 'Dashboard',
+        type: 'user-dashboard',
+        userId,
+      });
+    }
+    return doc.currentChannelId;
   }
 
   shutdown(): void {

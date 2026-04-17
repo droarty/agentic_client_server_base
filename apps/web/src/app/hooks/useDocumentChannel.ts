@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
 import { eventManager } from '../services/EventManager';
 
-export function useDocumentChannel(channelId: string) {
-  const [messages, setMessages] = useState<OutboundMessage[]>([]);
+export function useDocumentChannel(channelId: string, initialMessages: OutboundMessage[] = []) {
+  const [messages, setMessages] = useState<OutboundMessage[]>(initialMessages);
   const channelRef = useRef(channelId);
   channelRef.current = channelId;
 

@@ -4,7 +4,8 @@ import { OutboundMessage } from '@multiplayer-base/shared-types';
 
 export interface IChatDocument extends Document {
   name: string;
-  type: 'chat';
+  type: 'chat' | 'user-dashboard';
+  userId?: string;
   currentChannelId: string;
   messages: OutboundMessage[];
   createdAt: Date;
@@ -29,7 +30,8 @@ const outboundMessageSchema = new Schema(
 const chatDocumentSchema = new Schema<IChatDocument>(
   {
     name: { type: String, required: true, trim: true },
-    type: { type: String, enum: ['chat'], default: 'chat' },
+    type: { type: String, enum: ['chat', 'user-dashboard'], default: 'chat' },
+    userId: { type: String },
     currentChannelId: { type: String, default: () => randomUUID() },
     messages: { type: [outboundMessageSchema], default: [] },
   },

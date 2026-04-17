@@ -40,12 +40,16 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
 }
 
 async function getDocumentType(channel: string): Promise<string | null> {
-  await dbReady;
-  const doc = await mongoClient
-    .db()
-    .collection('chatdocuments')
-    .findOne({ currentChannelId: channel }, { projection: { type: 1 } });
-  return doc?.type ?? null;
+  try {
+    await dbReady;
+    const doc = await mongoClient
+      .db()
+      .collection('chatdocuments')
+      .findOne({ currentChannelId: channel }, { projection: { type: 1 } });
+    return doc?.type ?? null;
+  } catch {
+    return null;
+  }
 }
 
 const engine = new WorkflowEngine(
@@ -70,8 +74,10 @@ const engine = new WorkflowEngine(
 );
 
 parentPort!.on('message', async (input: WorkerInput) => {
-  const { message } = input;
-  await engine.execute({
-    message: message as unknown as Record<string, unknown>,
-  });
+  const { message, user } = input;
+  try {
+    await engine.execute({ message, user });
+  } catch (err) {
+    console.error('WorkflowEngine execution error:', err);
+  }
 });

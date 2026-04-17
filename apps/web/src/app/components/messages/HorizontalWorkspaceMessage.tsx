@@ -1,3 +1,4 @@
+import React from 'react';
 import { HorizontalWorkspaceMessage as HorizontalWorkspaceMsg } from '@multiplayer-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
 import { TargetPortal } from '../TargetPortal';
@@ -12,7 +13,7 @@ export function HorizontalWorkspaceMessage({ message }: MessageViewProps) {
         <div
           key={panel.locationId}
           id={panel.locationId}
-          style={{ flex: `${panel.widthProportion / totalProportion} 0 0`, height: '100%', overflowX: panel.overflowX ?? 'auto', overflowY: panel.overflowY ?? 'hidden' }}
+          style={{ flex: `${panel.widthProportion / totalProportion} 0 0`, height: '100%', overflowX: (panel.overflowX ?? 'auto') as React.CSSProperties['overflowX'], overflowY: (panel.overflowY ?? 'hidden') as React.CSSProperties['overflowY'] }}
         />
       ))}
     </div>

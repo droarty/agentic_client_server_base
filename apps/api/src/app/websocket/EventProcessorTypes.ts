@@ -1,9 +1,8 @@
-import { InboundMessage } from '@multiplayer-base/shared-types';
-
 export const PUBSUB_CHANNEL = 'multiplayer:chat';
 
 export interface WorkerInput {
-  message: InboundMessage;
+  message: Record<string, unknown>;
+  user?: { id: string; email: string };
 }
 
 export interface DeliveryInstruction {

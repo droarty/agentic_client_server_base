@@ -37,6 +37,9 @@ class EventManager {
         const msg = JSON.parse(event.data) as WsServerMessage;
         if (msg.type === 'auth_success') {
           this.isAuthenticated = true;
+          if (msg.dashboardChannelId) {
+            this.subscribedChannels.add(msg.dashboardChannelId);
+          }
           this.subscribedChannels.forEach((channel) => {
             this.send({ type: 'subscribe', channel });
           });

@@ -7,6 +7,7 @@ export async function connectDB(): Promise<void> {
     const { MongoMemoryServer } = await import('mongodb-memory-server');
     const mongod = await MongoMemoryServer.create();
     const uri = mongod.getUri();
+    process.env['MONGODB_URI'] = uri;
     await mongoose.connect(uri);
     console.log('MongoDB (in-memory) connected at', uri);
     return;
@@ -21,6 +22,7 @@ export async function connectDB(): Promise<void> {
       const { MongoMemoryServer } = await import('mongodb-memory-server');
       const mongod = await MongoMemoryServer.create();
       const uri = mongod.getUri();
+      process.env['MONGODB_URI'] = uri;
       await mongoose.connect(uri);
       console.log('MongoDB (in-memory) connected at', uri);
     } else {

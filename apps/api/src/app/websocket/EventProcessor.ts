@@ -27,9 +27,14 @@ export class EventProcessor {
     );
   }
 
-  // Fire and forget — the worker owns the full pipeline including Redis publish
+  // Fire and forget — for inbound client messages
   process(message: InboundMessage): void {
-    this.worker.postMessage({ message } satisfies WorkerInput);
+    this.worker.postMessage({ message: message as unknown as Record<string, unknown> } satisfies WorkerInput);
+  }
+
+  // Fire a server-generated event with optional user context
+  fire(message: Record<string, unknown>, user?: { id: string; email: string }): void {
+    this.worker.postMessage({ message, user } satisfies WorkerInput);
   }
 
   shutdown(): void {

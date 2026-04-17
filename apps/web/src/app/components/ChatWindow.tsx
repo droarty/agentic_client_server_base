@@ -79,7 +79,7 @@ export function ChatWindow({ chatKey, title, initialMessages, targets, placehold
           const MsgComponent = getMessageComponent(msg.type);
           if (!MsgComponent) return null;
           return (
-            <Suspense key={msg.id} fallback={<div className="chat-message" />}>
+            <Suspense key={(msg as any).id ?? `${msg.type}-${msg.timestamp}`} fallback={<div className="chat-message" />}>
               <MsgComponent message={msg} />
             </Suspense>
           );

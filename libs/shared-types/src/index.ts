@@ -10,12 +10,29 @@ export type Role = 'user' | 'author' | 'admin';
 export * from './message.types';
 import type { OutboundMessage } from './message.types';
 
+export interface DocumentSummary {
+  _id: string;
+  name: string;
+  type: string;
+  currentChannelId: string;
+}
+
 export interface ChatDocument {
   _id: string;
   name: string;
   type: 'chat';
   currentChannelId: string;
   messages: OutboundMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DashboardDocument {
+  _id: string;
+  name: string;
+  type: 'user-dashboard';
+  currentChannelId: string;
+  userId: string;
   createdAt: string;
   updatedAt: string;
 }

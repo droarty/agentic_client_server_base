@@ -141,6 +141,6 @@ export type WsClientMessage =
   | { type: 'channel-message'; message: InboundMessage };
 
 export type WsServerMessage =
-  | { type: 'auth_success' }
+  | { type: 'auth_success'; dashboardChannelId: string }
   | { type: 'auth_error'; message: string }
   | { type: 'channel-message'; message: OutboundMessage };
