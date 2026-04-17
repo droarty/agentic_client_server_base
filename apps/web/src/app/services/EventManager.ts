@@ -13,6 +13,8 @@ class EventManager {
   private reconnectDelay = 1000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = false;
+  private dashboardChannelId: string | null = null;
+  private dashboardReadyCallbacks: Array<(channelId: string) => void> = [];
 
   connect(): void {
     if (
@@ -38,7 +40,11 @@ class EventManager {
         if (msg.type === 'auth_success') {
           this.isAuthenticated = true;
           if (msg.dashboardChannelId) {
+            this.dashboardChannelId = msg.dashboardChannelId;
             this.subscribedChannels.add(msg.dashboardChannelId);
+            const cbs = this.dashboardReadyCallbacks;
+            this.dashboardReadyCallbacks = [];
+            cbs.forEach((cb) => cb(msg.dashboardChannelId!));
           }
           this.subscribedChannels.forEach((channel) => {
             this.send({ type: 'subscribe', channel });
@@ -64,9 +70,25 @@ class EventManager {
   disconnect(): void {
     this.shouldReconnect = false;
     this.isAuthenticated = false;
+    this.dashboardChannelId = null;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
+  }
+
+  getDashboardChannelId(): string | null {
+    return this.dashboardChannelId;
+  }
+
+  onDashboardReady(cb: (channelId: string) => void): () => void {
+    if (this.dashboardChannelId) {
+      cb(this.dashboardChannelId);
+      return () => {};
+    }
+    this.dashboardReadyCallbacks.push(cb);
+    return () => {
+      this.dashboardReadyCallbacks = this.dashboardReadyCallbacks.filter((c) => c !== cb);
+    };
   }
 
   subscribe(channel: string, callback: MessageCallback): () => void {

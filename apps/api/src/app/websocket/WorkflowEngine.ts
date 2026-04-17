@@ -14,6 +14,7 @@ interface StepDefinition {
   route: string | string[];
   transform?: Record<string, unknown>;
   ai?: AiStepConfig;
+  query?: { name: string; responseType: string };
 }
 
 interface HandlerDefinition {
@@ -44,6 +45,7 @@ export interface WorkflowEngineDeps {
     aiConfig: AiStepConfig
   ) => void;
   getDocumentType: (channel: string) => Promise<string | null>;
+  executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
 }
 
 function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown {
@@ -54,12 +56,17 @@ function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown 
 }
 
 function resolveSimpleValue(value: unknown, context: WorkflowContext): unknown {
-  if (typeof value !== 'string' || !value.startsWith('$')) return value;
-  const [root, ...rest] = value.slice(1).split('.');
-  const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
-  if (rootObj == null) return undefined;
-  if (rest.length === 0) return rootObj;
-  return resolveDotPath(rootObj, rest.join('.'));
+  if (typeof value === 'string' && value.startsWith('$')) {
+    const [root, ...rest] = value.slice(1).split('.');
+    const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
+    if (rootObj == null) return undefined;
+    if (rest.length === 0) return rootObj;
+    return resolveDotPath(rootObj, rest.join('.'));
+  }
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return resolveTransformSimple(value as Record<string, unknown>, context);
+  }
+  return value;
 }
 
 function resolveTransformSimple(
@@ -178,6 +185,36 @@ export class WorkflowEngine {
     context: WorkflowContext
   ): Promise<void> {
     const routes = Array.isArray(step.route) ? step.route : [step.route];
+
+    if (routes.includes('database-query') && step.query && this.deps.executeQuery) {
+      const result = await this.deps.executeQuery(step.query.name, context);
+      await this.execute({
+        message: {
+          type: step.query.responseType,
+          channel: context.message['channel'],
+          timestamp: new Date().toISOString(),
+          ...result,
+        },
+        user: context.user,
+        state: context.state,
+      });
+      return;
+    }
+
+    if (routes.includes('worker')) {
+      const base: Record<string, unknown> = {
+        channel: context.message['channel'],
+        timestamp: new Date().toISOString(),
+      };
+      const resolved =
+        step.transform
+          ? transformer === 'jsonata'
+            ? await resolveTransformJsonata(step.transform, context)
+            : resolveTransformSimple(step.transform, context)
+          : {};
+      await this.execute({ message: { ...base, ...resolved }, user: context.user, state: context.state });
+      return;
+    }
 
     if (routes.includes('ai') && step.ai) {
       const text = context.message['text'] as string;

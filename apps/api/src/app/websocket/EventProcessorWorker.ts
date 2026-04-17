@@ -5,7 +5,7 @@ import { MongoClient } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
 import { AIEventManager } from './AIEventManager';
-import { WorkflowEngine, AiStepConfig } from './WorkflowEngine';
+import { WorkflowEngine, AiStepConfig, WorkflowContext } from './WorkflowEngine';
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -39,6 +39,38 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
     );
 }
 
+async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
+  try {
+    await dbReady;
+    const db = mongoClient.db();
+    if (queryName === 'get-user-documents') {
+      const userId = context.user?.['id'] as string | undefined;
+      if (!userId) return { documents: [] };
+      const rawDocs = await db
+        .collection('chatdocuments')
+        .find(
+          { userId, type: { $ne: 'user-dashboard' } },
+          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+        )
+        .toArray();
+      return { documents: JSON.parse(JSON.stringify(rawDocs)) };
+    }
+    if (queryName === 'get-document') {
+      const documentId = context.message['documentId'] as string | undefined;
+      if (!documentId) return { document: null };
+      const { ObjectId } = await import('mongodb');
+      const rawDoc = await db
+        .collection('chatdocuments')
+        .findOne({ _id: new ObjectId(documentId) });
+      return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
+    }
+    return {};
+  } catch (err) {
+    console.error('executeQuery error:', err);
+    return {};
+  }
+}
+
 async function getDocumentType(channel: string): Promise<string | null> {
   try {
     await dbReady;
@@ -69,6 +101,7 @@ const engine = new WorkflowEngine(
       aiEventManager.publish(msg, aiConfig);
     },
     getDocumentType,
+    executeQuery,
   },
   configDir
 );

@@ -6,10 +6,45 @@
       "transformer": "simple",
       "steps": [
         {
+          "route": "database-query",
+          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
+        }
+      ]
+    },
+    "get-document-list": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
+        }
+      ]
+    },
+    "document-list-result": {
+      "steps": [
+        {
           "route": "client",
           "transform": {
             "type": "update-state",
-            "state": {}
+            "state": { "documents": "$message.documents" }
+          }
+        }
+      ]
+    },
+    "select-document": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-document", "responseType": "display-document-result" }
+        }
+      ]
+    },
+    "display-document-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "type": "update-state",
+            "state": { "selectedDocument": "$message.document" }
           }
         }
       ]

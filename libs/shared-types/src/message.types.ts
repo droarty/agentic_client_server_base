@@ -95,7 +95,15 @@ export interface DisplayJsonMessage extends Message {
   targetId?: string;
 }
 
-export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage;
+export interface UpdateStateMessage extends Message {
+  type: 'update-state';
+  from: 'server';
+  to: 'client';
+  state: Record<string, unknown>;
+  append?: boolean;
+}
+
+export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 
