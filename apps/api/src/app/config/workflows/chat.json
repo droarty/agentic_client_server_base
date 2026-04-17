@@ -1,0 +1,64 @@
+{
+  "name": "chat-workflow",
+  "version": "1.0.0",
+  "handlers": {
+    "add-text": {
+      "transformer": "simple",
+      "condition": "$message.text",
+      "steps": [
+        {
+          "route": "ai",
+          "ai": {
+            "model": "claude-haiku-4-5-20251001",
+            "maxTokens": 64,
+            "systemPrompt": "You are a content moderation assistant. Evaluate whether the provided text contains inappropriate content.\n\nYou MUST respond with valid JSON only — no markdown, no explanation, no code blocks.\nThe response must be exactly one of these two JSON objects:\n  {\"type\":\"valid-text\"}\n  {\"type\":\"inappropriate-text\"}\n\nRespond with {\"type\":\"inappropriate-text\"} if the text contains hate speech, threats, explicit sexual content, harassment, or violent language. Otherwise respond with {\"type\":\"valid-text\"}."
+          }
+        }
+      ]
+    },
+    "valid-text": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "type": "display-text",
+            "channel": "$message.channel",
+            "text": "$message.text",
+            "authorEmail": "$message.senderEmail"
+          }
+        }
+      ]
+    },
+    "inappropriate-text": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "type": "display-colorful-text",
+            "channel": "$message.channel",
+            "text": "inappropriate text",
+            "color": "red",
+            "authorEmail": "$message.senderEmail"
+          }
+        }
+      ]
+    },
+    "add-colorful-text": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "type": "display-colorful-text",
+            "channel": "$message.channel",
+            "text": "$message.text",
+            "color": "$message.color",
+            "authorEmail": "$message.senderEmail"
+          }
+        }
+      ]
+    }
+  }
+}
