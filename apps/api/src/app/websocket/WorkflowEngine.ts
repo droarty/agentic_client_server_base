@@ -138,13 +138,22 @@ export class WorkflowEngine {
     const type = context.message['type'] as string;
 
     const docType = await this.resolveDocumentType(channel);
-    if (!docType) return;
+    if (!docType) {
+      console.error(`WorkflowEngine: no document type found for channel "${channel}"`);
+      return;
+    }
 
     const config = this.loadConfig(docType);
-    if (!config) return;
+    if (!config) {
+      console.error(`WorkflowEngine: no config found for document type "${docType}"`);
+      return;
+    }
 
     const handler = config.handlers[type];
-    if (!handler) return;
+    if (!handler) {
+      console.error(`WorkflowEngine: no handler for message type "${type}" in config "${docType}"`);
+      return;
+    }
 
     const transformer = handler.transformer ?? 'simple';
 
