@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "API (ts-node)",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/ts-node",
+      "runtimeArgs": [
+        "-r", "tsconfig-paths/register",
+        "--project", "apps/api/tsconfig.app.json"
+      ],
+      "args": ["apps/api/src/main.ts"],
+      "env": {
+        "TS_NODE_PROJECT": "apps/api/tsconfig.app.json"
+      },
+      "sourceMaps": true,
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Worker Thread (port 9230)",
+      "port": 9230,
+      "restart": true,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/apps/api/**",
+        "${workspaceFolder}/libs/**",
+        "!**/node_modules/**"
+      ]
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug API + Worker",
+      "configurations": ["API (ts-node)", "Attach to Worker Thread (port 9230)"]
+    },
+    {
+      "name": "Debug API + Worker (full)",
+      "configurations": ["API (ts-node)", "Attach to Worker Thread (port 9230)"]
+    }
+  ]
+}

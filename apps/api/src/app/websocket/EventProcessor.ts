@@ -13,8 +13,14 @@ export class EventProcessor {
       process.env['TS_NODE_PROJECT'] || 'apps/api/tsconfig.app.json'
     );
 
+    const openInspector =
+      process.env['NODE_ENV'] !== 'production'
+        ? `require('inspector').open(9230, '127.0.0.1', false);`
+        : '';
+
     this.worker = new Worker(
       `
+      ${openInspector}
       require('ts-node').register({ project: '${tsConfigPath}', transpileOnly: true });
       require('tsconfig-paths/register');
       require('${workerPath}');

@@ -131,7 +131,7 @@ export class WorkflowEngine {
   constructor(
     private deps: WorkflowEngineDeps,
     private configDir: string
-  ) {}
+  ) { }
 
   async execute(context: WorkflowContext): Promise<void> {
     const channel = context.message['channel'] as string;
@@ -201,21 +201,6 @@ export class WorkflowEngine {
       return;
     }
 
-    if (routes.includes('worker')) {
-      const base: Record<string, unknown> = {
-        channel: context.message['channel'],
-        timestamp: new Date().toISOString(),
-      };
-      const resolved =
-        step.transform
-          ? transformer === 'jsonata'
-            ? await resolveTransformJsonata(step.transform, context)
-            : resolveTransformSimple(step.transform, context)
-          : {};
-      await this.execute({ message: { ...base, ...resolved }, user: context.user, state: context.state });
-      return;
-    }
-
     if (routes.includes('ai') && step.ai) {
       const text = context.message['text'] as string;
       const channel = context.message['channel'] as string;
@@ -225,26 +210,31 @@ export class WorkflowEngine {
       return;
     }
 
-    const base: Record<string, unknown> = {
-      id: randomUUID(),
-      from: 'server',
-      to: 'client',
-      channel: context.message['channel'],
-      timestamp: new Date().toISOString(),
-    };
+    if (routes.includes('client') || routes.includes('database')) {
+      const base: Record<string, unknown> = {
+        id: randomUUID(),
+        from: 'server',
+        to: 'client',
+        channel: context.message['channel'],
+        timestamp: new Date().toISOString(),
+      };
 
-    const resolved =
-      step.transform
-        ? transformer === 'jsonata'
-          ? await resolveTransformJsonata(step.transform, context)
-          : resolveTransformSimple(step.transform, context)
-        : {};
+      const resolved =
+        step.transform
+          ? transformer === 'jsonata'
+            ? await resolveTransformJsonata(step.transform, context)
+            : resolveTransformSimple(step.transform, context)
+          : {};
 
-    const outbound = { ...base, ...resolved } as unknown as OutboundMessage;
+      const outbound = { ...base, ...resolved } as unknown as OutboundMessage;
 
-    const ops: Promise<void>[] = [];
-    if (routes.includes('client')) ops.push(this.deps.publishToClient(outbound));
-    if (routes.includes('database')) ops.push(this.deps.persistToDatabase(outbound));
-    await Promise.all(ops);
+      const ops: Promise<void>[] = [];
+      if (routes.includes('client')) ops.push(this.deps.publishToClient(outbound));
+      if (routes.includes('database')) ops.push(this.deps.persistToDatabase(outbound));
+      await Promise.all(ops);
+      return;
+    }
+
+    throw new Error(`WorkflowEngine: unknown route(s): ${routes.join(', ')}`);
   }
 }
