@@ -4,6 +4,7 @@ import { DocumentStateProvider, useDocumentState } from '../../context/DocumentS
 import { useDocumentChannel } from '../../hooks/useDocumentChannel';
 import { DocumentListPanel } from './DocumentListPanel';
 import { DocumentPanel } from './DocumentPanel';
+import { getDocumentTypes } from '../../registry/documentRegistry';
 
 function DashboardContent({ channelId }: { channelId: string }) {
   const { messages, emit } = useDocumentChannel(channelId);
@@ -31,7 +32,8 @@ function DashboardContent({ channelId }: { channelId: string }) {
         selectedId={selectedDocument?._id ?? null}
         onSelect={(id) => emit('select-document', { documentId: id })}
         onRefresh={() => emit('get-document-list')}
-        onCreate={(name) => emit('create-document', { name, type: 'chat' })}
+        availableTypes={getDocumentTypes()}
+        onCreate={(name, documentType) => emit('create-document', { name, documentType })}
       />
       {selectedDocument && <DocumentPanel doc={selectedDocument} />}
     </div>

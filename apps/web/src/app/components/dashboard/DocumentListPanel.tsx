@@ -5,13 +5,15 @@ import { DocumentListItem } from './DocumentListItem';
 interface Props {
   documents: DocumentSummary[];
   selectedId: string | null;
+  availableTypes: string[];
   onSelect: (id: string) => void;
   onRefresh: () => void;
-  onCreate: (name: string) => void;
+  onCreate: (name: string, documentType: string) => void;
 }
 
-export function DocumentListPanel({ documents, selectedId, onSelect, onRefresh, onCreate }: Props) {
+export function DocumentListPanel({ documents, selectedId, availableTypes, onSelect, onRefresh, onCreate }: Props) {
   const [name, setName] = useState('');
+  const [documentType, setDocumentType] = useState(availableTypes[0] ?? 'chat');
   const [creating, setCreating] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
@@ -19,10 +21,12 @@ export function DocumentListPanel({ documents, selectedId, onSelect, onRefresh, 
     const trimmed = name.trim();
     if (!trimmed) return;
     setCreating(true);
-    onCreate(trimmed);
+    onCreate(trimmed, documentType);
     setName('');
     setCreating(false);
   };
+
+  const label = documentType.charAt(0).toUpperCase() + documentType.slice(1);
 
   return (
     <div className="doc-list-panel">
@@ -48,16 +52,27 @@ export function DocumentListPanel({ documents, selectedId, onSelect, onRefresh, 
         <input
           className="doc-create-input"
           type="text"
-          placeholder="Name a new chat…"
+          placeholder="Document name…"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
+        {availableTypes.length > 1 && (
+          <select
+            className="doc-create-type"
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value)}
+          >
+            {availableTypes.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        )}
         <button
           type="submit"
           className="btn-primary doc-create-btn"
           disabled={!name.trim() || creating}
         >
-          Create Chat
+          Create {label}
         </button>
       </form>
     </div>

@@ -16,3 +16,7 @@ const registry: Partial<Record<string, LazyDocumentComponent>> = {
 export function getDocumentComponent(type: string): LazyDocumentComponent | null {
   return registry[type] ?? null;
 }
+
+export function getDocumentTypes(): string[] {
+  return Object.keys(registry);
+}

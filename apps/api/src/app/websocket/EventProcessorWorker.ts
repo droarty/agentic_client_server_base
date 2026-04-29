@@ -66,7 +66,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
     }
     if (queryName === 'create-document') {
       const name = (context.message['name'] as string | undefined)?.trim();
-      const type = (context.message['type'] as string | undefined) ?? 'chat';
+      const type = (context.message['documentType'] as string | undefined) ?? 'chat';
       if (!name) return { document: null, documents: [] };
       const userId = context.user?.['id'] as string | undefined;
       const { randomUUID } = await import('crypto');
