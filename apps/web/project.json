@@ -4,13 +4,22 @@
   "sourceRoot": "apps/web/src",
   "projectType": "application",
   "targets": {
+    "build-css": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/apps/web/styles.css"],
+      "options": {
+        "command": "pnpm tailwindcss -i apps/web/src/app/styles/global.css -o dist/apps/web/styles.css --config apps/web/tailwind.config.js"
+      }
+    },
     "build": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
+      "dependsOn": ["^build", "build-css"],
       "options": {
         "platform": "browser",
         "outputPath": "dist/apps/web",
+        "deleteOutputPath": false,
         "bundle": true,
         "main": "apps/web/src/main.tsx",
         "tsConfig": "apps/web/tsconfig.app.json",
@@ -20,6 +29,9 @@
         "esbuildOptions": {
           "jsx": "automatic",
           "format": "iife",
+          "alias": {
+            "@": "apps/web/src"
+          },
           "define": {
             "process.env.NODE_ENV": "\"production\"",
             "process.env.API_URL": "\"http://localhost:3000\""
