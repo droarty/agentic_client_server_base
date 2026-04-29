@@ -3,10 +3,15 @@ import { UpdateStateMessage, DocumentSummary, ChatDocument } from '@multiplayer-
 import { DocumentStateProvider, useDocumentState } from '../../context/DocumentStateContext';
 import { useDocumentChannel } from '../../hooks/useDocumentChannel';
 import { DocumentListPanel } from './DocumentListPanel';
-import { DocumentPanel } from './DocumentPanel';
 import { getDocumentTypes } from '../../registry/documentRegistry';
 
-function DashboardContent({ channelId }: { channelId: string }) {
+interface Props {
+  channelId: string;
+  selectedDocId: string | null;
+  onOpenDocument: (doc: ChatDocument) => void;
+}
+
+function DashboardContent({ channelId, selectedDocId, onOpenDocument }: Props) {
   const { messages, emit } = useDocumentChannel(channelId);
   const { state, dispatch } = useDocumentState();
   const processedRef = useRef(0);
@@ -17,33 +22,37 @@ function DashboardContent({ channelId }: { channelId: string }) {
     for (const msg of newMessages) {
       if (msg.type === 'update-state') {
         const m = msg as UpdateStateMessage;
-        dispatch({ state: m.state, append: m.append });
+        if (m.state['selectedDocument']) {
+          onOpenDocument(m.state['selectedDocument'] as unknown as ChatDocument);
+          const { selectedDocument: _, ...rest } = m.state;
+          if (Object.keys(rest).length > 0) dispatch({ state: rest, append: m.append });
+        } else {
+          dispatch({ state: m.state, append: m.append });
+        }
       }
     }
-  }, [messages, dispatch]);
+  }, [messages, dispatch, onOpenDocument]);
 
   const documents = (state['documents'] as DocumentSummary[]) ?? [];
-  const selectedDocument = (state['selectedDocument'] as unknown as ChatDocument) ?? null;
 
   return (
     <div className="dashboard-layout">
       <DocumentListPanel
         documents={documents}
-        selectedId={selectedDocument?._id ?? null}
+        selectedId={selectedDocId}
         onSelect={(id) => emit('select-document', { documentId: id })}
         onRefresh={() => emit('get-document-list')}
         availableTypes={getDocumentTypes()}
         onCreate={(name, documentType) => emit('create-document', { name, documentType })}
       />
-      {selectedDocument && <DocumentPanel doc={selectedDocument} />}
     </div>
   );
 }
 
-export function DashboardDocumentView({ channelId }: { channelId: string }) {
+export function DashboardDocumentView({ channelId, selectedDocId, onOpenDocument }: Props) {
   return (
     <DocumentStateProvider>
-      <DashboardContent channelId={channelId} />
+      <DashboardContent channelId={channelId} selectedDocId={selectedDocId} onOpenDocument={onOpenDocument} />
     </DocumentStateProvider>
   );
 }

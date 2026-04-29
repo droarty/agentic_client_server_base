@@ -67,7 +67,10 @@ export class UserEventManager {
             void removeSocketFromChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
             void addSocketToChannel(socketId, msg.message.channel);
-            this.eventProcessor.process({ ...msg.message, senderEmail: ws.userEmail! });
+            this.eventProcessor.process(
+              { ...msg.message, senderEmail: ws.userEmail! },
+              { id: ws.userId!, email: ws.userEmail! }
+            );
           }
         }
       } catch {

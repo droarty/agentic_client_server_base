@@ -28,8 +28,8 @@ export class EventProcessor {
   }
 
   // Fire and forget — for inbound client messages
-  process(message: InboundMessage): void {
-    this.worker.postMessage({ message: message as unknown as Record<string, unknown> } satisfies WorkerInput);
+  process(message: InboundMessage, user?: { id: string; email: string }): void {
+    this.worker.postMessage({ message: message as unknown as Record<string, unknown>, user } satisfies WorkerInput);
   }
 
   // Fire a server-generated event with optional user context
