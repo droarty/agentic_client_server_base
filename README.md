@@ -6,7 +6,7 @@ A full-stack monorepo built with Nx, React, Node.js/Express, and MongoDB.
 
 | Layer | Technology |
 |---|---|
-| Monorepo | Nx 20, npm workspaces |
+| Monorepo | Nx 20, pnpm workspaces |
 | Frontend | React 18, React Router v6, ESBuild |
 | Backend | Node.js, Express, ESBuild |
 | Database | MongoDB 8, Mongoose |
@@ -36,7 +36,7 @@ tools/
 ## Setup
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
 ```
 
@@ -202,6 +202,68 @@ exit
 
 **MongoDB Compass** (official, free) — download from [mongodb.com/products/compass](https://www.mongodb.com/products/compass).
 Connect with: `mongodb://localhost:27017`
+
+## UI Components (shadcn/ui)
+
+The frontend uses [shadcn/ui](https://ui.shadcn.com) — components are copied directly into `apps/web/src/components/ui/` and are fully owned by this repo. Tailwind CSS powers the styling.
+
+### Adding a component
+
+```bash
+npx shadcn@latest add <component>
+```
+
+Examples:
+
+```bash
+npx shadcn@latest add dialog
+npx shadcn@latest add input
+npx shadcn@latest add dropdown-menu
+```
+
+Components land in `apps/web/src/components/ui/`. Each component is plain TypeScript/React — edit them freely.
+
+### Importing components
+
+```tsx
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+```
+
+The `@/` alias resolves to `apps/web/src/`.
+
+### The `cn()` utility
+
+Use `cn()` to merge Tailwind classes safely (handles conflicts via `tailwind-merge`):
+
+```tsx
+import { cn } from '@/lib/utils';
+
+<div className={cn('p-4 rounded', isActive && 'bg-primary text-primary-foreground')} />
+```
+
+### Adding new Radix UI primitives manually
+
+Some shadcn components depend on `@radix-ui/react-*` packages not yet installed. Install them at the workspace root:
+
+```bash
+pnpm add -w @radix-ui/react-dialog
+pnpm add -w @radix-ui/react-dropdown-menu
+```
+
+### CSS theme tokens
+
+Colors are defined as CSS variables in `apps/web/src/app/styles/global.css` and mapped in `apps/web/tailwind.config.js`. To change the color scheme, update the `--primary`, `--secondary`, etc. values in the `:root` block. Dark mode variables live in the `.dark` block.
+
+### Configuration
+
+| File | Purpose |
+|------|---------|
+| `components.json` | shadcn CLI config (component output path, aliases, Tailwind config) |
+| `apps/web/tailwind.config.js` | Tailwind config with shadcn color tokens |
+| `apps/web/src/app/styles/global.css` | CSS variable tokens + Tailwind directives |
+| `apps/web/src/lib/utils.ts` | `cn()` utility |
+| `apps/web/src/components/ui/` | All shadcn component source files |
 
 ## API Endpoints
 
