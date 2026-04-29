@@ -3,6 +3,15 @@
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "chromedriver",
+      "esbuild",
+      "mongodb-memory-server",
+      "nx"
+    ]
+  },
   "workspaces": [
     "apps/*",
     "libs/*"
@@ -29,12 +38,14 @@
     "ioredis": "^5.10.1",
     "jsonata": "^2.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.2.0",
     "mongoose": "^8.4.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.23.1",
+    "tslib": "^2.8.1",
     "ws": "^8.19.0"
   },
   "devDependencies": {
