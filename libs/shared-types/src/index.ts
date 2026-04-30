@@ -23,7 +23,7 @@ export interface ChatDocument {
   type: string;
   currentChannelId: string;
   messages: OutboundMessage[];
-  chatMessages?: unknown[];
+  state?: Record<string, unknown>;
   users?: unknown[];
   createdAt: string;
   updatedAt: string;

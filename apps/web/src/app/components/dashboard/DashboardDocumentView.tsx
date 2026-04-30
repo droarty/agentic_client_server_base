@@ -22,6 +22,7 @@ function DashboardContent({ channelId, selectedDocId, onOpenDocument }: Props) {
     for (const msg of newMessages) {
       if (msg.type === 'update-state') {
         const m = msg as UpdateStateMessage;
+        if (!m.state) continue;
         if (m.state['selectedDocument']) {
           onOpenDocument(m.state['selectedDocument'] as unknown as ChatDocument);
           const { selectedDocument: _, ...rest } = m.state;

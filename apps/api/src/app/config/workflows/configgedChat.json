@@ -2,8 +2,7 @@
   "name": "configged-chat-workflow",
   "version": "1.0.0",
   "initialState": {
-    "chatMessages": [],
-    "users": []
+    "chatMessages": []
   },
   "handlers": {
     "initialize": {
@@ -24,7 +23,8 @@
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-client",
-            "initialState": "$message.document",
+            "initialState": "$message.document.state",
+            "users": "$message.document.users",
             "layoutConfig": [
               {
                 "componentType": "fullPanel",
@@ -35,7 +35,8 @@
                     "targetId": "invite-users-container",
                     "locationId": "invite-users-container",
                     "props": {
-                      "users": "state.users"
+                      "users": "state.users",
+                      "allUsers": "state.allUsers"
                     },
                     "emits": {
                       "addUser": "add-user"
@@ -78,8 +79,8 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "state": {
-              "users": "$message.users"
+            "temp": {
+              "allUsers": "$message.users"
             }
           }
         }
@@ -113,9 +114,7 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "state": {
-              "users": "$message.users"
-            }
+            "users": "$message.users"
           }
         }
       ]

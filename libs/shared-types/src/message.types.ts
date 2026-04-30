@@ -100,7 +100,9 @@ export interface UpdateStateMessage extends Message {
   from: 'server';
   to: 'client';
   id?: string;
-  state: Record<string, unknown>;
+  state?: Record<string, unknown>;
+  users?: unknown[];
+  temp?: Record<string, unknown>;
   append?: boolean;
 }
 
@@ -120,6 +122,7 @@ export interface InitializeClientMessage extends Message {
   id: string;
   layoutConfig: LayoutNode[];
   initialState: Record<string, unknown>;
+  users?: unknown[];
 }
 
 export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeClientMessage;

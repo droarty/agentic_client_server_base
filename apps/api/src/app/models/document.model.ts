@@ -8,7 +8,7 @@ export interface IChatDocument extends Document {
   userId?: string;
   currentChannelId: string;
   messages: OutboundMessage[];
-  chatMessages?: unknown[];
+  state?: Record<string, unknown>;
   users?: unknown[];
   createdAt: Date;
   updatedAt: Date;
@@ -36,7 +36,7 @@ const chatDocumentSchema = new Schema<IChatDocument>(
     userId: { type: String },
     currentChannelId: { type: String, default: () => randomUUID() },
     messages: { type: [outboundMessageSchema], default: [] },
-    chatMessages: { type: [Schema.Types.Mixed], default: undefined },
+    state: { type: Schema.Types.Mixed, default: undefined },
     users: { type: [Schema.Types.Mixed], default: undefined },
   },
   { timestamps: true }

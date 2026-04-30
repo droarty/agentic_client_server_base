@@ -36,31 +36,46 @@ function hasId(item: unknown): boolean {
 async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   await dbReady;
   const db = mongoClient.db();
-  if ((outbound as unknown as Record<string, unknown>)['type'] === 'update-state') {
-    const state = (outbound as unknown as Record<string, unknown>)['state'] as Record<string, unknown>;
+  const outboundRec = outbound as unknown as Record<string, unknown>;
+
+  // Always append to messages (replay log)
+  await db.collection('chatdocuments').updateOne(
+    { currentChannelId: outbound.channel },
+    { $push: { messages: outbound } } as any
+  );
+
+  if (outboundRec['type'] === 'update-state') {
+    const stateDiff = outboundRec['state'] as Record<string, unknown> | undefined;
+    const usersDiff = outboundRec['users'];
+    // temp is intentionally skipped — not persisted
+
     const setOps: Record<string, unknown> = {};
     const pushOps: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(state)) {
-      if (Array.isArray(value) && value.length > 0 && hasId(value[0])) {
-        setOps[key] = value;
-      } else if (Array.isArray(value)) {
-        pushOps[key] = { $each: value };
-      } else {
-        setOps[key] = value;
+
+    if (usersDiff !== undefined) {
+      setOps['users'] = usersDiff;
+    }
+
+    if (stateDiff) {
+      for (const [key, value] of Object.entries(stateDiff)) {
+        const stateKey = `state.${key}`;
+        if (Array.isArray(value) && value.length > 0 && hasId(value[0])) {
+          setOps[stateKey] = value;
+        } else if (Array.isArray(value)) {
+          pushOps[stateKey] = { $each: value };
+        } else {
+          setOps[stateKey] = value;
+        }
       }
     }
+
     const update: Record<string, unknown> = {};
     if (Object.keys(setOps).length) update['$set'] = setOps;
     if (Object.keys(pushOps).length) update['$push'] = pushOps;
     if (Object.keys(update).length) {
       await db.collection('chatdocuments').updateOne({ currentChannelId: outbound.channel }, update as any);
     }
-    return;
   }
-  await db.collection('chatdocuments').updateOne(
-    { currentChannelId: outbound.channel },
-    { $push: { messages: outbound } } as any
-  );
 }
 
 async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
@@ -106,21 +121,25 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const { randomUUID } = await import('crypto');
       const now = new Date();
       const configPath = path.join(configDir, `${type}.json`);
-      let seededState: Record<string, unknown> = {};
+      let initialState: Record<string, unknown> | undefined;
       if (fs.existsSync(configPath)) {
         const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
-        seededState = wfConfig.initialState ?? {};
+        initialState = wfConfig.initialState;
       }
-      const result = await db.collection('chatdocuments').insertOne({
+      const docFields: Record<string, unknown> = {
         name,
         type,
         userId,
         currentChannelId: randomUUID(),
         messages: [],
-        ...seededState,
         createdAt: now,
         updatedAt: now,
-      });
+      };
+      if (initialState !== undefined) {
+        docFields['state'] = initialState;
+        docFields['users'] = [];
+      }
+      const result = await db.collection('chatdocuments').insertOne(docFields as any);
       const newDoc = await db.collection('chatdocuments').findOne({ _id: result.insertedId });
       const rawDocs = await db
         .collection('chatdocuments')

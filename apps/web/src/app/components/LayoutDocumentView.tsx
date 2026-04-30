@@ -60,10 +60,19 @@ export function LayoutDocumentView({ doc }: DocumentViewProps) {
       if (m['type'] === 'initialize-client') {
         const im = msg as unknown as InitializeClientMessage;
         setLayoutConfig(im.layoutConfig ?? []);
-        setDocState((im.initialState as Record<string, unknown>) ?? {});
+        setDocState({
+          ...(im.initialState as Record<string, unknown> ?? {}),
+          users: im.users ?? [],
+        });
       } else if (m['type'] === 'update-state') {
         const um = msg as unknown as UpdateStateMessage;
-        setDocState((prev) => mergeState(prev, um.state));
+        setDocState((prev) => {
+          let next = prev;
+          if (um.state) next = mergeState(next, um.state);
+          if (um.users !== undefined) next = { ...next, users: um.users };
+          if (um.temp) next = mergeState(next, um.temp);
+          return next;
+        });
       }
     });
     return unsubscribe;
