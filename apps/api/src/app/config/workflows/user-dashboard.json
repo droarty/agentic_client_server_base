@@ -24,8 +24,8 @@
         {
           "route": "client",
           "transform": {
-            "type": "update-state",
-            "state": { "documents": "$message.documents" }
+            "clientMessageType": "update-state",
+            "update": { "documents": "$message.documents" }
           }
         }
       ]
@@ -43,8 +43,8 @@
         {
           "route": "client",
           "transform": {
-            "type": "update-state",
-            "state": { "selectedDocument": "$message.document" }
+            "clientMessageType": "update-state",
+            "update": { "selectedDocument": "$message.document" }
           }
         }
       ]
@@ -64,8 +64,8 @@
         {
           "route": "client",
           "transform": {
-            "type": "update-state",
-            "state": {
+            "clientMessageType": "update-state",
+            "update": {
               "documents": "$message.documents",
               "selectedDocument": "$message.document"
             }

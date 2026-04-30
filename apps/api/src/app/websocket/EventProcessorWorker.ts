@@ -29,14 +29,14 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
   await redis.publish(PUBSUB_CHANNEL, JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
-function hasId(item: unknown): boolean {
-  return typeof item === 'object' && item !== null && ('id' in item || '_id' in item);
+function isTemp(path: string): boolean {
+  return path === 'temp' || path.startsWith('temp.');
 }
 
 async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   await dbReady;
   const db = mongoClient.db();
-  const outboundRec = outbound as unknown as Record<string, unknown>;
+  const rec = outbound as unknown as Record<string, unknown>;
 
   // Always append to messages (replay log)
   await db.collection('chatdocuments').updateOne(
@@ -44,37 +44,74 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
     { $push: { messages: outbound } } as any
   );
 
-  if (outboundRec['type'] === 'update-state') {
-    const stateDiff = outboundRec['state'] as Record<string, unknown> | undefined;
-    const usersDiff = outboundRec['users'];
-    // temp is intentionally skipped — not persisted
+  if (rec['type'] !== 'update-state') return;
 
-    const setOps: Record<string, unknown> = {};
-    const pushOps: Record<string, unknown> = {};
+  const setOps: Record<string, unknown> = {};
+  const pushOps: Record<string, unknown> = {};
+  const pullOps: Record<string, unknown> = {};
 
-    if (usersDiff !== undefined) {
-      setOps['users'] = usersDiff;
+  // update → $set
+  const updateAct = rec['update'] as Record<string, unknown> | undefined;
+  if (updateAct) {
+    for (const [path, value] of Object.entries(updateAct)) {
+      if (!isTemp(path)) setOps[path] = value;
     }
+  }
 
-    if (stateDiff) {
-      for (const [key, value] of Object.entries(stateDiff)) {
-        const stateKey = `state.${key}`;
-        if (Array.isArray(value) && value.length > 0 && hasId(value[0])) {
-          setOps[stateKey] = value;
-        } else if (Array.isArray(value)) {
-          pushOps[stateKey] = { $each: value };
-        } else {
-          setOps[stateKey] = value;
+  // merge → $set via dot-path expansion on each sub-key
+  const mergeAct = rec['merge'] as Record<string, unknown> | undefined;
+  if (mergeAct) {
+    for (const [path, value] of Object.entries(mergeAct)) {
+      if (isTemp(path)) continue;
+      if (typeof value === 'object' && value !== null) {
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          setOps[`${path}.${k}`] = v;
         }
+      } else {
+        setOps[path] = value;
       }
     }
+  }
 
-    const update: Record<string, unknown> = {};
-    if (Object.keys(setOps).length) update['$set'] = setOps;
-    if (Object.keys(pushOps).length) update['$push'] = pushOps;
-    if (Object.keys(update).length) {
-      await db.collection('chatdocuments').updateOne({ currentChannelId: outbound.channel }, update as any);
+  // append → $push $each
+  const appendAct = rec['append'] as Record<string, unknown> | undefined;
+  if (appendAct) {
+    for (const [path, value] of Object.entries(appendAct)) {
+      if (isTemp(path)) continue;
+      const items = Array.isArray(value) ? value : [value];
+      pushOps[path] = { $each: items };
     }
+  }
+
+  // prepend → $push {$each, $position: 0}
+  const prependAct = rec['prepend'] as Record<string, unknown> | undefined;
+  if (prependAct) {
+    for (const [path, value] of Object.entries(prependAct)) {
+      if (isTemp(path)) continue;
+      const items = Array.isArray(value) ? value : [value];
+      pushOps[path] = { $each: items, $position: 0 };
+    }
+  }
+
+  // remove → $pull by key field
+  const removeAct = rec['remove'] as Record<string, unknown> | undefined;
+  const keyField = rec['key'] as string | undefined;
+  if (removeAct && keyField) {
+    for (const [path, matcher] of Object.entries(removeAct)) {
+      if (isTemp(path)) continue;
+      pullOps[path] = { [keyField]: (matcher as Record<string, unknown>)[keyField] };
+    }
+  }
+
+  const mongoUpdate: Record<string, unknown> = {};
+  if (Object.keys(setOps).length) mongoUpdate['$set'] = setOps;
+  if (Object.keys(pushOps).length) mongoUpdate['$push'] = pushOps;
+  if (Object.keys(pullOps).length) mongoUpdate['$pull'] = pullOps;
+
+  if (Object.keys(mongoUpdate).length) {
+    await db.collection('chatdocuments').updateOne(
+      { currentChannelId: outbound.channel }, mongoUpdate as any
+    );
   }
 }
 

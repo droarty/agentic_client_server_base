@@ -4,40 +4,93 @@ import { DocumentViewProps } from '../registry/documentRegistry';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
 
-function hasId(item: unknown): boolean {
-  return typeof item === 'object' && item !== null && ('id' in item || '_id' in item);
+interface DocState {
+  state: Record<string, unknown>;
+  users: unknown[];
+  temp: Record<string, unknown>;
 }
 
-function getId(item: unknown): unknown {
-  const obj = item as Record<string, unknown>;
-  return obj['_id'] ?? obj['id'];
+function getAtPath(obj: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((curr, key) => {
+    if (curr == null || typeof curr !== 'object') return undefined;
+    return (curr as Record<string, unknown>)[key];
+  }, obj);
 }
 
-function mergeState(
-  prev: Record<string, unknown>,
-  diff: Record<string, unknown>
-): Record<string, unknown> {
-  const next = { ...prev };
-  for (const [key, value] of Object.entries(diff)) {
-    if (Array.isArray(value)) {
-      const existing = Array.isArray(prev[key]) ? (prev[key] as unknown[]) : [];
-      if (value.length > 0 && hasId(value[0])) {
-        const map = new Map(existing.filter(hasId).map((item) => [getId(item), item]));
-        for (const item of value) map.set(getId(item), item);
-        next[key] = Array.from(map.values());
-      } else {
-        next[key] = [...existing, ...value];
-      }
-    } else {
-      next[key] = value;
+function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
+  const keys = path.split('.');
+  const result = { ...obj };
+  let curr: Record<string, unknown> = result;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    curr[k] = typeof curr[k] === 'object' && curr[k] !== null ? { ...(curr[k] as Record<string, unknown>) } : {};
+    curr = curr[k] as Record<string, unknown>;
+  }
+  curr[keys[keys.length - 1]] = value;
+  return result;
+}
+
+function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
+  let next = prev as unknown as Record<string, unknown>;
+
+  if (msg.update) {
+    for (const [path, value] of Object.entries(msg.update)) {
+      next = setAtPath(next, path, value);
     }
   }
-  return next;
+
+  if (msg.merge) {
+    for (const [path, value] of Object.entries(msg.merge)) {
+      const existing = (getAtPath(next, path) as Record<string, unknown>) ?? {};
+      next = setAtPath(next, path, { ...existing, ...(value as Record<string, unknown>) });
+    }
+  }
+
+  if (msg.append) {
+    for (const [path, value] of Object.entries(msg.append)) {
+      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const items = Array.isArray(value) ? value : [value];
+      next = setAtPath(next, path, [...existing, ...items]);
+    }
+  }
+
+  if (msg.prepend) {
+    for (const [path, value] of Object.entries(msg.prepend)) {
+      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const items = Array.isArray(value) ? value : [value];
+      next = setAtPath(next, path, [...items, ...existing]);
+    }
+  }
+
+  if (msg.upsert && msg.key) {
+    const keyField = msg.key;
+    for (const [path, item] of Object.entries(msg.upsert)) {
+      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const keyValue = (item as Record<string, unknown>)[keyField];
+      const idx = existing.findIndex((el) => (el as Record<string, unknown>)[keyField] === keyValue);
+      const updated = [...existing];
+      if (idx >= 0) updated[idx] = item; else updated.push(item);
+      next = setAtPath(next, path, updated);
+    }
+  }
+
+  if (msg.remove && msg.key) {
+    const keyField = msg.key;
+    for (const [path, matcher] of Object.entries(msg.remove)) {
+      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const keyValue = (matcher as Record<string, unknown>)[keyField];
+      next = setAtPath(next, path, existing.filter(
+        (el) => (el as Record<string, unknown>)[keyField] !== keyValue
+      ));
+    }
+  }
+
+  return next as unknown as DocState;
 }
 
 export function LayoutDocumentView({ doc }: DocumentViewProps) {
   const [layoutConfig, setLayoutConfig] = useState<LayoutNode[]>([]);
-  const [docState, setDocState] = useState<Record<string, unknown>>({});
+  const [docState, setDocState] = useState<DocState>({ state: {}, users: [], temp: {} });
   const initialized = useRef(false);
   const channelRef = useRef(doc.currentChannelId);
   channelRef.current = doc.currentChannelId;
@@ -61,18 +114,13 @@ export function LayoutDocumentView({ doc }: DocumentViewProps) {
         const im = msg as unknown as InitializeClientMessage;
         setLayoutConfig(im.layoutConfig ?? []);
         setDocState({
-          ...(im.initialState as Record<string, unknown> ?? {}),
+          state: (im.initialState as Record<string, unknown>) ?? {},
           users: im.users ?? [],
+          temp: {},
         });
       } else if (m['type'] === 'update-state') {
         const um = msg as unknown as UpdateStateMessage;
-        setDocState((prev) => {
-          let next = prev;
-          if (um.state) next = mergeState(next, um.state);
-          if (um.users !== undefined) next = { ...next, users: um.users };
-          if (um.temp) next = mergeState(next, um.temp);
-          return next;
-        });
+        setDocState((prev) => applyActions(prev, um));
       }
     });
     return unsubscribe;
@@ -89,5 +137,5 @@ export function LayoutDocumentView({ doc }: DocumentViewProps) {
     return <p className="doc-empty">Loading…</p>;
   }
 
-  return <LayoutRenderer nodes={layoutConfig} state={docState} emit={emit} />;
+  return <LayoutRenderer nodes={layoutConfig} state={docState as unknown as Record<string, unknown>} emit={emit} />;
 }

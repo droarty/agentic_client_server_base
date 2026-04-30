@@ -35,8 +35,8 @@
                     "targetId": "invite-users-container",
                     "locationId": "invite-users-container",
                     "props": {
-                      "users": "state.users",
-                      "allUsers": "state.allUsers"
+                      "users": "users",
+                      "allUsers": "temp.allUsers"
                     },
                     "emits": {
                       "addUser": "add-user"
@@ -79,8 +79,8 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "temp": {
-              "allUsers": "$message.users"
+            "update": {
+              "temp.allUsers": "$message.users"
             }
           }
         }
@@ -114,7 +114,9 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "users": "$message.users"
+            "append": {
+              "users": "$message.users"
+            }
           }
         }
       ]
@@ -129,8 +131,8 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "state": {
-              "chatMessages": [
+            "append": {
+              "state.chatMessages": [
                 {
                   "messageType": "valid-text",
                   "text": "$message.text",
@@ -152,8 +154,8 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "state": {
-              "chatMessages": [
+            "append": {
+              "state.chatMessages": [
                 {
                   "messageType": "inappropriate-text",
                   "text": "inappropriate text",
@@ -176,8 +178,8 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "state": {
-              "chatMessages": [
+            "append": {
+              "state.chatMessages": [
                 {
                   "messageType": "valid-text",
                   "text": "$message.text",

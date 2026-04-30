@@ -100,10 +100,13 @@ export interface UpdateStateMessage extends Message {
   from: 'server';
   to: 'client';
   id?: string;
-  state?: Record<string, unknown>;
-  users?: unknown[];
-  temp?: Record<string, unknown>;
-  append?: boolean;
+  update?: Record<string, unknown>;
+  merge?: Record<string, unknown>;
+  append?: Record<string, unknown>;
+  prepend?: Record<string, unknown>;
+  upsert?: Record<string, unknown>;
+  remove?: Record<string, unknown>;
+  key?: string;
 }
 
 export interface LayoutNode {

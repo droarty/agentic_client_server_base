@@ -4,21 +4,10 @@ type State = Record<string, unknown>;
 
 interface UpdateStatePayload {
   state: State;
-  append?: boolean;
 }
 
-function reducer(current: State, { state, append }: UpdateStatePayload): State {
-  if (!append) return { ...current, ...state };
-
-  const merged: State = { ...current };
-  for (const [key, value] of Object.entries(state)) {
-    if (append && Array.isArray(current[key]) && Array.isArray(value)) {
-      merged[key] = [...(current[key] as unknown[]), ...(value as unknown[])];
-    } else {
-      merged[key] = value;
-    }
-  }
-  return merged;
+function reducer(current: State, { state }: UpdateStatePayload): State {
+  return { ...current, ...state };
 }
 
 const DocumentStateContext = createContext<{

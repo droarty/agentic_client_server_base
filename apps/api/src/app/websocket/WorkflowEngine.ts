@@ -63,7 +63,10 @@ function resolveSimpleValue(value: unknown, context: WorkflowContext): unknown {
     if (rest.length === 0) return rootObj;
     return resolveDotPath(rootObj, rest.join('.'));
   }
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    return (value as unknown[]).map((item) => resolveSimpleValue(item, context));
+  }
+  if (typeof value === 'object' && value !== null) {
     return resolveTransformSimple(value as Record<string, unknown>, context);
   }
   return value;

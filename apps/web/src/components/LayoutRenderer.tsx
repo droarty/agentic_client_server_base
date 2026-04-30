@@ -22,11 +22,7 @@ function resolveProps(
   if (!props) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    if (value.startsWith('state.')) {
-      result[key] = resolveDotPath(state, value.slice('state.'.length));
-    } else {
-      result[key] = value;
-    }
+    result[key] = resolveDotPath(state, value);
   }
   return result;
 }
