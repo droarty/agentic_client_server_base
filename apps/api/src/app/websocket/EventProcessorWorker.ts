@@ -29,10 +29,6 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
   await redis.publish(PUBSUB_CHANNEL, JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
-function isTemp(path: string): boolean {
-  return path === 'temp' || path.startsWith('temp.');
-}
-
 async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   await dbReady;
   const db = mongoClient.db();
@@ -54,7 +50,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   const updateAct = rec['update'] as Record<string, unknown> | undefined;
   if (updateAct) {
     for (const [path, value] of Object.entries(updateAct)) {
-      if (!isTemp(path)) setOps[path] = value;
+      setOps[path] = value;
     }
   }
 
@@ -62,7 +58,6 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   const mergeAct = rec['merge'] as Record<string, unknown> | undefined;
   if (mergeAct) {
     for (const [path, value] of Object.entries(mergeAct)) {
-      if (isTemp(path)) continue;
       if (typeof value === 'object' && value !== null) {
         for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
           setOps[`${path}.${k}`] = v;
@@ -77,7 +72,6 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   const appendAct = rec['append'] as Record<string, unknown> | undefined;
   if (appendAct) {
     for (const [path, value] of Object.entries(appendAct)) {
-      if (isTemp(path)) continue;
       const items = Array.isArray(value) ? value : [value];
       pushOps[path] = { $each: items };
     }
@@ -87,7 +81,6 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   const prependAct = rec['prepend'] as Record<string, unknown> | undefined;
   if (prependAct) {
     for (const [path, value] of Object.entries(prependAct)) {
-      if (isTemp(path)) continue;
       const items = Array.isArray(value) ? value : [value];
       pushOps[path] = { $each: items, $position: 0 };
     }
@@ -98,7 +91,6 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   const keyField = rec['key'] as string | undefined;
   if (removeAct && keyField) {
     for (const [path, matcher] of Object.entries(removeAct)) {
-      if (isTemp(path)) continue;
       pullOps[path] = { [keyField]: (matcher as Record<string, unknown>)[keyField] };
     }
   }
