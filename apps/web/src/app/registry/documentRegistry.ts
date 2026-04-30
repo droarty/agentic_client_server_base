@@ -11,6 +11,9 @@ const registry: Partial<Record<string, LazyDocumentComponent>> = {
   chat: lazy(() =>
     import('../components/ChatDocumentView').then((m) => ({ default: m.ChatDocumentView }))
   ),
+  'configged-chat': lazy(() =>
+    import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))
+  ),
 };
 
 export function getDocumentComponent(type: string): LazyDocumentComponent | null {

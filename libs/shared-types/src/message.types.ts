@@ -99,11 +99,30 @@ export interface UpdateStateMessage extends Message {
   type: 'update-state';
   from: 'server';
   to: 'client';
+  id?: string;
   state: Record<string, unknown>;
   append?: boolean;
 }
 
-export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage;
+export interface LayoutNode {
+  componentType: string;
+  targetId?: string;
+  locationId?: string;
+  props?: Record<string, string>;
+  emits?: Record<string, string>;
+  children?: LayoutNode[];
+}
+
+export interface InitializeClientMessage extends Message {
+  type: 'initialize-client';
+  from: 'server';
+  to: 'client';
+  id: string;
+  layoutConfig: LayoutNode[];
+  initialState: Record<string, unknown>;
+}
+
+export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeClientMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 

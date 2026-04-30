@@ -235,6 +235,11 @@ export class WorkflowEngine {
             : resolveTransformSimple(step.transform, context)
           : {};
 
+      if ('clientMessageType' in resolved) {
+        resolved['type'] = resolved['clientMessageType'];
+        delete resolved['clientMessageType'];
+      }
+
       const outbound = { ...base, ...resolved } as unknown as OutboundMessage;
 
       const ops: Promise<void>[] = [];

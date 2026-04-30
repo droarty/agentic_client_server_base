@@ -1,5 +1,6 @@
 import { parentPort } from 'worker_threads';
 import * as path from 'path';
+import * as fs from 'fs';
 import Redis from 'ioredis';
 import { MongoClient } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@multiplayer-base/shared-types';
@@ -28,15 +29,38 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
   await redis.publish(PUBSUB_CHANNEL, JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
+function hasId(item: unknown): boolean {
+  return typeof item === 'object' && item !== null && ('id' in item || '_id' in item);
+}
+
 async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   await dbReady;
-  await mongoClient
-    .db()
-    .collection('chatdocuments')
-    .updateOne(
-      { currentChannelId: outbound.channel },
-      { $push: { messages: outbound } } as any
-    );
+  const db = mongoClient.db();
+  if ((outbound as unknown as Record<string, unknown>)['type'] === 'update-state') {
+    const state = (outbound as unknown as Record<string, unknown>)['state'] as Record<string, unknown>;
+    const setOps: Record<string, unknown> = {};
+    const pushOps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(state)) {
+      if (Array.isArray(value) && value.length > 0 && hasId(value[0])) {
+        setOps[key] = value;
+      } else if (Array.isArray(value)) {
+        pushOps[key] = { $each: value };
+      } else {
+        setOps[key] = value;
+      }
+    }
+    const update: Record<string, unknown> = {};
+    if (Object.keys(setOps).length) update['$set'] = setOps;
+    if (Object.keys(pushOps).length) update['$push'] = pushOps;
+    if (Object.keys(update).length) {
+      await db.collection('chatdocuments').updateOne({ currentChannelId: outbound.channel }, update as any);
+    }
+    return;
+  }
+  await db.collection('chatdocuments').updateOne(
+    { currentChannelId: outbound.channel },
+    { $push: { messages: outbound } } as any
+  );
 }
 
 async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
@@ -57,12 +81,22 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
     }
     if (queryName === 'get-document') {
       const documentId = context.message['documentId'] as string | undefined;
-      if (!documentId) return { document: null };
+      const channel = context.message['channel'] as string | undefined;
       const { ObjectId } = await import('mongodb');
-      const rawDoc = await db
-        .collection('chatdocuments')
-        .findOne({ _id: new ObjectId(documentId) });
+      let rawDoc;
+      if (documentId) {
+        rawDoc = await db.collection('chatdocuments').findOne({ _id: new ObjectId(documentId) });
+      } else if (channel) {
+        rawDoc = await db.collection('chatdocuments').findOne({ currentChannelId: channel });
+      }
       return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
+    }
+    if (queryName === 'get-users') {
+      const users = await db
+        .collection('users')
+        .find({}, { projection: { _id: 1, email: 1, roles: 1 } })
+        .toArray();
+      return { users: JSON.parse(JSON.stringify(users)) };
     }
     if (queryName === 'create-document') {
       const name = (context.message['name'] as string | undefined)?.trim();
@@ -71,12 +105,19 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const userId = context.user?.['id'] as string | undefined;
       const { randomUUID } = await import('crypto');
       const now = new Date();
+      const configPath = path.join(configDir, `${type}.json`);
+      let seededState: Record<string, unknown> = {};
+      if (fs.existsSync(configPath)) {
+        const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+        seededState = wfConfig.initialState ?? {};
+      }
       const result = await db.collection('chatdocuments').insertOne({
         name,
         type,
         userId,
         currentChannelId: randomUUID(),
         messages: [],
+        ...seededState,
         createdAt: now,
         updatedAt: now,
       });
