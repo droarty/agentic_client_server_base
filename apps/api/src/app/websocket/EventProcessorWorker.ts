@@ -42,86 +42,76 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
 
   if (rec['type'] !== 'update-state') return;
 
+  const actions = rec['actions'] as Array<Record<string, unknown>> | undefined;
+  if (!actions?.length) return;
+
   const setOps: Record<string, unknown> = {};
   const pushOps: Record<string, unknown> = {};
   const pullOps: Record<string, unknown> = {};
 
-  // update → $set
-  const updateAct = rec['update'] as Record<string, unknown> | undefined;
-  if (updateAct) {
-    for (const [path, value] of Object.entries(updateAct)) {
-      setOps[path] = value;
-    }
-  }
+  for (const action of actions) {
+    const actionType = action['actionType'] as string;
+    const path = action['path'] as string;
+    const value = action['value'];
+    const keys = action['keys'] as string[] | undefined;
 
-  // merge → $set via dot-path expansion on each sub-key
-  const mergeAct = rec['merge'] as Record<string, unknown> | undefined;
-  if (mergeAct) {
-    for (const [path, value] of Object.entries(mergeAct)) {
-      if (typeof value === 'object' && value !== null) {
-        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-          setOps[`${path}.${k}`] = v;
-        }
-      } else {
+    switch (actionType) {
+      case 'update':
         setOps[path] = value;
+        break;
+      case 'merge':
+        if (typeof value === 'object' && value !== null) {
+          for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            setOps[`${path}.${k}`] = v;
+          }
+        } else {
+          setOps[path] = value;
+        }
+        break;
+      case 'append': {
+        const items = Array.isArray(value) ? value : [value];
+        pushOps[path] = { $each: items };
+        break;
       }
-    }
-  }
-
-  // append → $push $each
-  const appendAct = rec['append'] as Record<string, unknown> | undefined;
-  if (appendAct) {
-    for (const [path, value] of Object.entries(appendAct)) {
-      const items = Array.isArray(value) ? value : [value];
-      pushOps[path] = { $each: items };
-    }
-  }
-
-  // prepend → $push {$each, $position: 0}
-  const prependAct = rec['prepend'] as Record<string, unknown> | undefined;
-  if (prependAct) {
-    for (const [path, value] of Object.entries(prependAct)) {
-      const items = Array.isArray(value) ? value : [value];
-      pushOps[path] = { $each: items, $position: 0 };
-    }
-  }
-
-  // upsert → aggregation pipeline (replace by key field or append); key is inside action value
-  const upsertAct = rec['upsert'] as Record<string, unknown> | undefined;
-  if (upsertAct) {
-    for (const [path, value] of Object.entries(upsertAct)) {
-      const obj = value as Record<string, unknown>;
-      const keyField = obj['key'] as string;
-      if (!keyField) continue;
-      const { key: _k, ...item } = obj;
-      const keyValue = item[keyField];
-      const fieldRef = `$${path}`;
-      await db.collection('chatdocuments').updateOne(
-        { currentChannelId: outbound.channel },
-        [{
-          $set: {
-            [path]: {
-              $cond: {
-                if: { $in: [keyValue, { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keyField}` } }] },
-                then: { $map: { input: fieldRef, as: 'el', in: { $cond: { if: { $eq: [`$$el.${keyField}`, keyValue] }, then: item, else: '$$el' } } } },
-                else: { $concatArrays: [{ $ifNull: [fieldRef, []] }, [item]] },
+      case 'prepend': {
+        const items = Array.isArray(value) ? value : [value];
+        pushOps[path] = { $each: items, $position: 0 };
+        break;
+      }
+      case 'upsert': {
+        if (!keys?.length) break;
+        const item = value as Record<string, unknown>;
+        const fieldRef = `$${path}`;
+        const matchCond = keys.length === 1
+          ? { $eq: [`$$el.${keys[0]}`, item[keys[0]]] }
+          : { $and: keys.map((k) => ({ $eq: [`$$el.${k}`, item[k]] })) };
+        const inCond = keys.length === 1
+          ? { $in: [item[keys[0]], { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keys[0]}` } }] }
+          : { $gt: [{ $size: { $filter: { input: { $ifNull: [fieldRef, []] }, as: 'el', cond: matchCond } } }, 0] };
+        await db.collection('chatdocuments').updateOne(
+          { currentChannelId: outbound.channel },
+          [{
+            $set: {
+              [path]: {
+                $cond: {
+                  if: inCond,
+                  then: { $map: { input: fieldRef, as: 'el', in: { $cond: { if: matchCond, then: item, else: '$$el' } } } },
+                  else: { $concatArrays: [{ $ifNull: [fieldRef, []] }, [item]] },
+                },
               },
             },
-          },
-        }] as any
-      );
-    }
-  }
-
-  // remove → $pull; key field name is inside action value
-  const removeAct = rec['remove'] as Record<string, unknown> | undefined;
-  if (removeAct) {
-    for (const [path, value] of Object.entries(removeAct)) {
-      const obj = value as Record<string, unknown>;
-      const keyField = obj['key'] as string;
-      if (!keyField) continue;
-      const { key: _k, ...matcher } = obj;
-      pullOps[path] = { [keyField]: matcher[keyField] };
+          }] as any
+        );
+        break;
+      }
+      case 'remove': {
+        if (!keys?.length) break;
+        const matcher = value as Record<string, unknown>;
+        const pullMatcher: Record<string, unknown> = {};
+        for (const k of keys) pullMatcher[k] = matcher[k];
+        pullOps[path] = pullMatcher;
+        break;
+      }
     }
   }
 

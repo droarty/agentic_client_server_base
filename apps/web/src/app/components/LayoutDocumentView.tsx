@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { LayoutNode, InitializeClientMessage, UpdateStateMessage, OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
+import { LayoutNode, InitializeClientMessage, UpdateStateMessage, ActionItem, OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
 import { DocumentViewProps } from '../registry/documentRegistry';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
@@ -30,67 +30,55 @@ function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): 
   return result;
 }
 
-function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
-  let next = prev as unknown as Record<string, unknown>;
-
-  if (msg.update) {
-    for (const [path, value] of Object.entries(msg.update)) {
-      next = setAtPath(next, path, value);
-    }
-  }
-
-  if (msg.merge) {
-    for (const [path, value] of Object.entries(msg.merge)) {
+function applyAction(next: Record<string, unknown>, action: ActionItem): Record<string, unknown> {
+  const { actionType, path, value, keys } = action;
+  switch (actionType) {
+    case 'update':
+      return setAtPath(next, path, value);
+    case 'merge': {
       const existing = (getAtPath(next, path) as Record<string, unknown>) ?? {};
-      next = setAtPath(next, path, { ...existing, ...(value as Record<string, unknown>) });
+      return setAtPath(next, path, { ...existing, ...(value as Record<string, unknown>) });
     }
-  }
-
-  if (msg.append) {
-    for (const [path, value] of Object.entries(msg.append)) {
+    case 'append': {
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
       const items = Array.isArray(value) ? value : [value];
-      next = setAtPath(next, path, [...existing, ...items]);
+      return setAtPath(next, path, [...existing, ...items]);
     }
-  }
-
-  if (msg.prepend) {
-    for (const [path, value] of Object.entries(msg.prepend)) {
+    case 'prepend': {
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
       const items = Array.isArray(value) ? value : [value];
-      next = setAtPath(next, path, [...items, ...existing]);
+      return setAtPath(next, path, [...items, ...existing]);
     }
-  }
-
-  if (msg.upsert) {
-    for (const [path, value] of Object.entries(msg.upsert)) {
-      const obj = value as Record<string, unknown>;
-      const keyField = obj['key'] as string;
-      if (!keyField) continue;
-      const { key: _k, ...item } = obj;
+    case 'upsert': {
+      if (!keys?.length) return next;
+      const item = value as Record<string, unknown>;
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const keyValue = item[keyField];
-      const idx = existing.findIndex((el) => (el as Record<string, unknown>)[keyField] === keyValue);
+      const idx = existing.findIndex((el) =>
+        keys.every((k) => (el as Record<string, unknown>)[k] === item[k])
+      );
       const updated = [...existing];
       if (idx >= 0) updated[idx] = item; else updated.push(item);
-      next = setAtPath(next, path, updated);
+      return setAtPath(next, path, updated);
     }
-  }
-
-  if (msg.remove) {
-    for (const [path, value] of Object.entries(msg.remove)) {
-      const obj = value as Record<string, unknown>;
-      const keyField = obj['key'] as string;
-      if (!keyField) continue;
-      const { key: _k, ...matcher } = obj;
+    case 'remove': {
+      if (!keys?.length) return next;
+      const matcher = value as Record<string, unknown>;
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const keyValue = matcher[keyField];
-      next = setAtPath(next, path, existing.filter(
-        (el) => (el as Record<string, unknown>)[keyField] !== keyValue
+      return setAtPath(next, path, existing.filter(
+        (el) => !keys.every((k) => (el as Record<string, unknown>)[k] === matcher[k])
       ));
     }
+    default:
+      return next;
   }
+}
 
+function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
+  if (!msg.actions?.length) return prev;
+  let next = prev as unknown as Record<string, unknown>;
+  for (const action of msg.actions) {
+    next = applyAction(next, action);
+  }
   return next as unknown as DocState;
 }
 

@@ -22,15 +22,18 @@ function DashboardContent({ channelId, selectedDocId, onOpenDocument }: Props) {
     for (const msg of newMessages) {
       if (msg.type === 'update-state') {
         const m = msg as UpdateStateMessage;
-        const update = m.update;
-        if (!update) continue;
-        if (update['selectedDocument']) {
-          onOpenDocument(update['selectedDocument'] as unknown as ChatDocument);
-          const { selectedDocument: _, ...rest } = update;
-          if (Object.keys(rest).length > 0) dispatch({ state: rest });
-        } else {
-          dispatch({ state: update });
+        if (!m.actions?.length) continue;
+        let selectedDoc: ChatDocument | undefined;
+        const stateUpdate: Record<string, unknown> = {};
+        for (const action of m.actions) {
+          if (action.path === 'selectedDocument') {
+            selectedDoc = action.value as ChatDocument;
+          } else {
+            stateUpdate[action.path] = action.value;
+          }
         }
+        if (selectedDoc) onOpenDocument(selectedDoc);
+        if (Object.keys(stateUpdate).length > 0) dispatch({ state: stateUpdate });
       }
     }
   }, [messages, dispatch, onOpenDocument]);

@@ -95,17 +95,19 @@ export interface DisplayJsonMessage extends Message {
   targetId?: string;
 }
 
+export interface ActionItem {
+  actionType: 'update' | 'merge' | 'append' | 'prepend' | 'upsert' | 'remove';
+  path: string;
+  value: unknown;
+  keys?: string[];
+}
+
 export interface UpdateStateMessage extends Message {
   type: 'update-state';
   from: 'server';
   to: 'client';
   id?: string;
-  update?: Record<string, unknown>;
-  merge?: Record<string, unknown>;
-  append?: Record<string, unknown>;
-  prepend?: Record<string, unknown>;
-  upsert?: Record<string, unknown>;
-  remove?: Record<string, unknown>;
+  actions?: ActionItem[];
 }
 
 export interface LayoutNode {

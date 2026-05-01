@@ -7,7 +7,10 @@
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
+          "query": {
+            "name": "get-user-documents",
+            "responseType": "document-list-result"
+          }
         }
       ]
     },
@@ -15,7 +18,10 @@
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
+          "query": {
+            "name": "get-user-documents",
+            "responseType": "document-list-result"
+          }
         }
       ]
     },
@@ -25,7 +31,13 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "update": { "documents": "$message.documents" }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "documents",
+                "value": "$message.documents"
+              }
+            ]
           }
         }
       ]
@@ -34,7 +46,10 @@
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-document", "responseType": "display-document-result" }
+          "query": {
+            "name": "get-document",
+            "responseType": "display-document-result"
+          }
         }
       ]
     },
@@ -44,7 +59,13 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "update": { "selectedDocument": "$message.document" }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "selectedDocument",
+                "value": "$message.document"
+              }
+            ]
           }
         }
       ]
@@ -55,7 +76,10 @@
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "create-document", "responseType": "document-created-result" }
+          "query": {
+            "name": "create-document",
+            "responseType": "document-created-result"
+          }
         }
       ]
     },
@@ -65,10 +89,18 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "update": {
-              "documents": "$message.documents",
-              "selectedDocument": "$message.document"
-            }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "documents",
+                "value": "$message.documents"
+              },
+              {
+                "actionType": "append",
+                "path": "selectedDocument",
+                "value": "$message.document"
+              }
+            ]
           }
         }
       ]

@@ -79,9 +79,13 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "update": {
-              "temp.allUsers": "$message.users"
-            }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "temp.allUsers",
+                "value": "$message.users"
+              }
+            ]
           }
         }
       ]
@@ -114,9 +118,13 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "append": {
-              "users": "$message.users"
-            }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "users",
+                "value": "$message.users"
+              }
+            ]
           }
         }
       ]
@@ -131,15 +139,19 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "append": {
-              "state.chatMessages": [
-                {
-                  "messageType": "valid-text",
-                  "text": "$message.text",
-                  "authorEmail": "$message.senderEmail"
-                }
-              ]
-            }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "valid-text",
+                    "text": "$message.text",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -154,16 +166,20 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "append": {
-              "state.chatMessages": [
-                {
-                  "messageType": "inappropriate-text",
-                  "text": "inappropriate text",
-                  "color": "red",
-                  "authorEmail": "$message.senderEmail"
-                }
-              ]
-            }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "inappropriate-text",
+                    "text": "inappropriate text",
+                    "color": "red",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
@@ -178,16 +194,20 @@
           ],
           "transform": {
             "clientMessageType": "update-state",
-            "append": {
-              "state.chatMessages": [
-                {
-                  "messageType": "valid-text",
-                  "text": "$message.text",
-                  "color": "$message.color",
-                  "authorEmail": "$message.senderEmail"
-                }
-              ]
-            }
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "valid-text",
+                    "text": "$message.text",
+                    "color": "$message.color",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
           }
         }
       ]
