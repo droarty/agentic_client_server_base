@@ -86,12 +86,42 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
     }
   }
 
-  // remove → $pull by key field
+  // upsert → aggregation pipeline (replace by key field or append); key is inside action value
+  const upsertAct = rec['upsert'] as Record<string, unknown> | undefined;
+  if (upsertAct) {
+    for (const [path, value] of Object.entries(upsertAct)) {
+      const obj = value as Record<string, unknown>;
+      const keyField = obj['key'] as string;
+      if (!keyField) continue;
+      const { key: _k, ...item } = obj;
+      const keyValue = item[keyField];
+      const fieldRef = `$${path}`;
+      await db.collection('chatdocuments').updateOne(
+        { currentChannelId: outbound.channel },
+        [{
+          $set: {
+            [path]: {
+              $cond: {
+                if: { $in: [keyValue, { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keyField}` } }] },
+                then: { $map: { input: fieldRef, as: 'el', in: { $cond: { if: { $eq: [`$$el.${keyField}`, keyValue] }, then: item, else: '$$el' } } } },
+                else: { $concatArrays: [{ $ifNull: [fieldRef, []] }, [item]] },
+              },
+            },
+          },
+        }] as any
+      );
+    }
+  }
+
+  // remove → $pull; key field name is inside action value
   const removeAct = rec['remove'] as Record<string, unknown> | undefined;
-  const keyField = rec['key'] as string | undefined;
-  if (removeAct && keyField) {
-    for (const [path, matcher] of Object.entries(removeAct)) {
-      pullOps[path] = { [keyField]: (matcher as Record<string, unknown>)[keyField] };
+  if (removeAct) {
+    for (const [path, value] of Object.entries(removeAct)) {
+      const obj = value as Record<string, unknown>;
+      const keyField = obj['key'] as string;
+      if (!keyField) continue;
+      const { key: _k, ...matcher } = obj;
+      pullOps[path] = { [keyField]: matcher[keyField] };
     }
   }
 

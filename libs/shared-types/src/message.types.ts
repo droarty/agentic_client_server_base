@@ -106,7 +106,6 @@ export interface UpdateStateMessage extends Message {
   prepend?: Record<string, unknown>;
   upsert?: Record<string, unknown>;
   remove?: Record<string, unknown>;
-  key?: string;
 }
 
 export interface LayoutNode {

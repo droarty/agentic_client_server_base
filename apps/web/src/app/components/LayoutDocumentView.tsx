@@ -62,11 +62,14 @@ function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
     }
   }
 
-  if (msg.upsert && msg.key) {
-    const keyField = msg.key;
-    for (const [path, item] of Object.entries(msg.upsert)) {
+  if (msg.upsert) {
+    for (const [path, value] of Object.entries(msg.upsert)) {
+      const obj = value as Record<string, unknown>;
+      const keyField = obj['key'] as string;
+      if (!keyField) continue;
+      const { key: _k, ...item } = obj;
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const keyValue = (item as Record<string, unknown>)[keyField];
+      const keyValue = item[keyField];
       const idx = existing.findIndex((el) => (el as Record<string, unknown>)[keyField] === keyValue);
       const updated = [...existing];
       if (idx >= 0) updated[idx] = item; else updated.push(item);
@@ -74,11 +77,14 @@ function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
     }
   }
 
-  if (msg.remove && msg.key) {
-    const keyField = msg.key;
-    for (const [path, matcher] of Object.entries(msg.remove)) {
+  if (msg.remove) {
+    for (const [path, value] of Object.entries(msg.remove)) {
+      const obj = value as Record<string, unknown>;
+      const keyField = obj['key'] as string;
+      if (!keyField) continue;
+      const { key: _k, ...matcher } = obj;
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const keyValue = (matcher as Record<string, unknown>)[keyField];
+      const keyValue = matcher[keyField];
       next = setAtPath(next, path, existing.filter(
         (el) => (el as Record<string, unknown>)[keyField] !== keyValue
       ));
