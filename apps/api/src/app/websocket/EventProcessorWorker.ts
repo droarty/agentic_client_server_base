@@ -79,7 +79,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
         break;
       }
       case 'upsert': {
-        if (!keys?.length) break;
+        if (!keys?.length) { console.error('persistToDatabase: upsert action missing keys array', action); break; }
         const item = value as Record<string, unknown>;
         const fieldRef = `$${path}`;
         const matchCond = keys.length === 1
@@ -105,7 +105,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
         break;
       }
       case 'remove': {
-        if (!keys?.length) break;
+        if (!keys?.length) { console.error('persistToDatabase: remove action missing keys array', action); break; }
         const matcher = value as Record<string, unknown>;
         const pullMatcher: Record<string, unknown> = {};
         for (const k of keys) pullMatcher[k] = matcher[k];

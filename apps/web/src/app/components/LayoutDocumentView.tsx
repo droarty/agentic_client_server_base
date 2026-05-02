@@ -50,7 +50,7 @@ function applyAction(next: Record<string, unknown>, action: ActionItem): Record<
       return setAtPath(next, path, [...items, ...existing]);
     }
     case 'upsert': {
-      if (!keys?.length) return next;
+      if (!keys?.length) { console.error('applyAction: upsert action missing keys array', action); return next; }
       const item = value as Record<string, unknown>;
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
       const idx = existing.findIndex((el) =>
@@ -61,7 +61,7 @@ function applyAction(next: Record<string, unknown>, action: ActionItem): Record<
       return setAtPath(next, path, updated);
     }
     case 'remove': {
-      if (!keys?.length) return next;
+      if (!keys?.length) { console.error('applyAction: remove action missing keys array', action); return next; }
       const matcher = value as Record<string, unknown>;
       const existing = (getAtPath(next, path) as unknown[]) ?? [];
       return setAtPath(next, path, existing.filter(
