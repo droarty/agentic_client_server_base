@@ -38,6 +38,7 @@ export interface WorkflowContext {
 export interface WorkflowEngineDeps {
   publishToClient: (msg: OutboundMessage) => Promise<void>;
   persistToDatabase: (msg: OutboundMessage) => Promise<void>;
+  appendToReplayLog?: (msg: OutboundMessage) => Promise<void>;
   sendToAi: (
     channel: string,
     text: string,
@@ -247,6 +248,7 @@ export class WorkflowEngine {
 
       const ops: Promise<void>[] = [];
       if (routes.includes('client')) ops.push(this.deps.publishToClient(outbound));
+      if (routes.includes('client') && this.deps.appendToReplayLog) ops.push(this.deps.appendToReplayLog(outbound));
       if (routes.includes('database')) ops.push(this.deps.persistToDatabase(outbound));
       await Promise.all(ops);
       return;

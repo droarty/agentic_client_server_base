@@ -29,16 +29,18 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
   await redis.publish(PUBSUB_CHANNEL, JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
+async function appendToReplayLog(outbound: OutboundMessage): Promise<void> {
+  await dbReady;
+  await mongoClient.db().collection('chatdocuments').updateOne(
+    { currentChannelId: outbound.channel },
+    { $push: { messages: outbound } } as any
+  );
+}
+
 async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   await dbReady;
   const db = mongoClient.db();
   const rec = outbound as unknown as Record<string, unknown>;
-
-  // Always append to messages (replay log)
-  await db.collection('chatdocuments').updateOne(
-    { currentChannelId: outbound.channel },
-    { $push: { messages: outbound } } as any
-  );
 
   if (rec['type'] !== 'update-state') return;
 
@@ -226,6 +228,7 @@ const engine = new WorkflowEngine(
   {
     publishToClient,
     persistToDatabase,
+    appendToReplayLog,
     sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig) => {
       const msg: ValidateTextMessage = {
         type: 'validate-text',
