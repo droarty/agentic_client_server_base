@@ -6,7 +6,7 @@ import { MongoClient } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
 import { AIEventManager } from './AIEventManager';
-import { WorkflowEngine, AiStepConfig, WorkflowContext } from './WorkflowEngine';
+import { WorkflowEngine, AiStepConfig, WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -18,9 +18,20 @@ const mongoClient = new MongoClient(mongoUri);
 const dbReady = mongoClient.connect();
 dbReady.catch((err) => console.error('EventProcessorWorker MongoDB error:', err.message));
 
+dbReady.then(() =>
+  mongoClient.db().collection('workflowlogs')
+    .createIndex({ createdAt: 1 }, { expireAfterSeconds: 604800 })
+).catch(console.error);
+
 const aiEventManager = new AIEventManager();
 
 const configDir = path.join(__dirname, '..', 'config', 'workflows');
+
+function logWorkflowStep(entry: WorkflowLogEntry): void {
+  mongoClient.db().collection('workflowlogs')
+    .insertOne(entry)
+    .catch((err) => console.error('logWorkflowStep error:', err));
+}
 
 async function publishToClient(outbound: OutboundMessage): Promise<void> {
   const socketIds = await redis.smembers(`channel:${outbound.channel}`);
@@ -229,6 +240,7 @@ const engine = new WorkflowEngine(
     publishToClient,
     persistToDatabase,
     appendToReplayLog,
+    logWorkflowStep,
     sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig) => {
       const msg: ValidateTextMessage = {
         type: 'validate-text',

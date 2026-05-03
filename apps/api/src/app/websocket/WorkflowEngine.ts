@@ -35,10 +35,24 @@ export interface WorkflowContext {
   state?: Record<string, unknown>;
 }
 
+export interface WorkflowLogEntry {
+  createdAt: Date;
+  channel: string;
+  docType: string;
+  handlerName: string;
+  logType: 'handler' | 'route';
+  message?: Record<string, unknown>;
+  user?: Record<string, unknown>;
+  handlerConfig?: unknown;
+  route?: string | string[];
+  resolvedMessage?: Record<string, unknown>;
+}
+
 export interface WorkflowEngineDeps {
   publishToClient: (msg: OutboundMessage) => Promise<void>;
   persistToDatabase: (msg: OutboundMessage) => Promise<void>;
   appendToReplayLog?: (msg: OutboundMessage) => Promise<void>;
+  logWorkflowStep?: (entry: WorkflowLogEntry) => void;
   sendToAi: (
     channel: string,
     text: string,
@@ -166,8 +180,19 @@ export class WorkflowEngine {
       if (!passes) return;
     }
 
+    this.deps.logWorkflowStep?.({
+      createdAt: new Date(),
+      channel,
+      docType,
+      handlerName: type,
+      logType: 'handler',
+      message: context.message,
+      user: context.user,
+      handlerConfig: handler,
+    });
+
     for (const step of handler.steps) {
-      await this.executeStep(step, transformer, context);
+      await this.executeStep(step, transformer, context, docType, type);
     }
   }
 
@@ -195,11 +220,23 @@ export class WorkflowEngine {
   private async executeStep(
     step: StepDefinition,
     transformer: 'simple' | 'jsonata',
-    context: WorkflowContext
+    context: WorkflowContext,
+    docType = '',
+    handlerName = ''
   ): Promise<void> {
     const routes = Array.isArray(step.route) ? step.route : [step.route];
+    const channel = context.message['channel'] as string;
 
     if (routes.includes('database-query') && step.query && this.deps.executeQuery) {
+      this.deps.logWorkflowStep?.({
+        createdAt: new Date(),
+        channel,
+        docType,
+        handlerName,
+        logType: 'route',
+        route: 'database-query',
+        resolvedMessage: { queryName: step.query.name, responseType: step.query.responseType },
+      });
       const result = await this.deps.executeQuery(step.query.name, context);
       await this.execute({
         message: {
@@ -216,8 +253,16 @@ export class WorkflowEngine {
 
     if (routes.includes('ai') && step.ai) {
       const text = context.message['text'] as string;
-      const channel = context.message['channel'] as string;
       const senderEmail = context.message['senderEmail'] as string | undefined;
+      this.deps.logWorkflowStep?.({
+        createdAt: new Date(),
+        channel,
+        docType,
+        handlerName,
+        logType: 'route',
+        route: 'ai',
+        resolvedMessage: { text, senderEmail },
+      });
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
       this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt });
       return;
@@ -243,6 +288,16 @@ export class WorkflowEngine {
         resolved['type'] = resolved['clientMessageType'];
         delete resolved['clientMessageType'];
       }
+
+      this.deps.logWorkflowStep?.({
+        createdAt: new Date(),
+        channel,
+        docType,
+        handlerName,
+        logType: 'route',
+        route: routes,
+        resolvedMessage: resolved,
+      });
 
       const outbound = { ...base, ...resolved } as unknown as OutboundMessage;
 
