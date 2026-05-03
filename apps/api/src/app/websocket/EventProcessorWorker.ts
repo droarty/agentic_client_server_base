@@ -1,5 +1,6 @@
 import { parentPort } from 'worker_threads';
 import * as path from 'path';
+import * as fs from 'fs';
 import Redis from 'ioredis';
 import { MongoClient } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@multiplayer-base/shared-types';
@@ -30,13 +31,100 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
 
 async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   await dbReady;
-  await mongoClient
-    .db()
-    .collection('chatdocuments')
-    .updateOne(
-      { currentChannelId: outbound.channel },
-      { $push: { messages: outbound } } as any
+  const db = mongoClient.db();
+  const rec = outbound as unknown as Record<string, unknown>;
+
+  // Always append to messages (replay log)
+  await db.collection('chatdocuments').updateOne(
+    { currentChannelId: outbound.channel },
+    { $push: { messages: outbound } } as any
+  );
+
+  if (rec['type'] !== 'update-state') return;
+
+  const actions = rec['actions'] as Array<Record<string, unknown>> | undefined;
+  if (!actions?.length) return;
+
+  const setOps: Record<string, unknown> = {};
+  const pushOps: Record<string, unknown> = {};
+  const pullOps: Record<string, unknown> = {};
+
+  for (const action of actions) {
+    const actionType = action['actionType'] as string;
+    const path = action['path'] as string;
+    const value = action['value'];
+    const keys = action['keys'] as string[] | undefined;
+
+    switch (actionType) {
+      case 'update':
+        setOps[path] = value;
+        break;
+      case 'merge':
+        if (typeof value === 'object' && value !== null) {
+          for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            setOps[`${path}.${k}`] = v;
+          }
+        } else {
+          setOps[path] = value;
+        }
+        break;
+      case 'append': {
+        const items = Array.isArray(value) ? value : [value];
+        pushOps[path] = { $each: items };
+        break;
+      }
+      case 'prepend': {
+        const items = Array.isArray(value) ? value : [value];
+        pushOps[path] = { $each: items, $position: 0 };
+        break;
+      }
+      case 'upsert': {
+        if (!keys?.length) { console.error('persistToDatabase: upsert action missing keys array', action); break; }
+        const item = value as Record<string, unknown>;
+        const fieldRef = `$${path}`;
+        const matchCond = keys.length === 1
+          ? { $eq: [`$$el.${keys[0]}`, item[keys[0]]] }
+          : { $and: keys.map((k) => ({ $eq: [`$$el.${k}`, item[k]] })) };
+        const inCond = keys.length === 1
+          ? { $in: [item[keys[0]], { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keys[0]}` } }] }
+          : { $gt: [{ $size: { $filter: { input: { $ifNull: [fieldRef, []] }, as: 'el', cond: matchCond } } }, 0] };
+        await db.collection('chatdocuments').updateOne(
+          { currentChannelId: outbound.channel },
+          [{
+            $set: {
+              [path]: {
+                $cond: {
+                  if: inCond,
+                  then: { $map: { input: fieldRef, as: 'el', in: { $cond: { if: matchCond, then: item, else: '$$el' } } } },
+                  else: { $concatArrays: [{ $ifNull: [fieldRef, []] }, [item]] },
+                },
+              },
+            },
+          }] as any
+        );
+        break;
+      }
+      case 'remove': {
+        if (!keys?.length) { console.error('persistToDatabase: remove action missing keys array', action); break; }
+        const matcher = value as Record<string, unknown>;
+        const pullMatcher: Record<string, unknown> = {};
+        for (const k of keys) pullMatcher[k] = matcher[k];
+        pullOps[path] = pullMatcher;
+        break;
+      }
+    }
+  }
+
+  const mongoUpdate: Record<string, unknown> = {};
+  if (Object.keys(setOps).length) mongoUpdate['$set'] = setOps;
+  if (Object.keys(pushOps).length) mongoUpdate['$push'] = pushOps;
+  if (Object.keys(pullOps).length) mongoUpdate['$pull'] = pullOps;
+
+  if (Object.keys(mongoUpdate).length) {
+    await db.collection('chatdocuments').updateOne(
+      { currentChannelId: outbound.channel }, mongoUpdate as any
     );
+  }
 }
 
 async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
@@ -57,12 +145,22 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
     }
     if (queryName === 'get-document') {
       const documentId = context.message['documentId'] as string | undefined;
-      if (!documentId) return { document: null };
+      const channel = context.message['channel'] as string | undefined;
       const { ObjectId } = await import('mongodb');
-      const rawDoc = await db
-        .collection('chatdocuments')
-        .findOne({ _id: new ObjectId(documentId) });
+      let rawDoc;
+      if (documentId) {
+        rawDoc = await db.collection('chatdocuments').findOne({ _id: new ObjectId(documentId) });
+      } else if (channel) {
+        rawDoc = await db.collection('chatdocuments').findOne({ currentChannelId: channel });
+      }
       return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
+    }
+    if (queryName === 'get-users') {
+      const users = await db
+        .collection('users')
+        .find({}, { projection: { _id: 1, email: 1, roles: 1 } })
+        .toArray();
+      return { users: JSON.parse(JSON.stringify(users)) };
     }
     if (queryName === 'create-document') {
       const name = (context.message['name'] as string | undefined)?.trim();
@@ -71,7 +169,13 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const userId = context.user?.['id'] as string | undefined;
       const { randomUUID } = await import('crypto');
       const now = new Date();
-      const result = await db.collection('chatdocuments').insertOne({
+      const configPath = path.join(configDir, `${type}.json`);
+      let initialState: Record<string, unknown> | undefined;
+      if (fs.existsSync(configPath)) {
+        const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+        initialState = wfConfig.initialState;
+      }
+      const docFields: Record<string, unknown> = {
         name,
         type,
         userId,
@@ -79,7 +183,12 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         messages: [],
         createdAt: now,
         updatedAt: now,
-      });
+      };
+      if (initialState !== undefined) {
+        docFields['state'] = initialState;
+        docFields['users'] = [];
+      }
+      const result = await db.collection('chatdocuments').insertOne(docFields as any);
       const newDoc = await db.collection('chatdocuments').findOne({ _id: result.insertedId });
       const rawDocs = await db
         .collection('chatdocuments')

@@ -20,9 +20,11 @@ export interface DocumentSummary {
 export interface ChatDocument {
   _id: string;
   name: string;
-  type: 'chat';
+  type: string;
   currentChannelId: string;
   messages: OutboundMessage[];
+  state?: Record<string, unknown>;
+  users?: unknown[];
   createdAt: string;
   updatedAt: string;
 }

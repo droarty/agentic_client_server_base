@@ -95,15 +95,41 @@ export interface DisplayJsonMessage extends Message {
   targetId?: string;
 }
 
+export interface ActionItem {
+  actionType: 'update' | 'merge' | 'append' | 'prepend' | 'upsert' | 'remove';
+  path: string;
+  value: unknown;
+  keys?: string[];
+}
+
 export interface UpdateStateMessage extends Message {
   type: 'update-state';
   from: 'server';
   to: 'client';
-  state: Record<string, unknown>;
-  append?: boolean;
+  id?: string;
+  actions?: ActionItem[];
 }
 
-export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage;
+export interface LayoutNode {
+  componentType: string;
+  targetId?: string;
+  locationId?: string;
+  props?: Record<string, string>;
+  emits?: Record<string, string>;
+  children?: LayoutNode[];
+}
+
+export interface InitializeClientMessage extends Message {
+  type: 'initialize-client';
+  from: 'server';
+  to: 'client';
+  id: string;
+  layoutConfig: LayoutNode[];
+  initialState: Record<string, unknown>;
+  users?: unknown[];
+}
+
+export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeClientMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 

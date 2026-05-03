@@ -1,0 +1,216 @@
+{
+  "name": "configged-chat-workflow",
+  "version": "1.0.0",
+  "initialState": {
+    "chatMessages": []
+  },
+  "handlers": {
+    "initialize": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": {
+            "name": "get-document",
+            "responseType": "initialize-document"
+          }
+        }
+      ]
+    },
+    "initialize-document": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "initialState": "$message.document.state",
+            "users": "$message.document.users",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "targetId": "chat-container",
+                "children": [
+                  {
+                    "componentType": "inviteUsers",
+                    "targetId": "invite-users-container",
+                    "locationId": "invite-users-container",
+                    "props": {
+                      "users": "users",
+                      "allUsers": "temp.allUsers"
+                    },
+                    "emits": {
+                      "addUser": "add-user"
+                    }
+                  },
+                  {
+                    "componentType": "chatBody",
+                    "targetId": "chat-messages",
+                    "locationId": "chat-messages",
+                    "props": {
+                      "messages": "state.chatMessages"
+                    }
+                  },
+                  {
+                    "componentType": "chatInput",
+                    "targetId": "chat-input",
+                    "locationId": "chat-input",
+                    "emits": {
+                      "addText": "add-text"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": {
+            "name": "get-users",
+            "responseType": "users-result"
+          }
+        }
+      ]
+    },
+    "users-result": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "temp.allUsers",
+                "value": "$message.users"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "add-text": {
+      "transformer": "simple",
+      "condition": "$message.text",
+      "steps": [
+        {
+          "route": "ai",
+          "ai": {
+            "model": "claude-haiku-4-5-20251001",
+            "maxTokens": 64,
+            "systemPrompt": "You are a content moderation assistant. Evaluate whether the provided text contains inappropriate content.\n\nYou MUST respond with valid JSON only — no markdown, no explanation, no code blocks.\nThe response must be exactly one of these two JSON objects:\n  {\"type\":\"valid-text\"}\n  {\"type\":\"inappropriate-text\"}\n\nRespond with {\"type\":\"inappropriate-text\"} if the text contains hate speech, threats, explicit sexual content, harassment, or violent language. Otherwise respond with {\"type\":\"valid-text\"}.",
+            "responseTypes": [
+              "valid-text",
+              "inappropriate-text"
+            ]
+          }
+        }
+      ]
+    },
+    "add-user": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": [
+            "client",
+            "database"
+          ],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "users",
+                "value": "$message.users"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "valid-text": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": [
+            "client",
+            "database"
+          ],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "valid-text",
+                    "text": "$message.text",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "inappropriate-text": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": [
+            "client",
+            "database"
+          ],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "inappropriate-text",
+                    "text": "inappropriate text",
+                    "color": "red",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "add-colorful-text": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": [
+            "client",
+            "database"
+          ],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "valid-text",
+                    "text": "$message.text",
+                    "color": "$message.color",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
