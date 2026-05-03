@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { DocumentSummary } from '@multiplayer-base/shared-types';
 import { DocumentListItem } from './DocumentListItem';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   documents: DocumentSummary[];
@@ -67,13 +68,13 @@ export function DocumentListPanel({ documents, selectedId, availableTypes, onSel
             ))}
           </select>
         )}
-        <button
+        <Button
           type="submit"
-          className="btn-primary doc-create-btn"
+          variant="default"
           disabled={!name.trim() || creating}
         >
           Create {label}
-        </button>
+        </Button>
       </form>
     </div>
   );
