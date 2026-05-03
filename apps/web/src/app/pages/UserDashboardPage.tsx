@@ -4,9 +4,7 @@ import { PageHeader } from '../components/PageHeader';
 import { useDashboardChannelId } from '../hooks/useDashboardChannelId';
 import { DashboardDocumentView } from '../components/dashboard/DashboardDocumentView';
 import { DocumentPanel } from '../components/dashboard/DocumentPanel';
-import { Tabs, TabItem, TabPanel } from '../components/shared/Tabs';
-
-const DOCUMENTS_TAB: TabItem = { id: 'documents', title: 'Documents' };
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export function UserDashboardPage() {
   const dashboardChannelId = useDashboardChannelId();
@@ -20,11 +18,6 @@ export function UserDashboardPage() {
     setActiveTab(doc._id);
   }, []);
 
-  const tabs: TabItem[] = [
-    DOCUMENTS_TAB,
-    ...openDocs.map((d) => ({ id: d._id, title: d.name })),
-  ];
-
   const selectedDocId = activeTab !== 'documents' ? activeTab : null;
 
   return (
@@ -32,21 +25,26 @@ export function UserDashboardPage() {
       <PageHeader title="User Dashboard" />
       <main>
         {dashboardChannelId ? (
-          <>
-            <Tabs tabs={tabs} activeTabId={activeTab} onTabSelect={setActiveTab} />
-            <TabPanel tabId="documents" activeTabId={activeTab}>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList variant="line">
+              <TabsTrigger variant="line" value="documents">Documents</TabsTrigger>
+              {openDocs.map((doc) => (
+                <TabsTrigger key={doc._id} variant="line" value={doc._id}>{doc.name}</TabsTrigger>
+              ))}
+            </TabsList>
+            <TabsContent value="documents">
               <DashboardDocumentView
                 channelId={dashboardChannelId}
                 selectedDocId={selectedDocId}
                 onOpenDocument={onOpenDocument}
               />
-            </TabPanel>
+            </TabsContent>
             {openDocs.map((doc) => (
-              <TabPanel key={doc._id} tabId={doc._id} activeTabId={activeTab}>
+              <TabsContent key={doc._id} value={doc._id}>
                 <DocumentPanel doc={doc} />
-              </TabPanel>
+              </TabsContent>
             ))}
-          </>
+          </Tabs>
         ) : (
           <p className="doc-empty">Loading…</p>
         )}
