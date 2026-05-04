@@ -215,6 +215,22 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         documents: JSON.parse(JSON.stringify(rawDocs)),
       };
     }
+    if (queryName === 'get-workflow-logs') {
+      const documentId = context.message['documentId'] as string | undefined;
+      if (!documentId) return { documentId: null, workflowLogs: [] };
+      const { ObjectId } = await import('mongodb');
+      const doc = await db.collection('chatdocuments').findOne(
+        { _id: new ObjectId(documentId) },
+        { projection: { currentChannelId: 1 } }
+      );
+      if (!doc) return { documentId, workflowLogs: [] };
+      const logs = await db.collection('workflowlogs')
+        .find({ channel: doc.currentChannelId, parentExecutionId: { $exists: false }, logType: 'handler' })
+        .sort({ createdAt: -1 })
+        .toArray();
+      return { documentId, workflowLogs: JSON.parse(JSON.stringify(logs)) };
+    }
+
     return {};
   } catch (err) {
     logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail: String(err) });
