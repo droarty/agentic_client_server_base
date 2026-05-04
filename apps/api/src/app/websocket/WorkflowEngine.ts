@@ -59,7 +59,8 @@ export interface WorkflowEngineDeps {
     channel: string,
     text: string,
     senderEmail: string | undefined,
-    aiConfig: AiStepConfig
+    aiConfig: AiStepConfig,
+    user?: Record<string, unknown>
   ) => void;
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
@@ -266,7 +267,7 @@ export class WorkflowEngine {
         resolvedMessage: { text, senderEmail },
       });
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt });
+      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user);
       return;
     }
 

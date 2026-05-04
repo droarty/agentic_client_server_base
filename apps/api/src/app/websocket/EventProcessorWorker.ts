@@ -241,7 +241,7 @@ const engine = new WorkflowEngine(
     persistToDatabase,
     appendToReplayLog,
     logWorkflowStep,
-    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig) => {
+    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user) => {
       const msg: ValidateTextMessage = {
         type: 'validate-text',
         from: 'server',
@@ -251,7 +251,7 @@ const engine = new WorkflowEngine(
         text,
         senderEmail,
       };
-      aiEventManager.publish(msg, aiConfig);
+      aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
     },
     getDocumentType,
     executeQuery,
