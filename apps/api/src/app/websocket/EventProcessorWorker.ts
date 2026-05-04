@@ -150,7 +150,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const rawDocs = await db
         .collection('chatdocuments')
         .find(
-          { userId, type: { $ne: 'user-dashboard' } },
+          { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
@@ -206,7 +206,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const rawDocs = await db
         .collection('chatdocuments')
         .find(
-          { userId, type: { $ne: 'user-dashboard' } },
+          { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
@@ -216,19 +216,19 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       };
     }
     if (queryName === 'get-workflow-logs') {
-      const documentId = context.message['documentId'] as string | undefined;
-      if (!documentId) return { documentId: null, workflowLogs: [] };
+      const id = context.message['id'] as string | undefined;
+      if (!id) return { id: null, workflowLogs: [] };
       const { ObjectId } = await import('mongodb');
       const doc = await db.collection('chatdocuments').findOne(
-        { _id: new ObjectId(documentId) },
+        { _id: new ObjectId(id) },
         { projection: { currentChannelId: 1 } }
       );
-      if (!doc) return { documentId, workflowLogs: [] };
+      if (!doc) return { id, workflowLogs: [] };
       const logs = await db.collection('workflowlogs')
         .find({ channel: doc.currentChannelId, parentExecutionId: { $exists: false }, logType: 'handler' })
         .sort({ createdAt: -1 })
         .toArray();
-      return { documentId, workflowLogs: JSON.parse(JSON.stringify(logs)) };
+      return { id, workflowLogs: JSON.parse(JSON.stringify(logs)) };
     }
 
     return {};

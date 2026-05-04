@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 interface Props {
@@ -29,7 +30,10 @@ export function SmartAccordion({
   contentFields = [],
   onSelect,
 }: Props) {
+  const [openValue, setOpenValue] = useState<string>('');
+
   const handleValueChange = (value: string) => {
+    setOpenValue(value);
     onSelect?.({ id: value || null });
   };
 
@@ -37,14 +41,14 @@ export function SmartAccordion({
     <Accordion
       type="single"
       collapsible
-      value={selectedId ?? ''}
+      value={openValue}
       onValueChange={handleValueChange}
       className="w-full"
     >
       {items.map((item) => {
         const id = String(item[idField] ?? '');
         const triggerText = triggerFields.map((f) => getField(item, f)).filter(Boolean).join(' · ');
-        const isSelected = selectedId === id;
+        const isSelected = selectedId === id && openValue === id;
 
         return (
           <AccordionItem key={id} value={id}>

@@ -63,7 +63,7 @@
       ]
     },
     "select-log-document": {
-      "condition": "$message.documentId",
+      "condition": "$message.id",
       "steps": [
         {
           "route": "database-query",
@@ -78,7 +78,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedDocumentId", "value": "$message.documentId" },
+              { "actionType": "update", "path": "temp.selectedDocumentId", "value": "$message.id" },
               { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
             ]
           }
