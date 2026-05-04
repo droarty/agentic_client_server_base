@@ -41,6 +41,9 @@ export interface WorkflowLogEntry {
   docType: string;
   handlerName: string;
   logType: 'handler' | 'route' | 'error';
+  executionId?: string;
+  parentExecutionId?: string;
+  stepIndex?: number;
   message?: Record<string, unknown>;
   user?: Record<string, unknown>;
   handlerConfig?: unknown;
@@ -60,7 +63,8 @@ export interface WorkflowEngineDeps {
     text: string,
     senderEmail: string | undefined,
     aiConfig: AiStepConfig,
-    user?: Record<string, unknown>
+    user?: Record<string, unknown>,
+    correlationId?: string
   ) => void;
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
@@ -154,25 +158,26 @@ export class WorkflowEngine {
     private configDir: string
   ) { }
 
-  async execute(context: WorkflowContext): Promise<void> {
+  async execute(context: WorkflowContext, parentExecutionId?: string, parentStepIndex?: number): Promise<void> {
+    const executionId = randomUUID();
     const channel = context.message['channel'] as string;
     const type = context.message['type'] as string;
 
     const docType = await this.resolveDocumentType(channel);
     if (!docType) {
-      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType: '', handlerName: type, logType: 'error', errorMessage: `no document type found for channel "${channel}"` });
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType: '', handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no document type found for channel "${channel}"` });
       return;
     }
 
     const config = this.loadConfig(docType);
     if (!config) {
-      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', errorMessage: `no config found for document type "${docType}"` });
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no config found for document type "${docType}"` });
       return;
     }
 
     const handler = config.handlers[type];
     if (!handler) {
-      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', errorMessage: `no handler for message type "${type}" in config "${docType}"` });
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no handler for message type "${type}" in config "${docType}"` });
       return;
     }
 
@@ -189,13 +194,16 @@ export class WorkflowEngine {
       docType,
       handlerName: type,
       logType: 'handler',
+      executionId,
+      parentExecutionId,
+      stepIndex: parentStepIndex,
       message: context.message,
       user: context.user,
       handlerConfig: handler,
     });
 
-    for (const step of handler.steps) {
-      await this.executeStep(step, transformer, context, docType, type);
+    for (let i = 0; i < handler.steps.length; i++) {
+      await this.executeStep(handler.steps[i], transformer, context, docType, type, executionId, i);
     }
   }
 
@@ -225,7 +233,9 @@ export class WorkflowEngine {
     transformer: 'simple' | 'jsonata',
     context: WorkflowContext,
     docType = '',
-    handlerName = ''
+    handlerName = '',
+    executionId = '',
+    stepIndex = 0
   ): Promise<void> {
     const routes = Array.isArray(step.route) ? step.route : [step.route];
     const channel = context.message['channel'] as string;
@@ -237,6 +247,8 @@ export class WorkflowEngine {
         docType,
         handlerName,
         logType: 'route',
+        executionId,
+        stepIndex,
         route: 'database-query',
         resolvedMessage: { queryName: step.query.name, responseType: step.query.responseType },
       });
@@ -250,7 +262,7 @@ export class WorkflowEngine {
         },
         user: context.user,
         state: context.state,
-      });
+      }, executionId, stepIndex);
       return;
     }
 
@@ -263,11 +275,13 @@ export class WorkflowEngine {
         docType,
         handlerName,
         logType: 'route',
+        executionId,
+        stepIndex,
         route: 'ai',
         resolvedMessage: { text, senderEmail },
       });
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user);
+      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user, `${executionId}:${stepIndex}`);
       return;
     }
 
@@ -298,6 +312,8 @@ export class WorkflowEngine {
         docType,
         handlerName,
         logType: 'route',
+        executionId,
+        stepIndex,
         route: routes,
         resolvedMessage: resolved,
       });
@@ -312,6 +328,6 @@ export class WorkflowEngine {
       return;
     }
 
-    this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'error', errorMessage: `unknown route(s): ${routes.join(', ')}` });
+    this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'error', executionId, stepIndex, errorMessage: `unknown route(s): ${routes.join(', ')}` });
   }
 }

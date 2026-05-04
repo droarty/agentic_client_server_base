@@ -241,7 +241,7 @@ const engine = new WorkflowEngine(
     persistToDatabase,
     appendToReplayLog,
     logWorkflowStep,
-    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user) => {
+    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user, correlationId) => {
       const msg: ValidateTextMessage = {
         type: 'validate-text',
         from: 'server',
@@ -250,6 +250,7 @@ const engine = new WorkflowEngine(
         timestamp: new Date().toISOString(),
         text,
         senderEmail,
+        correlationId,
       };
       aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
     },
@@ -261,8 +262,16 @@ const engine = new WorkflowEngine(
 
 parentPort!.on('message', async (input: WorkerInput) => {
   const { message, user } = input;
+  const correlationId = message['correlationId'] as string | undefined;
+  let parentExecutionId: string | undefined;
+  let parentStepIndex: number | undefined;
+  if (correlationId) {
+    const [eid, sidx] = correlationId.split(':');
+    parentExecutionId = eid;
+    parentStepIndex = sidx !== undefined ? parseInt(sidx, 10) : undefined;
+  }
   try {
-    await engine.execute({ message, user });
+    await engine.execute({ message, user }, parentExecutionId, parentStepIndex);
   } catch (err) {
     logWorkflowStep({ createdAt: new Date(), channel: (message['channel'] as string) || '', docType: '', handlerName: (message['type'] as string) || '', logType: 'error', errorMessage: 'WorkflowEngine execution error', errorDetail: String(err) });
   }
