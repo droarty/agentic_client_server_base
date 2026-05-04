@@ -40,12 +40,14 @@ export interface WorkflowLogEntry {
   channel: string;
   docType: string;
   handlerName: string;
-  logType: 'handler' | 'route';
+  logType: 'handler' | 'route' | 'error';
   message?: Record<string, unknown>;
   user?: Record<string, unknown>;
   handlerConfig?: unknown;
   route?: string | string[];
   resolvedMessage?: Record<string, unknown>;
+  errorMessage?: string;
+  errorDetail?: unknown;
 }
 
 export interface WorkflowEngineDeps {
@@ -57,7 +59,8 @@ export interface WorkflowEngineDeps {
     channel: string,
     text: string,
     senderEmail: string | undefined,
-    aiConfig: AiStepConfig
+    aiConfig: AiStepConfig,
+    user?: Record<string, unknown>
   ) => void;
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
@@ -157,19 +160,19 @@ export class WorkflowEngine {
 
     const docType = await this.resolveDocumentType(channel);
     if (!docType) {
-      console.error(`WorkflowEngine: no document type found for channel "${channel}"`);
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType: '', handlerName: type, logType: 'error', errorMessage: `no document type found for channel "${channel}"` });
       return;
     }
 
     const config = this.loadConfig(docType);
     if (!config) {
-      console.error(`WorkflowEngine: no config found for document type "${docType}"`);
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', errorMessage: `no config found for document type "${docType}"` });
       return;
     }
 
     const handler = config.handlers[type];
     if (!handler) {
-      console.error(`WorkflowEngine: no handler for message type "${type}" in config "${docType}"`);
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', errorMessage: `no handler for message type "${type}" in config "${docType}"` });
       return;
     }
 
@@ -212,7 +215,7 @@ export class WorkflowEngine {
       this.configCache.set(docType, config);
       return config;
     } catch (err) {
-      console.error(`WorkflowEngine: failed to load config "${docType}.json":`, err);
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel: '', docType, handlerName: '', logType: 'error', errorMessage: `failed to load config "${docType}.json"`, errorDetail: String(err) });
       return null;
     }
   }
@@ -264,7 +267,7 @@ export class WorkflowEngine {
         resolvedMessage: { text, senderEmail },
       });
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt });
+      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user);
       return;
     }
 
@@ -309,6 +312,6 @@ export class WorkflowEngine {
       return;
     }
 
-    throw new Error(`WorkflowEngine: unknown route(s): ${routes.join(', ')}`);
+    this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'error', errorMessage: `unknown route(s): ${routes.join(', ')}` });
   }
 }

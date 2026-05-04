@@ -92,7 +92,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
         break;
       }
       case 'upsert': {
-        if (!keys?.length) { console.error('persistToDatabase: upsert action missing keys array', action); break; }
+        if (!keys?.length) { logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: 'persistToDatabase: upsert action missing keys array', errorDetail: action }); break; }
         const item = value as Record<string, unknown>;
         const fieldRef = `$${path}`;
         const matchCond = keys.length === 1
@@ -118,7 +118,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
         break;
       }
       case 'remove': {
-        if (!keys?.length) { console.error('persistToDatabase: remove action missing keys array', action); break; }
+        if (!keys?.length) { logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: 'persistToDatabase: remove action missing keys array', errorDetail: action }); break; }
         const matcher = value as Record<string, unknown>;
         const pullMatcher: Record<string, unknown> = {};
         for (const k of keys) pullMatcher[k] = matcher[k];
@@ -217,7 +217,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
     }
     return {};
   } catch (err) {
-    console.error('executeQuery error:', err);
+    logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail: String(err) });
     return {};
   }
 }
@@ -241,7 +241,7 @@ const engine = new WorkflowEngine(
     persistToDatabase,
     appendToReplayLog,
     logWorkflowStep,
-    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig) => {
+    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user) => {
       const msg: ValidateTextMessage = {
         type: 'validate-text',
         from: 'server',
@@ -251,7 +251,7 @@ const engine = new WorkflowEngine(
         text,
         senderEmail,
       };
-      aiEventManager.publish(msg, aiConfig);
+      aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
     },
     getDocumentType,
     executeQuery,
@@ -264,6 +264,6 @@ parentPort!.on('message', async (input: WorkerInput) => {
   try {
     await engine.execute({ message, user });
   } catch (err) {
-    console.error('WorkflowEngine execution error:', err);
+    logWorkflowStep({ createdAt: new Date(), channel: (message['channel'] as string) || '', docType: '', handlerName: (message['type'] as string) || '', logType: 'error', errorMessage: 'WorkflowEngine execution error', errorDetail: String(err) });
   }
 });

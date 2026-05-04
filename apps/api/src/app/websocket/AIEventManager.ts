@@ -21,13 +21,13 @@ const DEFAULT_AI_CONFIG: AiStepConfig = {
 const aiService = new AiService();
 
 export class AIEventManager {
-  publish(request: ValidateTextMessage, config: AiStepConfig = DEFAULT_AI_CONFIG): void {
-    this.process(request, config).catch((err) =>
+  publish(request: ValidateTextMessage, config: AiStepConfig = DEFAULT_AI_CONFIG, user?: { id: string; email: string }): void {
+    this.process(request, config, user).catch((err) =>
       console.error('AIEventManager error:', err)
     );
   }
 
-  private async process(request: ValidateTextMessage, config: AiStepConfig): Promise<void> {
+  private async process(request: ValidateTextMessage, config: AiStepConfig, user?: { id: string; email: string }): Promise<void> {
     const userPrompt = `Evaluate this text: "${request.text}"`;
     const raw = await aiService.complete(config.systemPrompt, userPrompt, env.AI_SERVICE_TYPE);
 
@@ -65,6 +65,6 @@ export class AIEventManager {
           };
 
     const eventProcessor = new EventProcessor();
-    eventProcessor.process(response);
+    eventProcessor.process(response, user);
   }
 }
