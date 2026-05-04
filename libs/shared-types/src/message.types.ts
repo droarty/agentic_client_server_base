@@ -143,6 +143,7 @@ export interface ValidateTextMessage {
   timestamp: string;
   text: string;
   senderEmail?: string;
+  correlationId?: string;
 }
 
 export interface ValidTextAiResponse {
@@ -153,6 +154,7 @@ export interface ValidTextAiResponse {
   timestamp: string;
   text: string;
   senderEmail?: string;
+  correlationId?: string;
 }
 
 export interface InappropriateTextAiResponse {
@@ -162,6 +164,7 @@ export interface InappropriateTextAiResponse {
   channel: string;
   timestamp: string;
   senderEmail?: string;
+  correlationId?: string;
 }
 
 export type AiResponse = ValidTextAiResponse | InappropriateTextAiResponse;

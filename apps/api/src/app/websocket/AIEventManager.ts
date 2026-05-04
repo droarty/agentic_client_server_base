@@ -54,6 +54,7 @@ export class AIEventManager {
             timestamp: new Date().toISOString(),
             text: request.text,
             senderEmail: request.senderEmail,
+            correlationId: request.correlationId,
           }
         : {
             type: 'inappropriate-text',
@@ -62,6 +63,7 @@ export class AIEventManager {
             channel: request.channel,
             timestamp: new Date().toISOString(),
             senderEmail: request.senderEmail,
+            correlationId: request.correlationId,
           };
 
     const eventProcessor = new EventProcessor();
