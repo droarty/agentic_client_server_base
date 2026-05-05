@@ -5,7 +5,9 @@
     "config": {
       "idField": "_id",
       "triggerFields": ["name", "type", "createdAt"],
-      "contentFields": ["handlerName", "createdAt", "executionId"]
+      "contentMode": "nested-accordion",
+      "contentIdField": "_id",
+      "contentTriggerFields": ["handlerName", "createdAt", "executionId"]
     }
   },
   "handlers": {
@@ -27,7 +29,9 @@
               "config": {
                 "idField": "_id",
                 "triggerFields": ["name", "type", "createdAt"],
-                "contentFields": ["handlerName", "createdAt", "executionId"]
+                "contentMode": "nested-accordion",
+                "contentIdField": "_id",
+                "contentTriggerFields": ["handlerName", "createdAt", "executionId"]
               }
             },
             "layoutConfig": [
@@ -42,9 +46,16 @@
                       "triggerFields": "state.config.triggerFields",
                       "selectedId": "temp.selectedDocumentId",
                       "contentItems": "temp.selectedDocumentLogs",
-                      "contentFields": "state.config.contentFields"
+                      "contentMode": "state.config.contentMode",
+                      "contentIdField": "state.config.contentIdField",
+                      "contentTriggerFields": "state.config.contentTriggerFields",
+                      "selectedContentId": "temp.selectedLogId",
+                      "contentPanelData": "temp.selectedLogTree"
                     },
-                    "emits": { "select": "select-log-document" }
+                    "emits": {
+                      "select": "select-log-document",
+                      "selectContent": "select-log-entry"
+                    }
                   }
                 ]
               }
@@ -80,6 +91,29 @@
             "actions": [
               { "actionType": "update", "path": "temp.selectedDocumentId", "value": "$message.id" },
               { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
+            ]
+          }
+        }
+      ]
+    },
+    "select-log-entry": {
+      "condition": "$message.id",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-log-tree", "responseType": "log-tree-result" }
+        }
+      ]
+    },
+    "log-tree-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "temp.selectedLogId", "value": "$message.id" },
+              { "actionType": "update", "path": "temp.selectedLogTree", "value": "$message.treeData" }
             ]
           }
         }
