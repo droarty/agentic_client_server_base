@@ -237,7 +237,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       );
       if (!doc) return { id, workflowLogs: [] };
       const logs = await db.collection('workflowlogs')
-        .find({ channel: doc.currentChannelId, parentExecutionId: { $exists: false }, logType: 'handler' })
+        .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
         .sort({ createdAt: -1 })
         .toArray();
       return { id, workflowLogs: JSON.parse(JSON.stringify(logs)) };
