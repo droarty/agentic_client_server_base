@@ -5,7 +5,6 @@
     "config": {
       "idField": "_id",
       "triggerFields": ["name", "type", "createdAt"],
-      "contentMode": "nested-accordion",
       "contentIdField": "_id",
       "contentTriggerFields": ["handlerName", "createdAt", "executionId"]
     }
@@ -29,7 +28,6 @@
               "config": {
                 "idField": "_id",
                 "triggerFields": ["name", "type", "createdAt"],
-                "contentMode": "nested-accordion",
                 "contentIdField": "_id",
                 "contentTriggerFields": ["handlerName", "createdAt", "executionId"]
               }
@@ -44,18 +42,27 @@
                       "items": "temp.documentList",
                       "idField": "state.config.idField",
                       "triggerFields": "state.config.triggerFields",
-                      "selectedId": "temp.selectedDocumentId",
-                      "contentItems": "temp.selectedDocumentLogs",
-                      "contentMode": "state.config.contentMode",
-                      "contentIdField": "state.config.contentIdField",
-                      "contentTriggerFields": "state.config.contentTriggerFields",
-                      "selectedContentId": "temp.selectedLogId",
-                      "contentPanelData": "temp.selectedLogTree"
+                      "selectedId": "state.selectedDocumentId"
                     },
-                    "emits": {
-                      "select": "select-log-document",
-                      "selectContent": "select-log-entry"
-                    }
+                    "emits": { "select": "select-log-document" },
+                    "children": [
+                      {
+                        "componentType": "smartAccordion",
+                        "props": {
+                          "items": "state.selectedDocumentLogs",
+                          "idField": "state.config.contentIdField",
+                          "triggerFields": "state.config.contentTriggerFields",
+                          "selectedId": "state.selectedLogId"
+                        },
+                        "emits": { "select": "select-log-entry" },
+                        "children": [
+                          {
+                            "componentType": "logTreePanel",
+                            "props": { "treeData": "state.selectedLogTree" }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 ]
               }
@@ -89,8 +96,8 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedDocumentId", "value": "$message.id" },
-              { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
+              { "actionType": "update", "path": "state.selectedDocumentId", "value": "$message.id" },
+              { "actionType": "update", "path": "state.selectedDocumentLogs", "value": "$message.workflowLogs" }
             ]
           }
         }
@@ -112,8 +119,8 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedLogId", "value": "$message.id" },
-              { "actionType": "update", "path": "temp.selectedLogTree", "value": "$message.treeData" }
+              { "actionType": "update", "path": "state.selectedLogId", "value": "$message.id" },
+              { "actionType": "update", "path": "state.selectedLogTree", "value": "$message.treeData" }
             ]
           }
         }

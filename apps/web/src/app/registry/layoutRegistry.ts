@@ -22,6 +22,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   smartAccordion: lazy(() =>
     import('@/components/layout/SmartAccordion').then((m) => ({ default: m.SmartAccordion as ComponentType<LayoutComponentProps> }))
   ),
+  logTreePanel: lazy(() =>
+    import('@/components/layout/LogTreePanel').then((m) => ({ default: m.LogTreePanel as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
