@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 interface Props {
@@ -6,9 +6,8 @@ interface Props {
   idField?: string;
   triggerFields?: string[];
   selectedId?: string | null;
-  contentItems?: Record<string, unknown>[];
-  contentFields?: string[];
   onSelect?: (payload: { id: string | null }) => void;
+  children?: ReactNode;
   [key: string]: unknown;
 }
 
@@ -26,9 +25,8 @@ export function SmartAccordion({
   idField = 'id',
   triggerFields = [],
   selectedId,
-  contentItems = [],
-  contentFields = [],
   onSelect,
+  children,
 }: Props) {
   const [openValue, setOpenValue] = useState<string>('');
 
@@ -36,6 +34,10 @@ export function SmartAccordion({
     setOpenValue(value);
     onSelect?.({ id: value || null });
   };
+
+  if (items.length === 0) {
+    return <p className="text-muted-foreground text-xs">No entries found.</p>;
+  }
 
   return (
     <Accordion
@@ -54,21 +56,9 @@ export function SmartAccordion({
           <AccordionItem key={id} value={id}>
             <AccordionTrigger>{triggerText || id}</AccordionTrigger>
             <AccordionContent>
-              {isSelected ? (
-                contentItems.length === 0 ? (
-                  <p className="text-muted-foreground text-xs">No entries found.</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {contentItems.map((row, i) => (
-                      <li key={i} className="text-xs text-muted-foreground border-l-2 border-border pl-3 py-1">
-                        {contentFields.map((f) => getField(row, f)).filter(Boolean).join(' · ')}
-                      </li>
-                    ))}
-                  </ul>
-                )
-              ) : (
-                <p className="text-muted-foreground text-xs">Loading…</p>
-              )}
+              {isSelected
+                ? children
+                : <p className="text-muted-foreground text-xs">Loading…</p>}
             </AccordionContent>
           </AccordionItem>
         );
