@@ -13,7 +13,7 @@
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-user-documents", "responseType": "initialize-document" }
+          "query": { "name": "get-reviewable-documents", "responseType": "initialize-document" }
         }
       ]
     },

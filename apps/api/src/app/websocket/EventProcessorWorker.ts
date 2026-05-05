@@ -156,6 +156,18 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .toArray();
       return { documents: JSON.parse(JSON.stringify(rawDocs)) };
     }
+    if (queryName === 'get-reviewable-documents') {
+      const userId = context.user?.['id'] as string | undefined;
+      if (!userId) return { documents: [] };
+      const rawDocs = await db
+        .collection('chatdocuments')
+        .find(
+          { userId, type: { $ne: 'user-dashboard' } },
+          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+        )
+        .toArray();
+      return { documents: JSON.parse(JSON.stringify(rawDocs)) };
+    }
     if (queryName === 'get-document') {
       const documentId = context.message['documentId'] as string | undefined;
       const channel = context.message['channel'] as string | undefined;
