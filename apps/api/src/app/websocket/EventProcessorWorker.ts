@@ -156,6 +156,18 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .toArray();
       return { documents: JSON.parse(JSON.stringify(rawDocs)) };
     }
+    if (queryName === 'get-reviewable-documents') {
+      const userId = context.user?.['id'] as string | undefined;
+      if (!userId) return { documents: [] };
+      const rawDocs = await db
+        .collection('chatdocuments')
+        .find(
+          { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
+          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+        )
+        .toArray();
+      return { documents: JSON.parse(JSON.stringify(rawDocs)) };
+    }
     if (queryName === 'get-document') {
       const documentId = context.message['documentId'] as string | undefined;
       const channel = context.message['channel'] as string | undefined;
@@ -206,7 +218,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const rawDocs = await db
         .collection('chatdocuments')
         .find(
-          { userId, type: { $ne: 'user-dashboard' } },
+          { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
@@ -215,6 +227,22 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         documents: JSON.parse(JSON.stringify(rawDocs)),
       };
     }
+    if (queryName === 'get-workflow-logs') {
+      const id = context.message['id'] as string | undefined;
+      if (!id) return { id: null, workflowLogs: [] };
+      const { ObjectId } = await import('mongodb');
+      const doc = await db.collection('chatdocuments').findOne(
+        { _id: new ObjectId(id) },
+        { projection: { currentChannelId: 1 } }
+      );
+      if (!doc) return { id, workflowLogs: [] };
+      const logs = await db.collection('workflowlogs')
+        .find({ channel: doc.currentChannelId, parentExecutionId: { $exists: false }, logType: 'handler' })
+        .sort({ createdAt: -1 })
+        .toArray();
+      return { id, workflowLogs: JSON.parse(JSON.stringify(logs)) };
+    }
+
     return {};
   } catch (err) {
     logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail: String(err) });

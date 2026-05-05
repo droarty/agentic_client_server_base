@@ -19,6 +19,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   chatInput: lazy(() =>
     import('@/components/layout/ChatInput').then((m) => ({ default: m.ChatInput as ComponentType<LayoutComponentProps> }))
   ),
+  smartAccordion: lazy(() =>
+    import('@/components/layout/SmartAccordion').then((m) => ({ default: m.SmartAccordion as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

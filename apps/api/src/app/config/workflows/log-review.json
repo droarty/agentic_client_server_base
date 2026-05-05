@@ -1,0 +1,89 @@
+{
+  "name": "log-review",
+  "version": "1.0.0",
+  "initialState": {
+    "config": {
+      "idField": "_id",
+      "triggerFields": ["name", "type", "createdAt"],
+      "contentFields": ["handlerName", "createdAt", "executionId"]
+    }
+  },
+  "handlers": {
+    "initialize": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-reviewable-documents", "responseType": "initialize-document" }
+        }
+      ]
+    },
+    "initialize-document": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "initialState": {
+              "config": {
+                "idField": "_id",
+                "triggerFields": ["name", "type", "createdAt"],
+                "contentFields": ["handlerName", "createdAt", "executionId"]
+              }
+            },
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "smartAccordion",
+                    "props": {
+                      "items": "temp.documentList",
+                      "idField": "state.config.idField",
+                      "triggerFields": "state.config.triggerFields",
+                      "selectedId": "temp.selectedDocumentId",
+                      "contentItems": "temp.selectedDocumentLogs",
+                      "contentFields": "state.config.contentFields"
+                    },
+                    "emits": { "select": "select-log-document" }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "temp.documentList", "value": "$message.documents" }
+            ]
+          }
+        }
+      ]
+    },
+    "select-log-document": {
+      "condition": "$message.id",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-workflow-logs", "responseType": "workflow-logs-result" }
+        }
+      ]
+    },
+    "workflow-logs-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "temp.selectedDocumentId", "value": "$message.id" },
+              { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
