@@ -150,7 +150,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const rawDocs = await db
         .collection('chatdocuments')
         .find(
-          { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
+          { userId, type: { $ne: 'user-dashboard' } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
@@ -162,7 +162,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const rawDocs = await db
         .collection('chatdocuments')
         .find(
-          { userId, type: { $ne: 'user-dashboard' } },
+          { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
