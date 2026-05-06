@@ -1,3 +1,5 @@
+import { useRef, useEffect } from 'react';
+
 interface ChatMessage {
   messageType: string;
   text: string;
@@ -11,8 +13,17 @@ interface Props {
 }
 
 export function ChatBody({ messages = [] }: Props) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   return (
     <div className="chat-messages">
+      {messages.length === 0 && (
+        <p className="chat-empty">No messages yet. Say hello!</p>
+      )}
       {messages.map((msg, i) => (
         <div
           key={i}
@@ -23,6 +34,7 @@ export function ChatBody({ messages = [] }: Props) {
           <span className="chat-message__text">{msg.text}</span>
         </div>
       ))}
+      <div ref={bottomRef} />
     </div>
   );
 }
