@@ -1,15 +1,15 @@
 import { lazy, ComponentType } from 'react';
-import { ChatDocument } from '@multiplayer-base/shared-types';
+import { Artifact } from '@multiplayer-base/shared-types';
 
-export interface DocumentViewProps {
-  doc: ChatDocument;
+export interface ArtifactViewProps {
+  doc: Artifact;
 }
 
-type LazyDocumentComponent = ReturnType<typeof lazy<ComponentType<DocumentViewProps>>>;
+type LazyDocumentComponent = ReturnType<typeof lazy<ComponentType<ArtifactViewProps>>>;
 
 const registry: Partial<Record<string, LazyDocumentComponent>> = {
   chat: lazy(() =>
-    import('../components/ChatDocumentView').then((m) => ({ default: m.ChatDocumentView }))
+    import('../components/ChatArtifactView').then((m) => ({ default: m.ChatArtifactView }))
   ),
   'configged-chat': lazy(() =>
     import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))

@@ -1,10 +1,10 @@
 import { AddTextMessage, AddColorfulTextMessage } from '@multiplayer-base/shared-types';
-import { DocumentViewProps } from '../registry/documentRegistry';
+import { ArtifactViewProps } from '../registry/documentRegistry';
 import { useDocumentChannel } from '../hooks/useDocumentChannel';
 import { MessageList } from './chat/MessageList';
 import { ChatInput } from './chat/ChatInput';
 
-export function ChatDocumentView({ doc }: DocumentViewProps) {
+export function ChatArtifactView({ doc }: ArtifactViewProps) {
   const { messages, emit } = useDocumentChannel(doc.currentChannelId, doc.messages);
 
   const handleSend = ({ text, color }: { text: string; color?: string }) => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { UpdateStateMessage, DocumentSummary, ChatDocument } from '@multiplayer-base/shared-types';
+import { UpdateStateMessage, ArtifactSummary, Artifact } from '@multiplayer-base/shared-types';
 import { DocumentStateProvider, useDocumentState } from '../../context/DocumentStateContext';
 import { useDocumentChannel } from '../../hooks/useDocumentChannel';
 import { DocumentListPanel } from './DocumentListPanel';
@@ -8,7 +8,7 @@ import { getDocumentTypes } from '../../registry/documentRegistry';
 interface Props {
   channelId: string;
   selectedDocId: string | null;
-  onOpenDocument: (doc: ChatDocument) => void;
+  onOpenDocument: (doc: Artifact) => void;
 }
 
 function DashboardContent({ channelId, selectedDocId, onOpenDocument }: Props) {
@@ -23,11 +23,11 @@ function DashboardContent({ channelId, selectedDocId, onOpenDocument }: Props) {
       if (msg.type === 'update-state') {
         const m = msg as UpdateStateMessage;
         if (!m.actions?.length) continue;
-        let selectedDoc: ChatDocument | undefined;
+        let selectedDoc: Artifact | undefined;
         const stateUpdate: Record<string, unknown> = {};
         for (const action of m.actions) {
           if (action.path === 'selectedDocument') {
-            selectedDoc = action.value as ChatDocument;
+            selectedDoc = action.value as Artifact;
           } else {
             stateUpdate[action.path] = action.value;
           }
@@ -38,7 +38,7 @@ function DashboardContent({ channelId, selectedDocId, onOpenDocument }: Props) {
     }
   }, [messages, dispatch, onOpenDocument]);
 
-  const documents = (state['documents'] as DocumentSummary[]) ?? [];
+  const documents = (state['documents'] as ArtifactSummary[]) ?? [];
 
   return (
     <div className="dashboard-layout">

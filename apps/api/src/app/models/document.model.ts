@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 import { randomUUID } from 'crypto';
 import { OutboundMessage } from '@multiplayer-base/shared-types';
 
-export interface IChatDocument extends Document {
+export interface IArtifact extends Document {
   name: string;
   type: 'chat' | 'user-dashboard' | 'configged-chat';
   userId?: string;
@@ -29,7 +29,7 @@ const outboundMessageSchema = new Schema(
   { _id: false }
 );
 
-const chatDocumentSchema = new Schema<IChatDocument>(
+const artifactSchema = new Schema<IArtifact>(
   {
     name: { type: String, required: true, trim: true },
     type: { type: String, enum: ['chat', 'user-dashboard', 'configged-chat'], default: 'chat' },
@@ -42,4 +42,4 @@ const chatDocumentSchema = new Schema<IChatDocument>(
   { timestamps: true }
 );
 
-export const ChatDocumentModel = mongoose.model<IChatDocument>('ChatDocument', chatDocumentSchema);
+export const ArtifactModel = mongoose.model<IArtifact>('Artifact', artifactSchema);

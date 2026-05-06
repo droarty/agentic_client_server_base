@@ -9,7 +9,7 @@ import { registerSocket, unregisterSocket } from '../redis/socket.registry';
 import { addSocketToChannel, removeSocketFromChannel } from '../redis/channel.registry';
 import { EventProcessor } from './EventProcessor';
 import { PUBSUB_CHANNEL, DeliveryInstruction } from './EventProcessorTypes';
-import { ChatDocumentModel } from '../models/document.model';
+import { ArtifactModel } from '../models/document.model';
 
 const serverId = randomUUID();
 
@@ -121,9 +121,9 @@ export class UserEventManager {
   }
 
   private async ensureDashboardDocument(userId: string): Promise<string> {
-    let doc = await ChatDocumentModel.findOne({ type: 'user-dashboard', userId });
+    let doc = await ArtifactModel.findOne({ type: 'user-dashboard', userId });
     if (!doc) {
-      doc = await ChatDocumentModel.create({
+      doc = await ArtifactModel.create({
         name: 'Dashboard',
         type: 'user-dashboard',
         userId,

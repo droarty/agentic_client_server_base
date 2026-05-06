@@ -1,7 +1,7 @@
-import { DocumentSummary } from '@multiplayer-base/shared-types';
+import { ArtifactSummary } from '@multiplayer-base/shared-types';
 
 interface Props {
-  doc: DocumentSummary;
+  doc: ArtifactSummary;
   isSelected: boolean;
   onSelect: () => void;
 }

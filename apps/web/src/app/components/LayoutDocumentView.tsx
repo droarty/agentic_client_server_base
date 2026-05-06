@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LayoutNode, InitializeClientMessage, UpdateStateMessage, ActionItem, OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
-import { DocumentViewProps } from '../registry/documentRegistry';
+import { ArtifactViewProps } from '../registry/documentRegistry';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
 
@@ -82,7 +82,7 @@ function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
   return next as unknown as DocState;
 }
 
-export function LayoutDocumentView({ doc }: DocumentViewProps) {
+export function LayoutDocumentView({ doc }: ArtifactViewProps) {
   const [layoutConfig, setLayoutConfig] = useState<LayoutNode[]>([]);
   const [docState, setDocState] = useState<DocState>({ state: {}, users: [], temp: {} });
   const initialized = useRef(false);

@@ -1,10 +1,10 @@
 import { useState, FormEvent } from 'react';
-import { DocumentSummary } from '@multiplayer-base/shared-types';
+import { ArtifactSummary } from '@multiplayer-base/shared-types';
 import { DocumentListItem } from './DocumentListItem';
 import { Button } from '@/components/ui/button';
 
 interface Props {
-  documents: DocumentSummary[];
+  documents: ArtifactSummary[];
   selectedId: string | null;
   availableTypes: string[];
   onSelect: (id: string) => void;
