@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { LayoutNode, InitializeClientMessage, UpdateStateMessage, ActionItem, OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
+import { Artifact, LayoutNode, InitializeClientMessage, UpdateStateMessage, ActionItem, OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
 import { ArtifactViewProps } from '../registry/documentRegistry';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
+
+interface Props {
+  doc?: Artifact;
+  channelId?: string;
+}
 
 interface DocState {
   state: Record<string, unknown>;
@@ -82,12 +87,13 @@ function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
   return next as unknown as DocState;
 }
 
-export function LayoutDocumentView({ doc }: ArtifactViewProps) {
+export function LayoutDocumentView({ doc, channelId: channelIdProp }: Props) {
+  const resolvedChannelId = channelIdProp ?? doc?.currentChannelId ?? '';
   const [layoutConfig, setLayoutConfig] = useState<LayoutNode[]>([]);
   const [docState, setDocState] = useState<DocState>({ state: {}, users: [], temp: {} });
   const initialized = useRef(false);
-  const channelRef = useRef(doc.currentChannelId);
-  channelRef.current = doc.currentChannelId;
+  const channelRef = useRef(resolvedChannelId);
+  channelRef.current = resolvedChannelId;
 
   const emit = useCallback((type: string, payload: Record<string, unknown> = {}) => {
     eventManager.publish(channelRef.current, {
@@ -101,7 +107,7 @@ export function LayoutDocumentView({ doc }: ArtifactViewProps) {
   }, []);
 
   useEffect(() => {
-    const channelId = doc.currentChannelId;
+    const channelId = resolvedChannelId;
     const unsubscribe = eventManager.subscribe(channelId, (msg: OutboundMessage) => {
       const m = msg as unknown as Record<string, unknown>;
       if (m['type'] === 'initialize-client') {
@@ -118,7 +124,7 @@ export function LayoutDocumentView({ doc }: ArtifactViewProps) {
       }
     });
     return unsubscribe;
-  }, [doc.currentChannelId]);
+  }, [resolvedChannelId]);
 
   useEffect(() => {
     if (!initialized.current) {

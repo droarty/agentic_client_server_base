@@ -50,7 +50,9 @@ export function SmartAccordion({
       {items.map((item) => {
         const id = String(item[idField] ?? '');
         const triggerText = triggerFields.map((f) => getField(item, f)).filter(Boolean).join(' · ');
-        const isSelected = selectedId === id && openValue === id;
+        const isSelected = selectedId !== undefined
+          ? selectedId === id && openValue === id
+          : openValue === id;
 
         return (
           <AccordionItem key={id} value={id}>
