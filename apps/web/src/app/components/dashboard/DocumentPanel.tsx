@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
-import { ChatDocument } from '@multiplayer-base/shared-types';
+import { Artifact } from '@multiplayer-base/shared-types';
 import { getDocumentComponent } from '../../registry/documentRegistry';
 
 interface Props {
-  doc: ChatDocument;
+  doc: Artifact;
 }
 
 export function DocumentPanel({ doc }: Props) {

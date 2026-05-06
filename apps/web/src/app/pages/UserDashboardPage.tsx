@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChatDocument } from '@multiplayer-base/shared-types';
+import { Artifact } from '@multiplayer-base/shared-types';
 import { PageHeader } from '../components/PageHeader';
 import { useDashboardChannelId } from '../hooks/useDashboardChannelId';
 import { DashboardDocumentView } from '../components/dashboard/DashboardDocumentView';
@@ -8,10 +8,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export function UserDashboardPage() {
   const dashboardChannelId = useDashboardChannelId();
-  const [openDocs, setOpenDocs] = useState<ChatDocument[]>([]);
+  const [openDocs, setOpenDocs] = useState<Artifact[]>([]);
   const [activeTab, setActiveTab] = useState('documents');
 
-  const onOpenDocument = useCallback((doc: ChatDocument) => {
+  const onOpenDocument = useCallback((doc: Artifact) => {
     setOpenDocs((prev) =>
       prev.find((d) => d._id === doc._id) ? prev : [...prev, doc]
     );

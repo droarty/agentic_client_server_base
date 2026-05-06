@@ -42,7 +42,7 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
 
 async function appendToReplayLog(outbound: OutboundMessage): Promise<void> {
   await dbReady;
-  await mongoClient.db().collection('chatdocuments').updateOne(
+  await mongoClient.db().collection('artifacts').updateOne(
     { currentChannelId: outbound.channel },
     { $push: { messages: outbound } } as any
   );
@@ -101,7 +101,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
         const inCond = keys.length === 1
           ? { $in: [item[keys[0]], { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keys[0]}` } }] }
           : { $gt: [{ $size: { $filter: { input: { $ifNull: [fieldRef, []] }, as: 'el', cond: matchCond } } }, 0] };
-        await db.collection('chatdocuments').updateOne(
+        await db.collection('artifacts').updateOne(
           { currentChannelId: outbound.channel },
           [{
             $set: {
@@ -134,7 +134,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
   if (Object.keys(pullOps).length) mongoUpdate['$pull'] = pullOps;
 
   if (Object.keys(mongoUpdate).length) {
-    await db.collection('chatdocuments').updateOne(
+    await db.collection('artifacts').updateOne(
       { currentChannelId: outbound.channel }, mongoUpdate as any
     );
   }
@@ -148,7 +148,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const userId = context.user?.['id'] as string | undefined;
       if (!userId) return { documents: [] };
       const rawDocs = await db
-        .collection('chatdocuments')
+        .collection('artifacts')
         .find(
           { userId, type: { $ne: 'user-dashboard' } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
@@ -160,7 +160,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const userId = context.user?.['id'] as string | undefined;
       if (!userId) return { documents: [] };
       const rawDocs = await db
-        .collection('chatdocuments')
+        .collection('artifacts')
         .find(
           { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
@@ -174,9 +174,9 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const { ObjectId } = await import('mongodb');
       let rawDoc;
       if (documentId) {
-        rawDoc = await db.collection('chatdocuments').findOne({ _id: new ObjectId(documentId) });
+        rawDoc = await db.collection('artifacts').findOne({ _id: new ObjectId(documentId) });
       } else if (channel) {
-        rawDoc = await db.collection('chatdocuments').findOne({ currentChannelId: channel });
+        rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel });
       }
       return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
     }
@@ -213,10 +213,10 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         docFields['state'] = initialState;
         docFields['users'] = [];
       }
-      const result = await db.collection('chatdocuments').insertOne(docFields as any);
-      const newDoc = await db.collection('chatdocuments').findOne({ _id: result.insertedId });
+      const result = await db.collection('artifacts').insertOne(docFields as any);
+      const newDoc = await db.collection('artifacts').findOne({ _id: result.insertedId });
       const rawDocs = await db
-        .collection('chatdocuments')
+        .collection('artifacts')
         .find(
           { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
           { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
@@ -231,7 +231,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       const id = context.message['id'] as string | undefined;
       if (!id) return { id: null, workflowLogs: [] };
       const { ObjectId } = await import('mongodb');
-      const doc = await db.collection('chatdocuments').findOne(
+      const doc = await db.collection('artifacts').findOne(
         { _id: new ObjectId(id) },
         { projection: { currentChannelId: 1 } }
       );
@@ -307,7 +307,7 @@ async function getDocumentType(channel: string): Promise<string | null> {
     await dbReady;
     const doc = await mongoClient
       .db()
-      .collection('chatdocuments')
+      .collection('artifacts')
       .findOne({ currentChannelId: channel }, { projection: { type: 1 } });
     return doc?.type ?? null;
   } catch {
