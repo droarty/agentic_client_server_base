@@ -14,7 +14,7 @@ interface Props {
 
 export function DocumentListPanel({ documents, selectedId, availableTypes, onSelect, onRefresh, onCreate }: Props) {
   const [name, setName] = useState('');
-  const [documentType, setDocumentType] = useState(availableTypes[0] ?? 'chat');
+  const [documentType, setDocumentType] = useState(availableTypes[0] ?? 'configged-chat');
   const [creating, setCreating] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {

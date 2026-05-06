@@ -183,34 +183,6 @@
           }
         }
       ]
-    },
-    "add-colorful-text": {
-      "transformer": "simple",
-      "steps": [
-        {
-          "route": [
-            "client",
-            "database"
-          ],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "append",
-                "path": "state.chatMessages",
-                "value": [
-                  {
-                    "messageType": "valid-text",
-                    "text": "$message.text",
-                    "color": "$message.color",
-                    "authorEmail": "$message.senderEmail"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      ]
     }
   }
 }

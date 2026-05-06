@@ -4,7 +4,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 
 export async function listDocuments(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const docs = await ArtifactModel.find({ type: 'chat' }).sort({ createdAt: -1 });
+    const docs = await ArtifactModel.find({ type: 'configged-chat' }).sort({ createdAt: -1 });
     res.json(docs);
   } catch (err) {
     next(err);
@@ -18,7 +18,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
       res.status(400).json({ message: 'name is required' });
       return;
     }
-    const doc = await ArtifactModel.create({ name: name.trim(), type: 'chat' });
+    const doc = await ArtifactModel.create({ name: name.trim(), type: 'configged-chat' });
     res.status(201).json(doc);
   } catch (err) {
     next(err);

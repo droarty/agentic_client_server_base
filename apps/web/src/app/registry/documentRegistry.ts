@@ -8,9 +8,6 @@ export interface ArtifactViewProps {
 type LazyDocumentComponent = ReturnType<typeof lazy<ComponentType<ArtifactViewProps>>>;
 
 const registry: Partial<Record<string, LazyDocumentComponent>> = {
-  chat: lazy(() =>
-    import('../components/ChatArtifactView').then((m) => ({ default: m.ChatArtifactView }))
-  ),
   'configged-chat': lazy(() =>
     import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))
   ),

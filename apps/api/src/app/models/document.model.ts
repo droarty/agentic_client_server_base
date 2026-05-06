@@ -4,7 +4,7 @@ import { OutboundMessage } from '@multiplayer-base/shared-types';
 
 export interface IArtifact extends Document {
   name: string;
-  type: 'chat' | 'user-dashboard' | 'configged-chat';
+  type: 'user-dashboard' | 'configged-chat';
   userId?: string;
   currentChannelId: string;
   messages: OutboundMessage[];
@@ -32,7 +32,7 @@ const outboundMessageSchema = new Schema(
 const artifactSchema = new Schema<IArtifact>(
   {
     name: { type: String, required: true, trim: true },
-    type: { type: String, enum: ['chat', 'user-dashboard', 'configged-chat'], default: 'chat' },
+    type: { type: String, enum: ['user-dashboard', 'configged-chat'], default: 'configged-chat' },
     userId: { type: String },
     currentChannelId: { type: String, default: () => randomUUID() },
     messages: { type: [outboundMessageSchema], default: [] },
