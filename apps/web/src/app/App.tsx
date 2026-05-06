@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { PrivateRoute } from './components/PrivateRoute';
-import { RoleRoute } from './components/RoleRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -21,9 +20,9 @@ export function App() {
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
           <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-          <Route path="/dashboard/user" element={<RoleRoute role="user"><UserDashboardPage /></RoleRoute>} />
-          <Route path="/dashboard/author" element={<RoleRoute role="author"><AuthorDashboardPage /></RoleRoute>} />
-          <Route path="/dashboard/admin" element={<RoleRoute role="admin"><AdminDashboardPage /></RoleRoute>} />
+          <Route path="/dashboard/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
+          <Route path="/dashboard/author" element={<PrivateRoute><AuthorDashboardPage /></PrivateRoute>} />
+          <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
 
           <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
 

@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
-import { User, Role } from '@multiplayer-base/shared-types';
+import { User } from '@multiplayer-base/shared-types';
 import { useAuth } from '../contexts/AuthContext';
-import { apiGetUsers, apiUpdateUserRoles } from '../services/api';
+import { apiGetUsers } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
-
-const ALL_ROLES: Role[] = ['user', 'author', 'admin'];
 
 export function AdminDashboardPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState<string | null>(null);
 
   useEffect(() => {
     apiGetUsers()
@@ -19,22 +16,6 @@ export function AdminDashboardPage() {
       .catch(() => setError('Failed to load users'))
       .finally(() => setIsLoading(false));
   }, []);
-
-  const toggleRole = async (user: User, role: Role) => {
-    const next: Role[] = user.roles.includes(role)
-      ? (user.roles.filter((r) => r !== role) as Role[])
-      : ([...user.roles, role] as Role[]);
-
-    setSaving(user._id);
-    try {
-      const updated = await apiUpdateUserRoles(user._id, next);
-      setUsers((prev) => prev.map((u) => (u._id === updated._id ? updated : u)));
-    } catch {
-      setError('Failed to update roles');
-    } finally {
-      setSaving(null);
-    }
-  };
 
   return (
     <div className="page">
@@ -49,9 +30,6 @@ export function AdminDashboardPage() {
               <tr>
                 <th>Email</th>
                 <th>Joined</th>
-                {ALL_ROLES.map((r) => (
-                  <th key={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</th>
-                ))}
               </tr>
             </thead>
             <tbody>
@@ -64,17 +42,6 @@ export function AdminDashboardPage() {
                     )}
                   </td>
                   <td>{new Date(u.createdAt).toLocaleDateString()}</td>
-                  {ALL_ROLES.map((role) => (
-                    <td key={role} className="role-cell">
-                      <input
-                        type="checkbox"
-                        checked={u.roles.includes(role)}
-                        disabled={saving === u._id}
-                        onChange={() => toggleRole(u, role)}
-                        aria-label={`Toggle ${role} for ${u.email}`}
-                      />
-                    </td>
-                  ))}
                 </tr>
               ))}
             </tbody>

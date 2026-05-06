@@ -5,9 +5,8 @@ export interface SsoProvider {
   displayName?: string;
 }
 
-export type Role = 'user' | 'author' | 'admin';
-
 export * from './message.types';
+export * from './group.types';
 import type { OutboundMessage } from './message.types';
 
 export interface ArtifactSummary {
@@ -43,7 +42,6 @@ export interface User {
   _id: string;
   email: string;
   hasPassword: boolean;
-  roles: Role[];
   ssoProviders: SsoProvider[];
   createdAt: string;
   updatedAt: string;
