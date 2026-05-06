@@ -11,7 +11,6 @@ export interface ISsoProvider {
 export interface IUser extends Document {
   email: string;
   password?: string;
-  roles: string[];
   ssoProviders: ISsoProvider[];
   createdAt: Date;
   updatedAt: Date;
@@ -40,11 +39,6 @@ const userSchema = new Schema<IUser>(
     password: {
       type: String,
       minlength: 6,
-    },
-    roles: {
-      type: [String],
-      enum: ['user', 'author', 'admin'],
-      default: ['user'],
     },
     ssoProviders: {
       type: [ssoProviderSchema],
