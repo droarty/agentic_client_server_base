@@ -81,6 +81,9 @@ npx nx serve api > /tmp/api.log 2>&1 &
 | POST | `/api/documents` | JWT | Create chat document |
 | GET | `/api/documents/:id` | JWT | Get document (includes messages) |
 
+## Workflow conventions
+- **Plan mode**: When finished planning, always ask the user whether to create a new GitHub issue and PR branch before exiting plan mode.
+
 ## Key conventions
 - **Shared-types changes** require a manual API server restart (nodemon only watches `apps/api/src/`)
 - **senderEmail** is injected server-side by `UserEventManager` — clients never set it
