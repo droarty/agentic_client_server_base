@@ -10,7 +10,7 @@ interface Props {
   viewHandler?: string;
 }
 
-export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler = 'initialize' }: Props) {
+export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler = 'defaultView' }: Props) {
   const resolvedChannelId = channelIdProp ?? doc?.currentChannelId ?? '';
 
   const emit = useCallback((type: string, payload: Record<string, unknown> = {}) => {
