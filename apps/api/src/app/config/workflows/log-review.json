@@ -12,15 +12,15 @@
     "selectedLogId": null
   },
   "handlers": {
-    "initialize": {
+    "initializeState": {
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-document", "responseType": "initialize-document" }
+          "query": { "name": "get-document", "responseType": "initialize-state-document" }
         }
       ]
     },
-    "initialize-document": {
+    "initialize-state-document": {
       "transformer": "simple",
       "steps": [
         {
@@ -28,6 +28,19 @@
           "transform": {
             "clientMessageType": "initialize-client",
             "initialState": "$message.document.state",
+            "layoutConfig": []
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "viewHandler": "defaultView",
             "layoutConfig": [
               {
                 "componentType": "fullPanel",
@@ -68,14 +81,6 @@
         {
           "route": "database-query",
           "query": { "name": "get-reviewable-documents", "responseType": "document-list-result" }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "rehydrate-workflow-logs", "responseType": "rehydrate-logs-result" }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "rehydrate-log-tree", "responseType": "rehydrate-tree-result" }
         }
       ]
     },

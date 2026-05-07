@@ -18,23 +18,45 @@
     }
   },
   "handlers": {
-    "initialize": {
+    "initializeState": {
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-document", "responseType": "initialize-document" }
+          "query": { "name": "get-document", "responseType": "initialize-state-document" }
         }
       ]
     },
-    "initialize-document": {
+    "initialize-state-document": {
       "transformer": "simple",
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-client",
-            "viewHandler": "initialize",
             "initialState": "$message.document.state",
+            "users": "$message.document.users",
+            "layoutConfig": []
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp._channelId", "value": "$message.document.currentChannelId" }
+            ]
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "viewHandler": "defaultView",
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
@@ -58,15 +80,6 @@
                   }
                 ]
               }
-            ]
-          }
-        },
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$temp._channelId", "value": "$message.document.currentChannelId" }
             ]
           }
         }

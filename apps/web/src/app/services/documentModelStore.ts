@@ -17,6 +17,7 @@ interface ChannelData {
   docState: DocState;
   layouts: Map<string, LayoutNode[]>;
   snapshots: Map<string, DocModel>;
+  stateInitialized: boolean;
 }
 
 const EMPTY_MODEL: DocModel = {
@@ -35,6 +36,7 @@ function getOrCreateChannelData(channelId: string): ChannelData {
       docState: { state: {}, users: [], temp: {} },
       layouts: new Map(),
       snapshots: new Map(),
+      stateInitialized: false,
     });
   }
   return channelData.get(channelId)!;
@@ -55,7 +57,11 @@ export function subscribeToModel(channelId: string, viewHandler: string, cb: () 
 }
 
 export function getModelSnapshot(channelId: string, viewHandler: string): DocModel {
-  return channelData.get(channelId)?.snapshots.get(viewHandler) ?? EMPTY_MODEL;
+  const data = channelData.get(channelId);
+  if (!data?.stateInitialized || !data.layouts.has(viewHandler)) {
+    return EMPTY_MODEL;
+  }
+  return data.snapshots.get(viewHandler) ?? EMPTY_MODEL;
 }
 
 // --- state mutation ---
@@ -146,22 +152,22 @@ function handleMessage(channelId: string, msg: OutboundMessage): void {
 
   if (m['type'] === 'initialize-client') {
     const im = msg as unknown as InitializeClientMessage;
-    const vh = im.viewHandler ?? 'initialize';
+    const vh = im.viewHandler ?? 'defaultView';
     const layout = im.layoutConfig ?? [];
     const data = getOrCreateChannelData(channelId);
 
-    data.layouts.set(vh, layout);
-
     if (im.initialState !== undefined) {
-      // Primary view: reset docState and rebuild all snapshots
+      data.stateInitialized = true;
       data.docState = {
-        state: im.initialState ?? {},
+        state: im.initialState,
         users: im.users ?? [],
         temp: {},
       };
       rebuildAllSnapshots(data);
-    } else {
-      // Secondary view: update only this view's snapshot
+    }
+
+    if (layout.length > 0) {
+      data.layouts.set(vh, layout);
       data.snapshots.set(vh, { layoutConfig: layout, docState: data.docState });
     }
   } else if (m['type'] === 'update-state') {
@@ -187,6 +193,12 @@ export function mountChannel(
   if (!chSubscribed.has(channelId)) {
     chSubscribed.add(channelId);
     eventManager.subscribe(channelId, (msg) => handleMessage(channelId, msg));
+  }
+
+  const initKey = `${channelId}:initializeState`;
+  if (!vhEmitted.has(initKey) && !channelData.get(channelId)?.stateInitialized) {
+    vhEmitted.add(initKey);
+    emit('initializeState');
   }
 
   const key = `${channelId}:${viewHandler}`;
