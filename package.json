@@ -27,9 +27,9 @@
     "test:web": "nx test web",
     "e2e:api": "nx test api-e2e",
     "e2e:web": "nx e2e web-e2e",
-    "restart:api": "lsof -ti :3000 | xargs kill -9 2>/dev/null; npx nx serve api > /tmp/api.log 2>&1 &",
-    "restart:web": "lsof -ti :4200 | xargs kill -9 2>/dev/null; npx nx serve web > /tmp/web.log 2>&1 &",
-    "restart:both": "lsof -ti :3000 | xargs kill -9 2>/dev/null; lsof -ti :4200 | xargs kill -9 2>/dev/null; npx nx serve api > /tmp/api.log 2>&1 & npx nx serve web > /tmp/web.log 2>&1 &"
+    "restart:api": "bash scripts/restart-api.sh",
+    "restart:web": "bash scripts/restart-web.sh",
+    "restart:both": "bash scripts/restart-both.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
