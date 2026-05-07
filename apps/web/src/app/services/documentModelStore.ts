@@ -13,30 +13,52 @@ export interface DocModel {
   docState: DocState;
 }
 
+interface ChannelData {
+  docState: DocState;
+  layouts: Map<string, LayoutNode[]>;
+  snapshots: Map<string, DocModel>;
+}
+
 const EMPTY_MODEL: DocModel = {
   layoutConfig: [],
   docState: { state: {}, users: [], temp: {} },
 };
 
-const models     = new Map<string, DocModel>();
-const listeners  = new Map<string, Set<() => void>>();
-const initialized = new Set<string>();
+const channelData  = new Map<string, ChannelData>();
+const listeners    = new Map<string, Set<() => void>>();  // key: "channelId:viewHandler"
+const chSubscribed = new Set<string>();
+const vhEmitted    = new Set<string>();                   // key: "channelId:viewHandler"
 
-function notifyListeners(channelId: string): void {
-  listeners.get(channelId)?.forEach((cb) => cb());
+function getOrCreateChannelData(channelId: string): ChannelData {
+  if (!channelData.has(channelId)) {
+    channelData.set(channelId, {
+      docState: { state: {}, users: [], temp: {} },
+      layouts: new Map(),
+      snapshots: new Map(),
+    });
+  }
+  return channelData.get(channelId)!;
 }
 
-export function subscribeToModel(channelId: string, cb: () => void): () => void {
-  if (!listeners.has(channelId)) listeners.set(channelId, new Set());
-  listeners.get(channelId)!.add(cb);
-  return () => listeners.get(channelId)?.delete(cb);
+function notifyAll(channelId: string): void {
+  const prefix = `${channelId}:`;
+  for (const [key, cbs] of listeners) {
+    if (key.startsWith(prefix)) cbs.forEach((cb) => cb());
+  }
 }
 
-export function getModelSnapshot(channelId: string): DocModel {
-  return models.get(channelId) ?? EMPTY_MODEL;
+export function subscribeToModel(channelId: string, viewHandler: string, cb: () => void): () => void {
+  const key = `${channelId}:${viewHandler}`;
+  if (!listeners.has(key)) listeners.set(key, new Set());
+  listeners.get(key)!.add(cb);
+  return () => listeners.get(key)?.delete(cb);
 }
 
-// --- state mutation (moved verbatim from LayoutDocumentView) ---
+export function getModelSnapshot(channelId: string, viewHandler: string): DocModel {
+  return channelData.get(channelId)?.snapshots.get(viewHandler) ?? EMPTY_MODEL;
+}
+
+// --- state mutation ---
 
 function getAtPath(obj: Record<string, unknown>, path: string): unknown {
   return path.split('.').reduce<unknown>((curr, key) => {
@@ -110,29 +132,48 @@ function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
   return next as unknown as DocState;
 }
 
+function rebuildAllSnapshots(data: ChannelData): void {
+  for (const [vh, layout] of data.layouts) {
+    data.snapshots.set(vh, { layoutConfig: layout, docState: data.docState });
+  }
+}
+
 // --- channel lifecycle ---
 
 function handleMessage(channelId: string, msg: OutboundMessage): void {
   const m = msg as unknown as Record<string, unknown>;
+
   if (m['type'] === 'initialize-client') {
     const im = msg as unknown as InitializeClientMessage;
-    models.set(channelId, {
-      layoutConfig: im.layoutConfig ?? [],
-      docState: {
-        state: (im.initialState as Record<string, unknown>) ?? {},
+    const vh = im.viewHandler ?? 'initialize';
+    const layout = im.layoutConfig ?? [];
+    const data = getOrCreateChannelData(channelId);
+
+    data.layouts.set(vh, layout);
+
+    if (im.initialState !== undefined) {
+      // Primary view: reset docState and rebuild all snapshots
+      data.docState = {
+        state: im.initialState ?? {},
         users: im.users ?? [],
         temp: {},
-      },
-    });
+      };
+      rebuildAllSnapshots(data);
+    } else {
+      // Secondary view: update only this view's snapshot
+      data.snapshots.set(vh, { layoutConfig: layout, docState: data.docState });
+    }
   } else if (m['type'] === 'update-state') {
-    const current = models.get(channelId);
-    if (!current) return;
+    const data = channelData.get(channelId);
+    if (!data) return;
     const um = msg as unknown as UpdateStateMessage;
-    models.set(channelId, { ...current, docState: applyActions(current.docState, um) });
+    data.docState = applyActions(data.docState, um);
+    rebuildAllSnapshots(data);
   } else {
     return;
   }
-  notifyListeners(channelId);
+
+  notifyAll(channelId);
 }
 
 export function mountChannel(
@@ -140,8 +181,16 @@ export function mountChannel(
   emit: (type: string, payload?: Record<string, unknown>) => void,
   viewHandler: string
 ): void {
-  if (!channelId || initialized.has(channelId)) return;
-  initialized.add(channelId);
-  eventManager.subscribe(channelId, (msg) => handleMessage(channelId, msg));
-  emit(viewHandler);
+  if (!channelId) return;
+
+  if (!chSubscribed.has(channelId)) {
+    chSubscribed.add(channelId);
+    eventManager.subscribe(channelId, (msg) => handleMessage(channelId, msg));
+  }
+
+  const key = `${channelId}:${viewHandler}`;
+  if (!vhEmitted.has(key)) {
+    vhEmitted.add(key);
+    emit(viewHandler);
+  }
 }

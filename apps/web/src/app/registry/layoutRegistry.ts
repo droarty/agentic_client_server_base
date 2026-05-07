@@ -34,6 +34,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   newDocument: lazy(() =>
     import('@/components/layout/NewDocument').then((m) => ({ default: m.NewDocument as ComponentType<LayoutComponentProps> }))
   ),
+  layoutDocumentView: lazy(() =>
+    import('@/components/layout/LayoutDocumentViewLayout').then((m) => ({ default: m.LayoutDocumentViewLayout as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

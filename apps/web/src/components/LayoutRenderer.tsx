@@ -1,5 +1,5 @@
 import { Suspense, ReactNode } from 'react';
-import { LayoutNode } from '@multiplayer-base/shared-types';
+import { LayoutNode, ChildTemplate } from '@multiplayer-base/shared-types';
 import { getLayoutComponent } from '@/app/registry/layoutRegistry';
 
 interface Props {
@@ -40,6 +40,24 @@ function resolveEmits(
   return result;
 }
 
+function resolveChildTemplate(
+  childTemplate: ChildTemplate,
+  state: Record<string, unknown>,
+  emit: Props['emit']
+): { dynamicChildren: ReactNode[]; dynamicTabIds: string[]; dynamicTabTitles: string[] } {
+  const { source, idField, titleField, template } = childTemplate;
+  const items = (resolveDotPath(state, source) as Record<string, unknown>[]) ?? [];
+  return {
+    dynamicChildren: items.map((item, i) => (
+      <Suspense key={String(item[idField] ?? i)} fallback={null}>
+        {renderNode(template, { ...state, item }, emit)}
+      </Suspense>
+    )),
+    dynamicTabIds:    items.map((item) => String(item[idField]    ?? '')),
+    dynamicTabTitles: items.map((item) => String(item[titleField] ?? '')),
+  };
+}
+
 function renderNode(
   node: LayoutNode,
   state: Record<string, unknown>,
@@ -60,10 +78,15 @@ function renderNode(
     </Suspense>
   ));
 
+  const templateProps = node.childTemplate
+    ? resolveChildTemplate(node.childTemplate, state, emit)
+    : {};
+
   return (
     <Component
       {...resolvedProps}
       {...resolvedEmits}
+      {...templateProps}
       targetId={node.targetId}
     >
       {children}
