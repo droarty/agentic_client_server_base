@@ -152,7 +152,7 @@
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-document", "responseType": "display-document-result" }
+          "query": { "name": "get-document-summary", "responseType": "display-document-result" }
         }
       ]
     },
