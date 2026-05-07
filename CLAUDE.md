@@ -82,7 +82,8 @@ npx nx serve api > /tmp/api.log 2>&1 &
 | GET | `/api/documents/:id` | JWT | Get document (includes messages) |
 
 ## Workflow conventions
-- **Plan mode**: When finished planning, always ask the user whether to create a new GitHub issue and PR branch before exiting plan mode.
+- **Plan mode**: When finished planning, always show the user the plan contents, then ask whether to create a new GitHub issue and PR branch before exiting plan mode.
+- **GitHub issues**: Always paste the entire plan into the issue body.
 
 ## Key conventions
 - **Shared-types changes** require a manual API server restart (nodemon only watches `apps/api/src/`)
