@@ -1,23 +1,19 @@
-interface DocItem {
-  _id: string;
-  name: string;
-  type: string;
-}
+import { ArtifactSummary } from '@multiplayer-base/shared-types';
 
 interface Props {
-  items?: DocItem[];
+  items?: ArtifactSummary[];
   onSelect?: (payload: { documentId: string }) => void;
   [key: string]: unknown;
 }
 
 export function DocumentList({ items = [], onSelect }: Props) {
-  if ((items as DocItem[]).length === 0) {
+  if (items.length === 0) {
     return <p className="doc-empty">No documents yet.</p>;
   }
 
   return (
     <ul className="doc-list">
-      {(items as DocItem[]).map((doc) => (
+      {items.map((doc) => (
         <li
           key={doc._id}
           className="doc-list-item"

@@ -13,7 +13,10 @@ export interface ArtifactSummary {
   _id: string;
   name: string;
   type: string;
+  userId?: string;
   currentChannelId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Artifact {

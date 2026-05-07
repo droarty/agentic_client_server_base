@@ -151,7 +151,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .collection('artifacts')
         .find(
           { userId, type: { $ne: 'user-dashboard' } },
-          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+          { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
       return { documents: JSON.parse(JSON.stringify(rawDocs)) };
@@ -177,6 +177,19 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         rawDoc = await db.collection('artifacts').findOne({ _id: new ObjectId(documentId) });
       } else if (channel) {
         rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+      }
+      return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
+    }
+    if (queryName === 'get-document-summary') {
+      const documentId = context.message['documentId'] as string | undefined;
+      const channel = context.message['channel'] as string | undefined;
+      const { ObjectId } = await import('mongodb');
+      const projection = { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } };
+      let rawDoc;
+      if (documentId) {
+        rawDoc = await db.collection('artifacts').findOne({ _id: new ObjectId(documentId) }, projection);
+      } else if (channel) {
+        rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel }, projection);
       }
       return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
     }
@@ -219,11 +232,19 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .collection('artifacts')
         .find(
           { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
-          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+          { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
       return {
-        document: JSON.parse(JSON.stringify(newDoc)),
+        document: JSON.parse(JSON.stringify({
+          _id: newDoc!._id,
+          name: newDoc!.name,
+          type: newDoc!.type,
+          userId: newDoc!.userId,
+          currentChannelId: newDoc!.currentChannelId,
+          createdAt: newDoc!.createdAt,
+          updatedAt: newDoc!.updatedAt,
+        })),
         documents: JSON.parse(JSON.stringify(rawDocs)),
       };
     }
