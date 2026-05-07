@@ -35,26 +35,26 @@
                   {
                     "componentType": "smartAccordion",
                     "props": {
-                      "items": "temp.documentList",
-                      "idField": "state.config.idField",
-                      "triggerFields": "state.config.triggerFields",
-                      "selectedId": "state.selectedDocumentId"
+                      "items": "$temp.documentList",
+                      "idField": "$state.config.idField",
+                      "triggerFields": "$state.config.triggerFields",
+                      "selectedId": "$state.selectedDocumentId"
                     },
                     "emits": { "select": "select-log-document" },
                     "children": [
                       {
                         "componentType": "smartAccordion",
                         "props": {
-                          "items": "temp.selectedDocumentLogs",
-                          "idField": "state.config.contentIdField",
-                          "triggerFields": "state.config.contentTriggerFields",
-                          "selectedId": "state.selectedLogId"
+                          "items": "$temp.selectedDocumentLogs",
+                          "idField": "$state.config.contentIdField",
+                          "triggerFields": "$state.config.contentTriggerFields",
+                          "selectedId": "$state.selectedLogId"
                         },
                         "emits": { "select": "select-log-entry" },
                         "children": [
                           {
                             "componentType": "logTreePanel",
-                            "props": { "treeData": "temp.selectedLogTree" }
+                            "props": { "treeData": "$temp.selectedLogTree" }
                           }
                         ]
                       }
@@ -87,7 +87,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.documentList", "value": "$message.documents" }
+              { "actionType": "update", "path": "$temp.documentList", "value": "$message.documents" }
             ]
           }
         }
@@ -101,7 +101,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
+              { "actionType": "update", "path": "$temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
             ]
           }
         }
@@ -115,7 +115,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedLogTree", "value": "$message.treeData" }
+              { "actionType": "update", "path": "$temp.selectedLogTree", "value": "$message.treeData" }
             ]
           }
         }
@@ -138,7 +138,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "state.selectedDocumentId", "value": "$message.id" }
+              { "actionType": "update", "path": "$state.selectedDocumentId", "value": "$message.id" }
             ]
           }
         },
@@ -147,7 +147,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
+              { "actionType": "update", "path": "$temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
             ]
           }
         }
@@ -170,7 +170,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "state.selectedLogId", "value": "$message.id" }
+              { "actionType": "update", "path": "$state.selectedLogId", "value": "$message.id" }
             ]
           }
         },
@@ -179,7 +179,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.selectedLogTree", "value": "$message.treeData" }
+              { "actionType": "update", "path": "$temp.selectedLogTree", "value": "$message.treeData" }
             ]
           }
         }

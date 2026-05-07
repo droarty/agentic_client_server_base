@@ -67,35 +67,36 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
     const path = action['path'] as string;
     const value = action['value'];
     const keys = action['keys'] as string[] | undefined;
-    if (!path.startsWith('state.')) continue;
+    if (!path.startsWith('$state.')) continue;
+    const mongoPath = path.slice(1);
 
     switch (actionType) {
       case 'update':
-        setOps[path] = value;
+        setOps[mongoPath] = value;
         break;
       case 'merge':
         if (typeof value === 'object' && value !== null) {
           for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-            setOps[`${path}.${k}`] = v;
+            setOps[`${mongoPath}.${k}`] = v;
           }
         } else {
-          setOps[path] = value;
+          setOps[mongoPath] = value;
         }
         break;
       case 'append': {
         const items = Array.isArray(value) ? value : [value];
-        pushOps[path] = { $each: items };
+        pushOps[mongoPath] = { $each: items };
         break;
       }
       case 'prepend': {
         const items = Array.isArray(value) ? value : [value];
-        pushOps[path] = { $each: items, $position: 0 };
+        pushOps[mongoPath] = { $each: items, $position: 0 };
         break;
       }
       case 'upsert': {
         if (!keys?.length) { logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: 'persistToDatabase: upsert action missing keys array', errorDetail: action }); break; }
         const item = value as Record<string, unknown>;
-        const fieldRef = `$${path}`;
+        const fieldRef = `$${mongoPath}`;
         const matchCond = keys.length === 1
           ? { $eq: [`$$el.${keys[0]}`, item[keys[0]]] }
           : { $and: keys.map((k) => ({ $eq: [`$$el.${k}`, item[k]] })) };
@@ -106,7 +107,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
           { currentChannelId: outbound.channel },
           [{
             $set: {
-              [path]: {
+              [mongoPath]: {
                 $cond: {
                   if: inCond,
                   then: { $map: { input: fieldRef, as: 'el', in: { $cond: { if: matchCond, then: item, else: '$$el' } } } },
@@ -123,7 +124,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
         const matcher = value as Record<string, unknown>;
         const pullMatcher: Record<string, unknown> = {};
         for (const k of keys) pullMatcher[k] = matcher[k];
-        pullOps[path] = pullMatcher;
+        pullOps[mongoPath] = pullMatcher;
         break;
       }
     }

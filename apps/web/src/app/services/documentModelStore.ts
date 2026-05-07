@@ -82,39 +82,40 @@ function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): 
 
 function applyAction(next: Record<string, unknown>, action: ActionItem): Record<string, unknown> {
   const { actionType, path, value, keys } = action;
+  const resolvedPath = path.startsWith('$') ? path.slice(1) : path;
   switch (actionType) {
     case 'update':
-      return setAtPath(next, path, value);
+      return setAtPath(next, resolvedPath, value);
     case 'merge': {
-      const existing = (getAtPath(next, path) as Record<string, unknown>) ?? {};
-      return setAtPath(next, path, { ...existing, ...(value as Record<string, unknown>) });
+      const existing = (getAtPath(next, resolvedPath) as Record<string, unknown>) ?? {};
+      return setAtPath(next, resolvedPath, { ...existing, ...(value as Record<string, unknown>) });
     }
     case 'append': {
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const existing = (getAtPath(next, resolvedPath) as unknown[]) ?? [];
       const items = Array.isArray(value) ? value : [value];
-      return setAtPath(next, path, [...existing, ...items]);
+      return setAtPath(next, resolvedPath, [...existing, ...items]);
     }
     case 'prepend': {
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const existing = (getAtPath(next, resolvedPath) as unknown[]) ?? [];
       const items = Array.isArray(value) ? value : [value];
-      return setAtPath(next, path, [...items, ...existing]);
+      return setAtPath(next, resolvedPath, [...items, ...existing]);
     }
     case 'upsert': {
       if (!keys?.length) { console.error('applyAction: upsert missing keys', action); return next; }
       const item = value as Record<string, unknown>;
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
+      const existing = (getAtPath(next, resolvedPath) as unknown[]) ?? [];
       const idx = existing.findIndex((el) =>
         keys.every((k) => (el as Record<string, unknown>)[k] === item[k])
       );
       const updated = [...existing];
       if (idx >= 0) updated[idx] = item; else updated.push(item);
-      return setAtPath(next, path, updated);
+      return setAtPath(next, resolvedPath, updated);
     }
     case 'remove': {
       if (!keys?.length) { console.error('applyAction: remove missing keys', action); return next; }
       const matcher = value as Record<string, unknown>;
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      return setAtPath(next, path, existing.filter(
+      const existing = (getAtPath(next, resolvedPath) as unknown[]) ?? [];
+      return setAtPath(next, resolvedPath, existing.filter(
         (el) => !keys.every((k) => (el as Record<string, unknown>)[k] === matcher[k])
       ));
     }
