@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "initialState": {
     "openDocs": [],
+    "openAccordions": {
+      "documents": "documents",
+      "groups": "groups"
+    },
     "config": {
+      "staticTabTitles": ["Dashboard"],
+      "userManagementViewHandler": "userManagementView",
       "sectionIdField": "id",
       "sectionTriggerFields": ["label"],
       "documentSection": [{ "id": "documents", "label": "Documents" }],
@@ -27,48 +33,87 @@
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-client",
+            "viewHandler": "initialize",
             "initialState": "$message.document.state",
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
-                "props": {
-                  "openDocs":   "state.openDocs",
-                  "loadedDocs": "temp.loadedDocs"
+                "props": { "tabTitles": "state.config.staticTabTitles" },
+                "childTemplate": {
+                  "source": "state.openDocs",
+                  "idField": "_id",
+                  "titleField": "name",
+                  "template": {
+                    "componentType": "layoutDocumentView",
+                    "props": { "channelId": "item.currentChannelId" }
+                  }
                 },
-                "emits": { "firstActivate": "display-document" },
                 "children": [
                   {
-                    "componentType": "fullPanel",
+                    "componentType": "layoutDocumentView",
+                    "props": {
+                      "channelId": "temp._channelId",
+                      "viewHandler": "state.config.userManagementViewHandler"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "temp._channelId", "value": "$message.document.currentChannelId" }
+            ]
+          }
+        }
+      ]
+    },
+    "userManagementView": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "viewHandler": "userManagementView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "smartAccordion",
+                    "props": {
+                      "items":         "state.config.documentSection",
+                      "idField":       "state.config.sectionIdField",
+                      "triggerFields": "state.config.sectionTriggerFields",
+                      "defaultValue":  "state.openAccordions.documents"
+                    },
+                    "emits": { "select": "save-documents-accordion" },
                     "children": [
                       {
-                        "componentType": "smartAccordion",
-                        "props": {
-                          "items":         "state.config.documentSection",
-                          "idField":       "state.config.sectionIdField",
-                          "triggerFields": "state.config.sectionTriggerFields"
-                        },
-                        "children": [
-                          {
-                            "componentType": "documentList",
-                            "props": { "items": "temp.documentList" },
-                            "emits": { "select": "select-document" }
-                          },
-                          {
-                            "componentType": "newDocument",
-                            "props": { "availableTypes": "state.config.availableTypes" },
-                            "emits": { "create": "create-document" }
-                          }
-                        ]
+                        "componentType": "documentList",
+                        "props": { "items": "temp.documentList" },
+                        "emits": { "select": "select-document" }
                       },
                       {
-                        "componentType": "smartAccordion",
-                        "props": {
-                          "items":         "state.config.groupSection",
-                          "idField":       "state.config.sectionIdField",
-                          "triggerFields": "state.config.sectionTriggerFields"
-                        }
+                        "componentType": "newDocument",
+                        "props": { "availableTypes": "state.config.availableTypes" },
+                        "emits": { "create": "create-document" }
                       }
                     ]
+                  },
+                  {
+                    "componentType": "smartAccordion",
+                    "props": {
+                      "items":         "state.config.groupSection",
+                      "idField":       "state.config.sectionIdField",
+                      "triggerFields": "state.config.sectionTriggerFields",
+                      "defaultValue":  "state.openAccordions.groups"
+                    },
+                    "emits": { "select": "save-groups-accordion" }
                   }
                 ]
               }
@@ -130,33 +175,6 @@
         }
       ]
     },
-    "display-document": {
-      "steps": [
-        {
-          "route": "database-query",
-          "query": { "name": "get-document", "responseType": "load-document-result" }
-        }
-      ]
-    },
-    "load-document-result": {
-      "transformer": "simple",
-      "steps": [
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "upsert",
-                "path": "temp.loadedDocs",
-                "value": "$message.document",
-                "keys": ["_id"]
-              }
-            ]
-          }
-        }
-      ]
-    },
     "create-document": {
       "transformer": "simple",
       "condition": "$message.name",
@@ -187,6 +205,34 @@
                 "value": "$message.document",
                 "keys": ["_id"]
               }
+            ]
+          }
+        }
+      ]
+    },
+    "save-documents-accordion": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "state.openAccordions.documents", "value": "$message.id" }
+            ]
+          }
+        }
+      ]
+    },
+    "save-groups-accordion": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "state.openAccordions.groups", "value": "$message.id" }
             ]
           }
         }

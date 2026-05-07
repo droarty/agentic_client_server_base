@@ -110,6 +110,13 @@ export interface UpdateStateMessage extends Message {
   actions?: ActionItem[];
 }
 
+export interface ChildTemplate {
+  source: string;
+  idField: string;
+  titleField: string;
+  template: LayoutNode;
+}
+
 export interface LayoutNode {
   componentType: string;
   targetId?: string;
@@ -117,6 +124,7 @@ export interface LayoutNode {
   props?: Record<string, string>;
   emits?: Record<string, string>;
   children?: LayoutNode[];
+  childTemplate?: ChildTemplate;
 }
 
 export interface InitializeClientMessage extends Message {
@@ -124,8 +132,9 @@ export interface InitializeClientMessage extends Message {
   from: 'server';
   to: 'client';
   id: string;
+  viewHandler?: string;
   layoutConfig: LayoutNode[];
-  initialState: Record<string, unknown>;
+  initialState?: Record<string, unknown>;
   users?: unknown[];
 }
 

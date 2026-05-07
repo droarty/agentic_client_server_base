@@ -29,8 +29,8 @@ export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler 
   }, [resolvedChannelId, emit, viewHandler]);
 
   const model = useSyncExternalStore(
-    useCallback((cb) => subscribeToModel(resolvedChannelId, cb), [resolvedChannelId]),
-    useCallback(() => getModelSnapshot(resolvedChannelId), [resolvedChannelId])
+    useCallback((cb) => subscribeToModel(resolvedChannelId, viewHandler, cb), [resolvedChannelId, viewHandler]),
+    useCallback(() => getModelSnapshot(resolvedChannelId, viewHandler), [resolvedChannelId, viewHandler])
   );
 
   if (model.layoutConfig.length === 0) {
