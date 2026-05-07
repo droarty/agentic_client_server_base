@@ -34,13 +34,16 @@ npx nx e2e web-e2e      # WebdriverIO e2e tests (requires running servers)
 ```
 
 ## Starting / restarting servers
-```bash
-# Kill and restart API (nodemon does NOT watch libs/shared-types — restart manually after shared-types changes)
-lsof -ti :3000 | xargs kill -9
-npx nx serve api > /tmp/api.log 2>&1 &
 
-# Web rebuilds automatically via esbuild watch — no restart needed for frontend changes
+Always use the npm scripts — they kill the old process, start the new one, and verify it is responding before returning:
+
+```bash
+npm run restart:api    # restart API on :3000 (waits up to 30s for HTTP response)
+npm run restart:web    # restart web on :4200 (waits up to 20s for HTTP response)
+npm run restart:both   # restart both in parallel, verifies both
 ```
+
+**These scripts are pre-approved — call them without asking the user for confirmation**, both when the user requests a restart and when one is needed (e.g. after shared-types changes, after API code changes). Never run the underlying `lsof`/`kill`/`npx nx serve` commands directly.
 
 ## Architecture
 
@@ -88,7 +91,7 @@ npx nx serve api > /tmp/api.log 2>&1 &
 - **PR merges**: Never merge a PR into main. Only the user can merge via GitHub.
 
 ## Key conventions
-- **Shared-types changes** require a manual API server restart (nodemon only watches `apps/api/src/`)
+- **Shared-types changes** require an API server restart (nodemon only watches `apps/api/src/`) — run `npm run restart:api` automatically, no confirmation needed
 - **senderEmail** is injected server-side by `UserEventManager` — clients never set it
 - **One-time OAuth codes**: 64-char hex, 60s TTL, single-use (stored in Redis)
 - **React Strict Mode** double-invokes effects — use `useRef` guards for one-shot operations (see `OAuthCallbackPage`)
