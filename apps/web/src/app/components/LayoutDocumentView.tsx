@@ -1,141 +1,47 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Artifact, LayoutNode, InitializeClientMessage, UpdateStateMessage, ActionItem, OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
-import { ArtifactViewProps } from '../registry/documentRegistry';
+import { useSyncExternalStore, useEffect, useCallback } from 'react';
+import { Artifact, InboundMessage } from '@multiplayer-base/shared-types';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
+import { subscribeToModel, getModelSnapshot, mountChannel } from '../services/documentModelStore';
 
 interface Props {
   doc?: Artifact;
   channelId?: string;
+  viewHandler?: string;
 }
 
-interface DocState {
-  state: Record<string, unknown>;
-  users: unknown[];
-  temp: Record<string, unknown>;
-}
-
-function getAtPath(obj: Record<string, unknown>, path: string): unknown {
-  return path.split('.').reduce<unknown>((curr, key) => {
-    if (curr == null || typeof curr !== 'object') return undefined;
-    return (curr as Record<string, unknown>)[key];
-  }, obj);
-}
-
-function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
-  const keys = path.split('.');
-  const result = { ...obj };
-  let curr: Record<string, unknown> = result;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    curr[k] = typeof curr[k] === 'object' && curr[k] !== null ? { ...(curr[k] as Record<string, unknown>) } : {};
-    curr = curr[k] as Record<string, unknown>;
-  }
-  curr[keys[keys.length - 1]] = value;
-  return result;
-}
-
-function applyAction(next: Record<string, unknown>, action: ActionItem): Record<string, unknown> {
-  const { actionType, path, value, keys } = action;
-  switch (actionType) {
-    case 'update':
-      return setAtPath(next, path, value);
-    case 'merge': {
-      const existing = (getAtPath(next, path) as Record<string, unknown>) ?? {};
-      return setAtPath(next, path, { ...existing, ...(value as Record<string, unknown>) });
-    }
-    case 'append': {
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const items = Array.isArray(value) ? value : [value];
-      return setAtPath(next, path, [...existing, ...items]);
-    }
-    case 'prepend': {
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const items = Array.isArray(value) ? value : [value];
-      return setAtPath(next, path, [...items, ...existing]);
-    }
-    case 'upsert': {
-      if (!keys?.length) { console.error('applyAction: upsert action missing keys array', action); return next; }
-      const item = value as Record<string, unknown>;
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      const idx = existing.findIndex((el) =>
-        keys.every((k) => (el as Record<string, unknown>)[k] === item[k])
-      );
-      const updated = [...existing];
-      if (idx >= 0) updated[idx] = item; else updated.push(item);
-      return setAtPath(next, path, updated);
-    }
-    case 'remove': {
-      if (!keys?.length) { console.error('applyAction: remove action missing keys array', action); return next; }
-      const matcher = value as Record<string, unknown>;
-      const existing = (getAtPath(next, path) as unknown[]) ?? [];
-      return setAtPath(next, path, existing.filter(
-        (el) => !keys.every((k) => (el as Record<string, unknown>)[k] === matcher[k])
-      ));
-    }
-    default:
-      return next;
-  }
-}
-
-function applyActions(prev: DocState, msg: UpdateStateMessage): DocState {
-  if (!msg.actions?.length) return prev;
-  let next = prev as unknown as Record<string, unknown>;
-  for (const action of msg.actions) {
-    next = applyAction(next, action);
-  }
-  return next as unknown as DocState;
-}
-
-export function LayoutDocumentView({ doc, channelId: channelIdProp }: Props) {
+export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler = 'initialize' }: Props) {
   const resolvedChannelId = channelIdProp ?? doc?.currentChannelId ?? '';
-  const [layoutConfig, setLayoutConfig] = useState<LayoutNode[]>([]);
-  const [docState, setDocState] = useState<DocState>({ state: {}, users: [], temp: {} });
-  const initialized = useRef(false);
-  const channelRef = useRef(resolvedChannelId);
-  channelRef.current = resolvedChannelId;
 
   const emit = useCallback((type: string, payload: Record<string, unknown> = {}) => {
-    eventManager.publish(channelRef.current, {
+    eventManager.publish(resolvedChannelId, {
       type,
       from: 'client' as const,
       to: 'server' as const,
-      channel: channelRef.current,
+      channel: resolvedChannelId,
       timestamp: new Date().toISOString(),
       ...payload,
     } as unknown as InboundMessage);
-  }, []);
-
-  useEffect(() => {
-    const channelId = resolvedChannelId;
-    const unsubscribe = eventManager.subscribe(channelId, (msg: OutboundMessage) => {
-      const m = msg as unknown as Record<string, unknown>;
-      if (m['type'] === 'initialize-client') {
-        const im = msg as unknown as InitializeClientMessage;
-        setLayoutConfig(im.layoutConfig ?? []);
-        setDocState({
-          state: (im.initialState as Record<string, unknown>) ?? {},
-          users: im.users ?? [],
-          temp: {},
-        });
-      } else if (m['type'] === 'update-state') {
-        const um = msg as unknown as UpdateStateMessage;
-        setDocState((prev) => applyActions(prev, um));
-      }
-    });
-    return unsubscribe;
   }, [resolvedChannelId]);
 
   useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      emit('initialize');
-    }
-  }, [emit]);
+    mountChannel(resolvedChannelId, emit, viewHandler);
+  }, [resolvedChannelId, emit, viewHandler]);
 
-  if (layoutConfig.length === 0) {
+  const model = useSyncExternalStore(
+    useCallback((cb) => subscribeToModel(resolvedChannelId, cb), [resolvedChannelId]),
+    useCallback(() => getModelSnapshot(resolvedChannelId), [resolvedChannelId])
+  );
+
+  if (model.layoutConfig.length === 0) {
     return <p className="doc-empty">Loading…</p>;
   }
 
-  return <LayoutRenderer nodes={layoutConfig} state={docState as unknown as Record<string, unknown>} emit={emit} />;
+  return (
+    <LayoutRenderer
+      nodes={model.layoutConfig}
+      state={model.docState as unknown as Record<string, unknown>}
+      emit={emit}
+    />
+  );
 }
