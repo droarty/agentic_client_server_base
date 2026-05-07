@@ -82,7 +82,8 @@ npx nx serve api > /tmp/api.log 2>&1 &
 | GET | `/api/documents/:id` | JWT | Get document (includes messages) |
 
 ## Workflow conventions
-- **Plan mode**: When finished planning, always show the user the plan contents, then ask whether to create a new GitHub issue and PR branch before exiting plan mode.
+- **Plan mode**: When finished planning, show the plan contents, then call ExitPlanMode. Once the user approves, the very first actions before writing any code must be: (1) create a GitHub issue, (2) create and checkout a feature branch (`issue-N-short-description`). Never begin implementation without doing these two steps first.
+- **Branch rule**: ALL code changes must be made on a feature branch. Never commit or make edits directly on main.
 - **GitHub issues**: Always paste the entire plan into the issue body.
 - **PR merges**: Never merge a PR into main. Only the user can merge via GitHub.
 
