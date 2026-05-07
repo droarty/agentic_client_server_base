@@ -25,10 +25,11 @@ const EMPTY_MODEL: DocModel = {
   docState: { state: {}, users: [], temp: {} },
 };
 
-const channelData  = new Map<string, ChannelData>();
-const listeners    = new Map<string, Set<() => void>>();  // key: "channelId:viewHandler"
-const chSubscribed = new Set<string>();
-const vhEmitted    = new Set<string>();                   // key: "channelId:viewHandler"
+const channelData    = new Map<string, ChannelData>();
+const listeners      = new Map<string, Set<() => void>>();  // key: "channelId:viewHandler"
+const chSubscribed   = new Set<string>();
+const vhEmitted      = new Set<string>();                   // key: "channelId:viewHandler"
+const pendingUpdates = new Map<string, UpdateStateMessage[]>();
 
 function getOrCreateChannelData(channelId: string): ChannelData {
   if (!channelData.has(channelId)) {
@@ -163,6 +164,13 @@ function handleMessage(channelId: string, msg: OutboundMessage): void {
         users: im.users ?? [],
         temp: {},
       };
+      const pending = pendingUpdates.get(channelId);
+      if (pending?.length) {
+        pendingUpdates.delete(channelId);
+        for (const um of pending) {
+          data.docState = applyActions(data.docState, um);
+        }
+      }
       rebuildAllSnapshots(data);
     }
 
@@ -172,8 +180,12 @@ function handleMessage(channelId: string, msg: OutboundMessage): void {
     }
   } else if (m['type'] === 'update-state') {
     const data = channelData.get(channelId);
-    if (!data) return;
     const um = msg as unknown as UpdateStateMessage;
+    if (!data?.stateInitialized) {
+      if (!pendingUpdates.has(channelId)) pendingUpdates.set(channelId, []);
+      pendingUpdates.get(channelId)!.push(um);
+      return;
+    }
     data.docState = applyActions(data.docState, um);
     rebuildAllSnapshots(data);
   } else {
