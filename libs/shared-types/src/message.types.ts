@@ -135,7 +135,6 @@ export interface InitializeClientMessage extends Message {
   viewHandler?: string;
   layoutConfig: LayoutNode[];
   initialState?: Record<string, unknown>;
-  users?: unknown[];
 }
 
 export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeClientMessage;

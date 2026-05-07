@@ -4,7 +4,6 @@ import { InboundMessage } from '@multiplayer-base/shared-types';
 
 interface DocState {
   state: Record<string, unknown>;
-  users: unknown[];
   temp: Record<string, unknown>;
 }
 
@@ -22,7 +21,7 @@ interface ChannelData {
 
 const EMPTY_MODEL: DocModel = {
   layoutConfig: [],
-  docState: { state: {}, users: [], temp: {} },
+  docState: { state: {}, temp: {} },
 };
 
 const channelData    = new Map<string, ChannelData>();
@@ -34,7 +33,7 @@ const pendingUpdates = new Map<string, UpdateStateMessage[]>();
 function getOrCreateChannelData(channelId: string): ChannelData {
   if (!channelData.has(channelId)) {
     channelData.set(channelId, {
-      docState: { state: {}, users: [], temp: {} },
+      docState: { state: {}, temp: {} },
       layouts: new Map(),
       snapshots: new Map(),
       stateInitialized: false,
@@ -161,7 +160,6 @@ function handleMessage(channelId: string, msg: OutboundMessage): void {
       data.stateInitialized = true;
       data.docState = {
         state: im.initialState,
-        users: im.users ?? [],
         temp: {},
       };
       const pending = pendingUpdates.get(channelId);

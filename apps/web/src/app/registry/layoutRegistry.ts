@@ -10,9 +10,6 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   fullPanel: lazy(() =>
     import('@/components/layout/FullPanel').then((m) => ({ default: m.FullPanel as ComponentType<LayoutComponentProps> }))
   ),
-  inviteUsers: lazy(() =>
-    import('@/components/layout/InviteUsers').then((m) => ({ default: m.InviteUsers as ComponentType<LayoutComponentProps> }))
-  ),
   chatBody: lazy(() =>
     import('@/components/layout/ChatBody').then((m) => ({ default: m.ChatBody as ComponentType<LayoutComponentProps> }))
   ),

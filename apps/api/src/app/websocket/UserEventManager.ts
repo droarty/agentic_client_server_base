@@ -128,7 +128,7 @@ export class UserEventManager {
         name: 'Dashboard',
         type: 'user-dashboard',
         userId,
-        ...(initialState !== undefined ? { state: initialState, users: [] } : {}),
+        ...(initialState !== undefined ? { state: initialState } : {}),
       });
     }
 
