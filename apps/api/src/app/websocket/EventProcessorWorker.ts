@@ -67,6 +67,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
     const path = action['path'] as string;
     const value = action['value'];
     const keys = action['keys'] as string[] | undefined;
+    if (!path.startsWith('state.')) continue;
 
     switch (actionType) {
       case 'update':

@@ -14,7 +14,7 @@
       "sectionTriggerFields": ["label"],
       "documentSection": [{ "id": "documents", "label": "Documents" }],
       "groupSection":   [{ "id": "groups",    "label": "Groups"    }],
-      "availableTypes": ["configged-chat"]
+      "availableTypes": ["configged-chat", "log-review"]
     }
   },
   "handlers": {
@@ -198,7 +198,15 @@
                 "path": "state.openDocs",
                 "value": "$message.document",
                 "keys": ["_id"]
-              },
+              }
+            ]
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
               {
                 "actionType": "upsert",
                 "path": "temp.documentList",
