@@ -14,7 +14,7 @@
       "sectionTriggerFields": ["label"],
       "documentSection": [{ "id": "documents", "label": "Documents" }],
       "groupSection":   [{ "id": "groups",    "label": "Groups"    }],
-      "availableTypes": ["configged-chat"]
+      "availableTypes": ["configged-chat", "log-review"]
     }
   },
   "handlers": {
@@ -89,7 +89,7 @@
                       "items":         "state.config.documentSection",
                       "idField":       "state.config.sectionIdField",
                       "triggerFields": "state.config.sectionTriggerFields",
-                      "defaultValue":  "state.openAccordions.documents"
+                      "selectedId":    "state.openAccordions.documents"
                     },
                     "emits": { "select": "save-documents-accordion" },
                     "children": [
@@ -111,7 +111,7 @@
                       "items":         "state.config.groupSection",
                       "idField":       "state.config.sectionIdField",
                       "triggerFields": "state.config.sectionTriggerFields",
-                      "defaultValue":  "state.openAccordions.groups"
+                      "selectedId":    "state.openAccordions.groups"
                     },
                     "emits": { "select": "save-groups-accordion" }
                   }
@@ -198,7 +198,15 @@
                 "path": "state.openDocs",
                 "value": "$message.document",
                 "keys": ["_id"]
-              },
+              }
+            ]
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
               {
                 "actionType": "upsert",
                 "path": "temp.documentList",

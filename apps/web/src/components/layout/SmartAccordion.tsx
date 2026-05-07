@@ -28,7 +28,7 @@ export function SmartAccordion({
   onSelect,
   children,
 }: Props) {
-  const [openValue, setOpenValue] = useState<string>('');
+  const [openValue, setOpenValue] = useState<string>(typeof selectedId === 'string' ? selectedId : '');
 
   const handleValueChange = (value: string) => {
     setOpenValue(value);

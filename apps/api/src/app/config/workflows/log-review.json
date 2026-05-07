@@ -7,31 +7,27 @@
       "triggerFields": ["name", "type", "createdAt"],
       "contentIdField": "_id",
       "contentTriggerFields": ["handlerName", "createdAt", "executionId"]
-    }
+    },
+    "selectedDocumentId": null,
+    "selectedLogId": null
   },
   "handlers": {
     "initialize": {
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-reviewable-documents", "responseType": "initialize-document" }
+          "query": { "name": "get-document", "responseType": "initialize-document" }
         }
       ]
     },
     "initialize-document": {
+      "transformer": "simple",
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-client",
-            "initialState": {
-              "config": {
-                "idField": "_id",
-                "triggerFields": ["name", "type", "createdAt"],
-                "contentIdField": "_id",
-                "contentTriggerFields": ["handlerName", "createdAt", "executionId"]
-              }
-            },
+            "initialState": "$message.document.state",
             "layoutConfig": [
               {
                 "componentType": "fullPanel",
@@ -49,7 +45,7 @@
                       {
                         "componentType": "smartAccordion",
                         "props": {
-                          "items": "state.selectedDocumentLogs",
+                          "items": "temp.selectedDocumentLogs",
                           "idField": "state.config.contentIdField",
                           "triggerFields": "state.config.contentTriggerFields",
                           "selectedId": "state.selectedLogId"
@@ -58,7 +54,7 @@
                         "children": [
                           {
                             "componentType": "logTreePanel",
-                            "props": { "treeData": "state.selectedLogTree" }
+                            "props": { "treeData": "temp.selectedLogTree" }
                           }
                         ]
                       }
@@ -70,11 +66,56 @@
           }
         },
         {
+          "route": "database-query",
+          "query": { "name": "get-reviewable-documents", "responseType": "document-list-result" }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "rehydrate-workflow-logs", "responseType": "rehydrate-logs-result" }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "rehydrate-log-tree", "responseType": "rehydrate-tree-result" }
+        }
+      ]
+    },
+    "document-list-result": {
+      "transformer": "simple",
+      "steps": [
+        {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "temp.documentList", "value": "$message.documents" }
+            ]
+          }
+        }
+      ]
+    },
+    "rehydrate-logs-result": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
+            ]
+          }
+        }
+      ]
+    },
+    "rehydrate-tree-result": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "temp.selectedLogTree", "value": "$message.treeData" }
             ]
           }
         }
@@ -90,14 +131,23 @@
       ]
     },
     "workflow-logs-result": {
+      "transformer": "simple",
       "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "state.selectedDocumentId", "value": "$message.id" }
+            ]
+          }
+        },
         {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "state.selectedDocumentId", "value": "$message.id" },
-              { "actionType": "update", "path": "state.selectedDocumentLogs", "value": "$message.workflowLogs" }
+              { "actionType": "update", "path": "temp.selectedDocumentLogs", "value": "$message.workflowLogs" }
             ]
           }
         }
@@ -113,14 +163,23 @@
       ]
     },
     "log-tree-result": {
+      "transformer": "simple",
       "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "state.selectedLogId", "value": "$message.id" }
+            ]
+          }
+        },
         {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "state.selectedLogId", "value": "$message.id" },
-              { "actionType": "update", "path": "state.selectedLogTree", "value": "$message.treeData" }
+              { "actionType": "update", "path": "temp.selectedLogTree", "value": "$message.treeData" }
             ]
           }
         }

@@ -67,6 +67,7 @@ async function persistToDatabase(outbound: OutboundMessage): Promise<void> {
     const path = action['path'] as string;
     const value = action['value'];
     const keys = action['keys'] as string[] | undefined;
+    if (!path.startsWith('state.')) continue;
 
     switch (actionType) {
       case 'update':
@@ -163,7 +164,7 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .collection('artifacts')
         .find(
           { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
-          { projection: { _id: 1, name: 1, type: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+          { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
         )
         .toArray();
       return { documents: JSON.parse(JSON.stringify(rawDocs)) };
@@ -263,49 +264,48 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         .toArray();
       return { id, workflowLogs: JSON.parse(JSON.stringify(logs)) };
     }
+    async function buildTree(executionId: string, channel: string): Promise<unknown[]> {
+      const routes = await db
+        .collection('workflowlogs')
+        .find({ channel, executionId, logType: { $in: ['route', 'error'] } })
+        .sort({ stepIndex: 1 })
+        .toArray();
+      const children: unknown[] = [];
+      for (const route of routes) {
+        const routeNode: Record<string, unknown> = {
+          id: String(route._id),
+          name: route.logType === 'error'
+            ? `[${route.stepIndex ?? '?'}] error: ${route.errorMessage ?? ''}`
+            : `[${route.stepIndex ?? '?'}] route: ${Array.isArray(route.route) ? (route.route as string[]).join(', ') : route.route}`,
+          rawData: JSON.parse(JSON.stringify(route)),
+          children: [],
+        };
+        const subHandler = await db.collection('workflowlogs').findOne({
+          channel,
+          parentExecutionId: executionId,
+          stepIndex: route.stepIndex,
+          logType: 'handler',
+        });
+        if (subHandler) {
+          const subChildren = await buildTree(subHandler.executionId, channel);
+          (routeNode.children as unknown[]).push({
+            id: String(subHandler._id),
+            name: `handler: ${subHandler.handlerName}`,
+            rawData: JSON.parse(JSON.stringify(subHandler)),
+            children: subChildren,
+          });
+        }
+        children.push(routeNode);
+      }
+      return children;
+    }
+
     if (queryName === 'get-log-tree') {
       const id = context.message['id'] as string | undefined;
       if (!id) return { id: null, treeData: [] };
       const { ObjectId } = await import('mongodb');
       const root = await db.collection('workflowlogs').findOne({ _id: new ObjectId(id) });
       if (!root) return { id, treeData: [] };
-
-      async function buildTree(executionId: string, channel: string): Promise<unknown[]> {
-        const routes = await db
-          .collection('workflowlogs')
-          .find({ channel, executionId, logType: { $in: ['route', 'error'] } })
-          .sort({ stepIndex: 1 })
-          .toArray();
-        const children: unknown[] = [];
-        for (const route of routes) {
-          const routeNode: Record<string, unknown> = {
-            id: String(route._id),
-            name: route.logType === 'error'
-              ? `[${route.stepIndex ?? '?'}] error: ${route.errorMessage ?? ''}`
-              : `[${route.stepIndex ?? '?'}] route: ${Array.isArray(route.route) ? (route.route as string[]).join(', ') : route.route}`,
-            rawData: JSON.parse(JSON.stringify(route)),
-            children: [],
-          };
-          const subHandler = await db.collection('workflowlogs').findOne({
-            channel,
-            parentExecutionId: executionId,
-            stepIndex: route.stepIndex,
-            logType: 'handler',
-          });
-          if (subHandler) {
-            const subChildren = await buildTree(subHandler.executionId, channel);
-            (routeNode.children as unknown[]).push({
-              id: String(subHandler._id),
-              name: `handler: ${subHandler.handlerName}`,
-              rawData: JSON.parse(JSON.stringify(subHandler)),
-              children: subChildren,
-            });
-          }
-          children.push(routeNode);
-        }
-        return children;
-      }
-
       const rootChildren = await buildTree(root.executionId, root.channel);
       const treeData = [{
         id: String(root._id),
@@ -314,6 +314,40 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
         children: rootChildren,
       }];
       return { id, treeData };
+    }
+    if (queryName === 'rehydrate-workflow-logs') {
+      const document = context.message['document'] as Record<string, unknown> | null;
+      const docState = document?.['state'] as Record<string, unknown> | undefined;
+      const id = docState?.['selectedDocumentId'] as string | undefined;
+      if (!id) return { workflowLogs: [] };
+      const { ObjectId } = await import('mongodb');
+      const doc = await db.collection('artifacts').findOne(
+        { _id: new ObjectId(id) },
+        { projection: { currentChannelId: 1 } }
+      );
+      if (!doc) return { workflowLogs: [] };
+      const logs = await db.collection('workflowlogs')
+        .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
+        .sort({ createdAt: -1 })
+        .toArray();
+      return { workflowLogs: JSON.parse(JSON.stringify(logs)) };
+    }
+    if (queryName === 'rehydrate-log-tree') {
+      const document = context.message['document'] as Record<string, unknown> | null;
+      const docState = document?.['state'] as Record<string, unknown> | undefined;
+      const id = docState?.['selectedLogId'] as string | undefined;
+      if (!id) return { treeData: [] };
+      const { ObjectId } = await import('mongodb');
+      const root = await db.collection('workflowlogs').findOne({ _id: new ObjectId(id) });
+      if (!root) return { treeData: [] };
+      const rootChildren = await buildTree(root.executionId, root.channel);
+      const treeData = [{
+        id: String(root._id),
+        name: `handler: ${root.handlerName}`,
+        rawData: JSON.parse(JSON.stringify(root)),
+        children: rootChildren,
+      }];
+      return { treeData };
     }
 
     return {};
