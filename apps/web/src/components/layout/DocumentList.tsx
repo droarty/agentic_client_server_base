@@ -6,7 +6,7 @@ interface DocItem {
 
 interface Props {
   items?: DocItem[];
-  onSelect?: (payload: { id: string }) => void;
+  onSelect?: (payload: { documentId: string }) => void;
   [key: string]: unknown;
 }
 
@@ -21,7 +21,7 @@ export function DocumentList({ items = [], onSelect }: Props) {
         <li
           key={doc._id}
           className="doc-list-item"
-          onClick={() => onSelect?.({ id: doc._id })}
+          onClick={() => onSelect?.({ documentId: doc._id })}
         >
           <span className="doc-name">{doc.name}</span>
           <span className="doc-type">{doc.type}</span>

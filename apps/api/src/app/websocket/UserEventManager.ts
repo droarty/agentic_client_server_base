@@ -1,3 +1,5 @@
+import * as path from 'path';
+import * as fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { randomUUID } from 'crypto';
@@ -121,14 +123,26 @@ export class UserEventManager {
   }
 
   private async ensureDashboardDocument(userId: string): Promise<string> {
+    const configPath = path.join(__dirname, '..', 'config', 'workflows', 'user-dashboard.json');
+    let initialState: Record<string, unknown> | undefined;
+    if (fs.existsSync(configPath)) {
+      const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+        initialState?: Record<string, unknown>;
+      };
+      initialState = wfConfig.initialState;
+    }
+
     let doc = await ArtifactModel.findOne({ type: 'user-dashboard', userId });
+
     if (!doc) {
       doc = await ArtifactModel.create({
         name: 'Dashboard',
         type: 'user-dashboard',
         userId,
+        ...(initialState !== undefined ? { state: initialState, users: [] } : {}),
       });
     }
+
     return doc.currentChannelId;
   }
 
