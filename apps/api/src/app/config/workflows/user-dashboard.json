@@ -1,16 +1,83 @@
 {
   "name": "user-dashboard-workflow",
   "version": "1.0.0",
+  "initialState": {
+    "openDocs": [],
+    "config": {
+      "sectionIdField": "id",
+      "sectionTriggerFields": ["label"],
+      "documentSection": [{ "id": "documents", "label": "Documents" }],
+      "groupSection":   [{ "id": "groups",    "label": "Groups"    }],
+      "availableTypes": ["configged-chat"]
+    }
+  },
   "handlers": {
     "initialize": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "database-query",
-          "query": {
-            "name": "get-user-documents",
-            "responseType": "document-list-result"
+          "query": { "name": "get-document", "responseType": "initialize-document" }
+        }
+      ]
+    },
+    "initialize-document": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "initialState": "$message.document.state",
+            "layoutConfig": [
+              {
+                "componentType": "smartTabs",
+                "props": {
+                  "openDocs":   "state.openDocs",
+                  "loadedDocs": "temp.loadedDocs"
+                },
+                "emits": { "firstActivate": "display-document" },
+                "children": [
+                  {
+                    "componentType": "fullPanel",
+                    "children": [
+                      {
+                        "componentType": "smartAccordion",
+                        "props": {
+                          "items":         "state.config.documentSection",
+                          "idField":       "state.config.sectionIdField",
+                          "triggerFields": "state.config.sectionTriggerFields"
+                        },
+                        "children": [
+                          {
+                            "componentType": "documentList",
+                            "props": { "items": "temp.documentList" },
+                            "emits": { "select": "select-document" }
+                          },
+                          {
+                            "componentType": "newDocument",
+                            "props": { "availableTypes": "state.config.availableTypes" },
+                            "emits": { "create": "create-document" }
+                          }
+                        ]
+                      },
+                      {
+                        "componentType": "smartAccordion",
+                        "props": {
+                          "items":         "state.config.groupSection",
+                          "idField":       "state.config.sectionIdField",
+                          "triggerFields": "state.config.sectionTriggerFields"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
         }
       ]
     },
@@ -18,25 +85,19 @@
       "steps": [
         {
           "route": "database-query",
-          "query": {
-            "name": "get-user-documents",
-            "responseType": "document-list-result"
-          }
+          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
         }
       ]
     },
     "document-list-result": {
+      "transformer": "simple",
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              {
-                "actionType": "append",
-                "path": "documents",
-                "value": "$message.documents"
-              }
+              { "actionType": "update", "path": "temp.documentList", "value": "$message.documents" }
             ]
           }
         }
@@ -46,14 +107,39 @@
       "steps": [
         {
           "route": "database-query",
-          "query": {
-            "name": "get-document",
-            "responseType": "display-document-result"
-          }
+          "query": { "name": "get-document", "responseType": "display-document-result" }
         }
       ]
     },
     "display-document-result": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "upsert",
+                "path": "state.openDocs",
+                "value": "$message.document",
+                "keys": ["_id"]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "display-document": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-document", "responseType": "load-document-result" }
+        }
+      ]
+    },
+    "load-document-result": {
+      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -61,9 +147,10 @@
             "clientMessageType": "update-state",
             "actions": [
               {
-                "actionType": "append",
-                "path": "selectedDocument",
-                "value": "$message.document"
+                "actionType": "upsert",
+                "path": "temp.loadedDocs",
+                "value": "$message.document",
+                "keys": ["_id"]
               }
             ]
           }
@@ -76,29 +163,29 @@
       "steps": [
         {
           "route": "database-query",
-          "query": {
-            "name": "create-document",
-            "responseType": "document-created-result"
-          }
+          "query": { "name": "create-document", "responseType": "document-created-result" }
         }
       ]
     },
     "document-created-result": {
+      "transformer": "simple",
       "steps": [
         {
-          "route": "client",
+          "route": ["client", "database"],
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
               {
-                "actionType": "append",
-                "path": "documents",
-                "value": "$message.documents"
+                "actionType": "upsert",
+                "path": "state.openDocs",
+                "value": "$message.document",
+                "keys": ["_id"]
               },
               {
-                "actionType": "append",
-                "path": "selectedDocument",
-                "value": "$message.document"
+                "actionType": "upsert",
+                "path": "temp.documentList",
+                "value": "$message.document",
+                "keys": ["_id"]
               }
             ]
           }

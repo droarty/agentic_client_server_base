@@ -25,6 +25,15 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   logTreePanel: lazy(() =>
     import('@/components/layout/LogTreePanel').then((m) => ({ default: m.LogTreePanel as ComponentType<LayoutComponentProps> }))
   ),
+  smartTabs: lazy(() =>
+    import('@/components/layout/SmartTabs').then((m) => ({ default: m.SmartTabs as ComponentType<LayoutComponentProps> }))
+  ),
+  documentList: lazy(() =>
+    import('@/components/layout/DocumentList').then((m) => ({ default: m.DocumentList as ComponentType<LayoutComponentProps> }))
+  ),
+  newDocument: lazy(() =>
+    import('@/components/layout/NewDocument').then((m) => ({ default: m.NewDocument as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
