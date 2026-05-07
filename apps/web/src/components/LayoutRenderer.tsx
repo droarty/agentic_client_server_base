@@ -22,7 +22,7 @@ function resolveProps(
   if (!props) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    result[key] = resolveDotPath(state, value);
+    result[key] = resolveDotPath(state, value.startsWith('$') ? value.slice(1) : value);
   }
   return result;
 }
@@ -46,7 +46,7 @@ function resolveChildTemplate(
   emit: Props['emit']
 ): { dynamicChildren: ReactNode[]; dynamicTabIds: string[]; dynamicTabTitles: string[] } {
   const { source, idField, titleField, template } = childTemplate;
-  const items = (resolveDotPath(state, source) as Record<string, unknown>[]) ?? [];
+  const items = (resolveDotPath(state, source.startsWith('$') ? source.slice(1) : source) as Record<string, unknown>[]) ?? [];
   return {
     dynamicChildren: items.map((item, i) => (
       <Suspense key={String(item[idField] ?? i)} fallback={null}>

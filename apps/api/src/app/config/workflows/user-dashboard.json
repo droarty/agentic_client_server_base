@@ -38,22 +38,22 @@
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
-                "props": { "tabTitles": "state.config.staticTabTitles" },
+                "props": { "tabTitles": "$state.config.staticTabTitles" },
                 "childTemplate": {
-                  "source": "state.openDocs",
+                  "source": "$state.openDocs",
                   "idField": "_id",
                   "titleField": "name",
                   "template": {
                     "componentType": "layoutDocumentView",
-                    "props": { "channelId": "item.currentChannelId" }
+                    "props": { "channelId": "$item.currentChannelId" }
                   }
                 },
                 "children": [
                   {
                     "componentType": "layoutDocumentView",
                     "props": {
-                      "channelId": "temp._channelId",
-                      "viewHandler": "state.config.userManagementViewHandler"
+                      "channelId": "$temp._channelId",
+                      "viewHandler": "$state.config.userManagementViewHandler"
                     }
                   }
                 ]
@@ -66,7 +66,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp._channelId", "value": "$message.document.currentChannelId" }
+              { "actionType": "update", "path": "$temp._channelId", "value": "$message.document.currentChannelId" }
             ]
           }
         }
@@ -86,21 +86,21 @@
                   {
                     "componentType": "smartAccordion",
                     "props": {
-                      "items":         "state.config.documentSection",
-                      "idField":       "state.config.sectionIdField",
-                      "triggerFields": "state.config.sectionTriggerFields",
-                      "selectedId":    "state.openAccordions.documents"
+                      "items":         "$state.config.documentSection",
+                      "idField":       "$state.config.sectionIdField",
+                      "triggerFields": "$state.config.sectionTriggerFields",
+                      "selectedId":    "$state.openAccordions.documents"
                     },
                     "emits": { "select": "save-documents-accordion" },
                     "children": [
                       {
                         "componentType": "documentList",
-                        "props": { "items": "temp.documentList" },
+                        "props": { "items": "$temp.documentList" },
                         "emits": { "select": "select-document" }
                       },
                       {
                         "componentType": "newDocument",
-                        "props": { "availableTypes": "state.config.availableTypes" },
+                        "props": { "availableTypes": "$state.config.availableTypes" },
                         "emits": { "create": "create-document" }
                       }
                     ]
@@ -108,10 +108,10 @@
                   {
                     "componentType": "smartAccordion",
                     "props": {
-                      "items":         "state.config.groupSection",
-                      "idField":       "state.config.sectionIdField",
-                      "triggerFields": "state.config.sectionTriggerFields",
-                      "selectedId":    "state.openAccordions.groups"
+                      "items":         "$state.config.groupSection",
+                      "idField":       "$state.config.sectionIdField",
+                      "triggerFields": "$state.config.sectionTriggerFields",
+                      "selectedId":    "$state.openAccordions.groups"
                     },
                     "emits": { "select": "save-groups-accordion" }
                   }
@@ -142,7 +142,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "temp.documentList", "value": "$message.documents" }
+              { "actionType": "update", "path": "$temp.documentList", "value": "$message.documents" }
             ]
           }
         }
@@ -166,7 +166,7 @@
             "actions": [
               {
                 "actionType": "upsert",
-                "path": "state.openDocs",
+                "path": "$state.openDocs",
                 "value": "$message.document",
                 "keys": ["_id"]
               }
@@ -195,7 +195,7 @@
             "actions": [
               {
                 "actionType": "upsert",
-                "path": "state.openDocs",
+                "path": "$state.openDocs",
                 "value": "$message.document",
                 "keys": ["_id"]
               }
@@ -209,7 +209,7 @@
             "actions": [
               {
                 "actionType": "upsert",
-                "path": "temp.documentList",
+                "path": "$temp.documentList",
                 "value": "$message.document",
                 "keys": ["_id"]
               }
@@ -226,7 +226,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "state.openAccordions.documents", "value": "$message.id" }
+              { "actionType": "update", "path": "$state.openAccordions.documents", "value": "$message.id" }
             ]
           }
         }
@@ -240,7 +240,7 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "state.openAccordions.groups", "value": "$message.id" }
+              { "actionType": "update", "path": "$state.openAccordions.groups", "value": "$message.id" }
             ]
           }
         }

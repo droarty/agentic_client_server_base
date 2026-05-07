@@ -36,7 +36,7 @@
                     "locationId": "invite-users-container",
                     "props": {
                       "users": "users",
-                      "allUsers": "temp.allUsers"
+                      "allUsers": "$temp.allUsers"
                     },
                     "emits": {
                       "addUser": "add-user"
@@ -47,7 +47,7 @@
                     "targetId": "chat-messages",
                     "locationId": "chat-messages",
                     "props": {
-                      "messages": "state.chatMessages"
+                      "messages": "$state.chatMessages"
                     }
                   },
                   {
@@ -82,7 +82,7 @@
             "actions": [
               {
                 "actionType": "append",
-                "path": "temp.allUsers",
+                "path": "$temp.allUsers",
                 "value": "$message.users"
               }
             ]
@@ -142,7 +142,7 @@
             "actions": [
               {
                 "actionType": "append",
-                "path": "state.chatMessages",
+                "path": "$state.chatMessages",
                 "value": [
                   {
                     "messageType": "valid-text",
@@ -169,7 +169,7 @@
             "actions": [
               {
                 "actionType": "append",
-                "path": "state.chatMessages",
+                "path": "$state.chatMessages",
                 "value": [
                   {
                     "messageType": "inappropriate-text",

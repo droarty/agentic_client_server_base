@@ -79,6 +79,9 @@ function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown 
 
 function resolveSimpleValue(value: unknown, context: WorkflowContext): unknown {
   if (typeof value === 'string' && value.startsWith('$')) {
+    if (value.startsWith('$state.') || value.startsWith('$temp.') || value.startsWith('$item.')) {
+      return value;
+    }
     const [root, ...rest] = value.slice(1).split('.');
     const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
     if (rootObj == null) return undefined;
