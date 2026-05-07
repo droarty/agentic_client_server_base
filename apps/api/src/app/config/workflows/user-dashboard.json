@@ -89,7 +89,7 @@
                       "items":         "state.config.documentSection",
                       "idField":       "state.config.sectionIdField",
                       "triggerFields": "state.config.sectionTriggerFields",
-                      "defaultValue":  "state.openAccordions.documents"
+                      "selectedId":    "state.openAccordions.documents"
                     },
                     "emits": { "select": "save-documents-accordion" },
                     "children": [
@@ -111,7 +111,7 @@
                       "items":         "state.config.groupSection",
                       "idField":       "state.config.sectionIdField",
                       "triggerFields": "state.config.sectionTriggerFields",
-                      "defaultValue":  "state.openAccordions.groups"
+                      "selectedId":    "state.openAccordions.groups"
                     },
                     "emits": { "select": "save-groups-accordion" }
                   }
