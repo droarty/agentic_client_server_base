@@ -59,23 +59,34 @@
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
-                "props": { "tabTitles": "$state.config.staticTabTitles" },
                 "childTemplate": {
                   "source": "$state.openDocs",
                   "idField": "_id",
                   "titleField": "name",
                   "template": {
-                    "componentType": "layoutDocumentView",
-                    "props": { "channelId": "$item.currentChannelId" }
+                    "componentType": "smartTab",
+                    "props": { "id": "$item._id", "title": "$item.name" },
+                    "children": [
+                      {
+                        "componentType": "layoutDocumentView",
+                        "props": { "channelId": "$item.currentChannelId" }
+                      }
+                    ]
                   }
                 },
                 "children": [
                   {
-                    "componentType": "layoutDocumentView",
-                    "props": {
-                      "channelId": "$temp._channelId",
-                      "viewHandler": "$state.config.userManagementViewHandler"
-                    }
+                    "componentType": "smartTab",
+                    "props": { "title": "Dashboard" },
+                    "children": [
+                      {
+                        "componentType": "layoutDocumentView",
+                        "props": {
+                          "channelId": "$temp._channelId",
+                          "viewHandler": "$state.config.userManagementViewHandler"
+                        }
+                      }
+                    ]
                   }
                 ]
               }
