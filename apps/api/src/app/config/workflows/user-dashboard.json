@@ -8,7 +8,6 @@
       "groups": "groups"
     },
     "config": {
-      "staticTabTitles": ["Dashboard"],
       "userManagementViewHandler": "userManagementView",
       "sectionIdField": "id",
       "sectionTriggerFields": ["label"],
@@ -59,23 +58,35 @@
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
-                "props": { "tabTitles": "$state.config.staticTabTitles" },
-                "childTemplate": {
-                  "source": "$state.openDocs",
-                  "idField": "_id",
-                  "titleField": "name",
-                  "template": {
-                    "componentType": "layoutDocumentView",
-                    "props": { "channelId": "$item.currentChannelId" }
-                  }
-                },
                 "children": [
                   {
-                    "componentType": "layoutDocumentView",
-                    "props": {
-                      "channelId": "$temp._channelId",
-                      "viewHandler": "$state.config.userManagementViewHandler"
-                    }
+                    "componentType": "smartTab",
+                    "props": { "title": "Dashboard" },
+                    "children": [
+                      {
+                        "componentType": "layoutDocumentView",
+                        "props": {
+                          "channelId": "$temp._channelId",
+                          "viewHandler": "$state.config.userManagementViewHandler"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "forEach",
+                    "props": { "source": "$state.openDocs" },
+                    "children": [
+                      {
+                        "componentType": "smartTab",
+                        "props": { "id": "$item._id", "title": "$item.name" },
+                        "children": [
+                          {
+                            "componentType": "layoutDocumentView",
+                            "props": { "channelId": "$item.currentChannelId" }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 ]
               }
