@@ -1,11 +1,15 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # multiplayer_base
 
 Full-stack Nx monorepo — a base for multiplayer applications built incrementally via numbered steps in `setup.md`.
 
 ## Stack
-- **Monorepo:** Nx 20.x with npm workspaces
+- **Monorepo:** Nx 20.x with pnpm workspaces
 - **Backend:** Node.js + Express + TypeScript (ts-node in dev, nodemon watch)
-- **Frontend:** React 18 + React Router v6, bundled with esbuild
+- **Frontend:** React 19 + React Router v6, bundled with esbuild
 - **Database:** MongoDB + Mongoose
 - **Cache / PubSub:** Redis + ioredis
 - **Auth:** JWT (email + userId in payload) + bcryptjs + Google OAuth 2.0
@@ -24,13 +28,14 @@ Full-stack Nx monorepo — a base for multiplayer applications built incremental
 
 ## Key commands
 ```bash
-npx nx serve api        # API dev server on :3000 (nodemon + ts-node)
-npx nx serve web        # Web dev server on :4200 (esbuild watch)
-npx nx build api        # Production build → dist/apps/api
-npx nx build web        # Production build → dist/apps/web
-npx nx test api         # Jest unit tests
-npx nx test api-e2e     # Supertest integration tests (requires MongoDB)
-npx nx e2e web-e2e      # WebdriverIO e2e tests (requires running servers)
+pnpm install           # install / update dependencies (npm install conflicts with pnpm layout)
+npx nx serve api       # API dev server on :3000 (nodemon + ts-node)
+npx nx serve web       # Web dev server on :4200 (esbuild watch)
+npx nx build api       # Production build → dist/apps/api
+npx nx build web       # Production build → dist/apps/web
+npx nx test api        # Jest unit tests
+npx nx test api-e2e    # Supertest integration tests (requires MongoDB)
+npx nx e2e web-e2e     # WebdriverIO e2e tests (requires running servers)
 ```
 
 ## Starting / restarting servers
@@ -54,19 +59,46 @@ npm run restart:both   # restart both in parallel, verifies both
 4. `EventProcessorWorker` transforms inbound → outbound, looks up channel sockets in Redis, persists outbound message to MongoDB, publishes `DeliveryInstruction` to Redis pub/sub
 5. All servers' `redisSub` receive the instruction and deliver frames to their local sockets
 
-### Message types (`libs/shared-types/src/message.types.ts`)
-- **Inbound** (client → server): `AddTextMessage`, `AddColorfulTextMessage`
-- **Outbound** (server → client): `DisplayTextMessage`, `DisplayColorfulTextMessage`
-- **Protocol envelopes**: `WsClientMessage`, `WsServerMessage`
+### Key message types (`libs/shared-types/src/message.types.ts`)
+- **`initialize-client`** (server → client): carries `layoutConfig` (component tree for a view) and/or `initialState` (document state seed)
+- **`update-state`** (server → client): carries `ActionItem[]` mutations applied to client-side `DocState`
+- **`WsClientMessage`**: auth, subscribe, channel-message envelopes sent by the browser
+- **`WsServerMessage`**: auth_success / auth_error / channel-message envelopes sent by the server
 
 ### Document / Channel model
-- `ChatDocument` (MongoDB) has a unique `currentChannelId` (UUID) — this is the WebSocket channel
-- Messages are persisted as embedded `OutboundMessage[]` on the document
+- Each artifact (MongoDB) has a unique `currentChannelId` (UUID) — this is the WebSocket channel
+- State is stored on the artifact as `state` (persisted via `$state.*` paths) and kept ephemerally as `temp` (`$temp.*` paths, never written to DB)
 - Subscribing/unsubscribing updates Redis SETs: `channel:<uuid>` (socketIds) and `socket:<id>:channels`
 
-### Dynamic component registries (frontend)
-- `documentRegistry.ts` — maps document `type` → `React.lazy` component (e.g. `'chat'` → `ChatDocumentView`)
-- `messageRegistry.ts` — maps message `type` → `React.lazy` component (e.g. `'display-text'` → `DisplayTextMessage`)
+### Workflow engine
+Artifact behavior is fully driven by JSON workflow configs in `apps/api/src/app/config/workflows/` — one file per artifact type (`user-dashboard.json`, `configged-chat.json`, `log-review.json`).
+
+Each config has:
+- `initialState` — seeded into MongoDB when the artifact is created
+- `handlers` map — keyed by message type; each handler is a sequence of steps
+
+Step route values:
+| Route | Effect |
+|-------|--------|
+| `client` | Send outbound message to all channel subscribers |
+| `database` | Persist `update-state` actions to MongoDB |
+| `database-query` | Run a named query, recursively invoke another handler with the result |
+| `ai` | Send text to Claude for moderation; response type triggers another handler |
+
+`WorkflowEngine` (`apps/api/src/app/websocket/WorkflowEngine.ts`) executes handlers. `EventProcessorWorker` (`apps/api/src/app/websocket/EventProcessorWorker.ts`) owns all queries, persistence, and Redis publishing.
+
+**Transforms** use simple dot-path references: `$message.*`, `$state.*`, `$temp.*`, `$document.*`. `$state.*` paths are persisted; `$temp.*` are ephemeral.
+
+### Artifact loading (client)
+When `LayoutDocumentView` mounts on a channel it sends **two independent messages**:
+
+1. **`initializeState`** — sent once per channel; triggers `initializeState` handler in the workflow JSON, which fetches the document and responds with `initialize-client` carrying `initialState`
+2. **view handler** (e.g. `defaultView`, `userManagementView`) — sent once per channel+view; triggers the corresponding handler, which responds with `initialize-client` carrying `layoutConfig`
+
+`documentModelStore.ts` gates rendering until both `stateInitialized` and a layout for the requested viewHandler have been received. `update-state` messages that arrive before `initialize-client` (state) are queued in `pendingUpdates` and replayed in order once state is initialized.
+
+### Layout component registry
+`apps/web/src/app/registry/layoutRegistry.ts` maps `componentType` strings from workflow JSON `layoutConfig` nodes to `React.lazy` components. `LayoutRenderer` (`apps/web/src/components/LayoutRenderer.tsx`) walks the layout tree, resolves `$state.*` / `$temp.*` prop references against live `DocState`, and renders the component tree.
 
 ## API routes
 | Method | Path | Auth | Description |
@@ -94,8 +126,8 @@ npm run restart:both   # restart both in parallel, verifies both
 - **Shared-types changes** require an API server restart (nodemon only watches `apps/api/src/`) — run `npm run restart:api` automatically, no confirmation needed
 - **senderEmail** is injected server-side by `UserEventManager` — clients never set it
 - **One-time OAuth codes**: 64-char hex, 60s TTL, single-use (stored in Redis)
-- **React Strict Mode** double-invokes effects — use `useRef` guards for one-shot operations (see `OAuthCallbackPage`)
-- **Dynamic imports**: always use `React.lazy` + `Suspense` for document and message components
+- **React 19 ref pattern**: all `components/ui/` components accept `ref` as a regular prop — no `forwardRef`. For Radix UI wrappers use `ComponentPropsWithRef<T>` (includes `ref`); for HTML wrappers add `ref?: React.Ref<Element>` to the props interface
+- **Dynamic imports**: always use `React.lazy` + `Suspense` for layout components registered in `layoutRegistry.ts`
 
 ## Step plan
-Steps are defined in `setup.md`. Steps 1–16 are complete. Current step: **17**.
+Steps are defined in `setup.md`. Steps 1–17+ are complete.
