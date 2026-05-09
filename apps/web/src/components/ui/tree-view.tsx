@@ -22,6 +22,7 @@ export interface TreeDataItem {
 }
 
 type TreeProps = React.HTMLAttributes<HTMLDivElement> & {
+  ref?: React.Ref<HTMLDivElement>;
   data: TreeDataItem[] | TreeDataItem;
   initialSelectedItemId?: string;
   onSelectChange?: (item: TreeDataItem | undefined) => void;
@@ -30,55 +31,53 @@ type TreeProps = React.HTMLAttributes<HTMLDivElement> & {
   defaultLeafIcon?: React.ComponentType<{ className?: string }>;
 };
 
-const TreeView = React.forwardRef<HTMLDivElement, TreeProps>(
-  ({ data, initialSelectedItemId, onSelectChange, expandAll, defaultLeafIcon, defaultNodeIcon, className, ...props }, ref) => {
-    const [selectedItemId, setSelectedItemId] = React.useState<string | undefined>(initialSelectedItemId);
+function TreeView({ ref, data, initialSelectedItemId, onSelectChange, expandAll, defaultLeafIcon, defaultNodeIcon, className, ...props }: TreeProps) {
+  const [selectedItemId, setSelectedItemId] = React.useState<string | undefined>(initialSelectedItemId);
 
-    const handleSelectChange = React.useCallback(
-      (item: TreeDataItem | undefined) => {
-        setSelectedItemId(item?.id);
-        onSelectChange?.(item);
-      },
-      [onSelectChange]
-    );
+  const handleSelectChange = React.useCallback(
+    (item: TreeDataItem | undefined) => {
+      setSelectedItemId(item?.id);
+      onSelectChange?.(item);
+    },
+    [onSelectChange]
+  );
 
-    const expandedItemIds = React.useMemo(() => {
-      if (!initialSelectedItemId) return [] as string[];
-      const ids: string[] = [];
-      function walkTreeItems(items: TreeDataItem[] | TreeDataItem, targetId: string): boolean {
-        if (Array.isArray(items)) {
-          for (const item of items) {
-            ids.push(item.id);
-            if (walkTreeItems(item, targetId) && !expandAll) return true;
-            if (!expandAll) ids.pop();
-          }
-        } else if (!expandAll && items.id === targetId) {
-          return true;
-        } else if (items.children) {
-          return walkTreeItems(items.children, targetId);
+  const expandedItemIds = React.useMemo(() => {
+    if (!initialSelectedItemId) return [] as string[];
+    const ids: string[] = [];
+    function walkTreeItems(items: TreeDataItem[] | TreeDataItem, targetId: string): boolean {
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          ids.push(item.id);
+          if (walkTreeItems(item, targetId) && !expandAll) return true;
+          if (!expandAll) ids.pop();
         }
-        return false;
+      } else if (!expandAll && items.id === targetId) {
+        return true;
+      } else if (items.children) {
+        return walkTreeItems(items.children, targetId);
       }
-      walkTreeItems(data, initialSelectedItemId);
-      return ids;
-    }, [data, expandAll, initialSelectedItemId]);
+      return false;
+    }
+    walkTreeItems(data, initialSelectedItemId);
+    return ids;
+  }, [data, expandAll, initialSelectedItemId]);
 
-    return (
-      <div className={cn('overflow-hidden relative p-2', className)}>
-        <TreeItem
-          data={data}
-          ref={ref}
-          selectedItemId={selectedItemId}
-          handleSelectChange={handleSelectChange}
-          expandedItemIds={expandedItemIds}
-          defaultLeafIcon={defaultLeafIcon}
-          defaultNodeIcon={defaultNodeIcon}
-          {...props}
-        />
-      </div>
-    );
-  }
-);
+  return (
+    <div className={cn('overflow-hidden relative p-2', className)}>
+      <TreeItem
+        data={data}
+        ref={ref}
+        selectedItemId={selectedItemId}
+        handleSelectChange={handleSelectChange}
+        expandedItemIds={expandedItemIds}
+        defaultLeafIcon={defaultLeafIcon}
+        defaultNodeIcon={defaultNodeIcon}
+        {...props}
+      />
+    </div>
+  );
+}
 TreeView.displayName = 'TreeView';
 
 type TreeItemProps = TreeProps & {
@@ -89,38 +88,36 @@ type TreeItemProps = TreeProps & {
   defaultLeafIcon?: React.ComponentType<{ className?: string }>;
 };
 
-const TreeItem = React.forwardRef<HTMLDivElement, TreeItemProps>(
-  ({ className, data, selectedItemId, handleSelectChange, expandedItemIds, defaultNodeIcon, defaultLeafIcon, ...props }, ref) => {
-    const items = Array.isArray(data) ? data : [data];
-    return (
-      <div ref={ref} role="tree" className={className} {...props}>
-        <ul>
-          {items.map((item) => (
-            <li key={item.id}>
-              {item.children ? (
-                <TreeNode
-                  item={item}
-                  selectedItemId={selectedItemId}
-                  expandedItemIds={expandedItemIds}
-                  handleSelectChange={handleSelectChange}
-                  defaultNodeIcon={defaultNodeIcon}
-                  defaultLeafIcon={defaultLeafIcon}
-                />
-              ) : (
-                <TreeLeaf
-                  item={item}
-                  selectedItemId={selectedItemId}
-                  handleSelectChange={handleSelectChange}
-                  defaultLeafIcon={defaultLeafIcon}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-);
+function TreeItem({ ref, className, data, selectedItemId, handleSelectChange, expandedItemIds, defaultNodeIcon, defaultLeafIcon, ...props }: TreeItemProps) {
+  const items = Array.isArray(data) ? data : [data];
+  return (
+    <div ref={ref} role="tree" className={className} {...props}>
+      <ul>
+        {items.map((item) => (
+          <li key={item.id}>
+            {item.children ? (
+              <TreeNode
+                item={item}
+                selectedItemId={selectedItemId}
+                expandedItemIds={expandedItemIds}
+                handleSelectChange={handleSelectChange}
+                defaultNodeIcon={defaultNodeIcon}
+                defaultLeafIcon={defaultLeafIcon}
+              />
+            ) : (
+              <TreeLeaf
+                item={item}
+                selectedItemId={selectedItemId}
+                handleSelectChange={handleSelectChange}
+                defaultLeafIcon={defaultLeafIcon}
+              />
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 TreeItem.displayName = 'TreeItem';
 
 const TreeNode = ({
@@ -168,15 +165,13 @@ const TreeNode = ({
   );
 };
 
-const TreeLeaf = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & {
-    item: TreeDataItem;
-    selectedItemId?: string;
-    handleSelectChange: (item: TreeDataItem | undefined) => void;
-    defaultLeafIcon?: React.ComponentType<{ className?: string }>;
-  }
->(({ className, item, selectedItemId, handleSelectChange, defaultLeafIcon, ...props }, ref) => {
+function TreeLeaf({ ref, className, item, selectedItemId, handleSelectChange, defaultLeafIcon, ...props }: React.HTMLAttributes<HTMLDivElement> & {
+  ref?: React.Ref<HTMLDivElement>;
+  item: TreeDataItem;
+  selectedItemId?: string;
+  handleSelectChange: (item: TreeDataItem | undefined) => void;
+  defaultLeafIcon?: React.ComponentType<{ className?: string }>;
+}) {
   const isSelected = selectedItemId === item.id;
   return (
     <div
@@ -194,27 +189,26 @@ const TreeLeaf = React.forwardRef<
       <span className="flex-grow text-sm truncate">{item.name}</span>
     </div>
   );
-});
+}
 TreeLeaf.displayName = 'TreeLeaf';
 
-const TreeAccordionTrigger = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <AccordionPrimitive.Header>
-    <AccordionPrimitive.Trigger
-      ref={ref}
-      className={cn(
-        'flex flex-1 w-full items-center py-2 transition-all first:[&[data-state=open]>svg]:first-of-type:rotate-90',
-        className
-      )}
-      {...props}
-    >
-      <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 text-accent-foreground/50 mr-1" />
-      {children}
-    </AccordionPrimitive.Trigger>
-  </AccordionPrimitive.Header>
-));
+function TreeAccordionTrigger({ ref, className, children, ...props }: React.ComponentPropsWithRef<typeof AccordionPrimitive.Trigger>) {
+  return (
+    <AccordionPrimitive.Header>
+      <AccordionPrimitive.Trigger
+        ref={ref}
+        className={cn(
+          'flex flex-1 w-full items-center py-2 transition-all first:[&[data-state=open]>svg]:first-of-type:rotate-90',
+          className
+        )}
+        {...props}
+      >
+        <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 text-accent-foreground/50 mr-1" />
+        {children}
+      </AccordionPrimitive.Trigger>
+    </AccordionPrimitive.Header>
+  );
+}
 TreeAccordionTrigger.displayName = 'TreeAccordionTrigger';
 
 const TreeIcon = ({
