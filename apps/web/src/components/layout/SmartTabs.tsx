@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useCallback, createContext, ReactNode } from 'react';
+import { useState, useLayoutEffect, useCallback, useMemo, createContext, ReactNode } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TabEntry {
@@ -33,8 +33,13 @@ export function SmartTabs({ children }: { children?: ReactNode }) {
     if (tabs.length > 0 && !activeTab) setActiveTab(tabs[0].id);
   }, [tabs, activeTab]);
 
+  const ctx = useMemo<SmartTabsContextValue>(
+    () => ({ registerTab, unregisterTab }),
+    [registerTab, unregisterTab]
+  );
+
   return (
-    <SmartTabsContext.Provider value={{ registerTab, unregisterTab }}>
+    <SmartTabsContext.Provider value={ctx}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList variant="line">
           {tabs.map(tab => (
