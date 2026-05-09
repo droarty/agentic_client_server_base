@@ -24,7 +24,6 @@
           "transform": {
             "clientMessageType": "initialize-client",
             "initialState": "$message.document.state",
-            "users": "$message.document.users",
             "layoutConfig": []
           }
         }
@@ -43,18 +42,6 @@
                 "componentType": "fullPanel",
                 "targetId": "chat-container",
                 "children": [
-                  {
-                    "componentType": "inviteUsers",
-                    "targetId": "invite-users-container",
-                    "locationId": "invite-users-container",
-                    "props": {
-                      "users": "users",
-                      "allUsers": "$temp.allUsers"
-                    },
-                    "emits": {
-                      "addUser": "add-user"
-                    }
-                  },
                   {
                     "componentType": "chatBody",
                     "targetId": "chat-messages",
@@ -75,31 +62,6 @@
               }
             ]
           }
-        },
-        {
-          "route": "database-query",
-          "query": {
-            "name": "get-users",
-            "responseType": "users-result"
-          }
-        }
-      ]
-    },
-    "users-result": {
-      "transformer": "simple",
-      "steps": [
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "append",
-                "path": "$temp.allUsers",
-                "value": "$message.users"
-              }
-            ]
-          }
         }
       ]
     },
@@ -116,27 +78,6 @@
             "responseTypes": [
               "valid-text",
               "inappropriate-text"
-            ]
-          }
-        }
-      ]
-    },
-    "add-user": {
-      "transformer": "simple",
-      "steps": [
-        {
-          "route": [
-            "client",
-            "database"
-          ],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "append",
-                "path": "users",
-                "value": "$message.users"
-              }
             ]
           }
         }

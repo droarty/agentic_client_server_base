@@ -26,7 +26,6 @@ export interface Artifact {
   currentChannelId: string;
   messages: OutboundMessage[];
   state?: Record<string, unknown>;
-  users?: unknown[];
   createdAt: string;
   updatedAt: string;
 }

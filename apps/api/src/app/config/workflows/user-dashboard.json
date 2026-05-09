@@ -34,7 +34,6 @@
           "transform": {
             "clientMessageType": "initialize-client",
             "initialState": "$message.document.state",
-            "users": "$message.document.users",
             "layoutConfig": []
           }
         },

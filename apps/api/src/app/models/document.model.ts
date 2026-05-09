@@ -9,7 +9,6 @@ export interface IArtifact extends Document {
   currentChannelId: string;
   messages: OutboundMessage[];
   state?: Record<string, unknown>;
-  users?: unknown[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,7 +36,6 @@ const artifactSchema = new Schema<IArtifact>(
     currentChannelId: { type: String, default: () => randomUUID() },
     messages: { type: [outboundMessageSchema], default: [] },
     state: { type: Schema.Types.Mixed, default: undefined },
-    users: { type: [Schema.Types.Mixed], default: undefined },
   },
   { timestamps: true }
 );

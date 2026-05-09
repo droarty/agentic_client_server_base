@@ -226,7 +226,6 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
       };
       if (initialState !== undefined) {
         docFields['state'] = initialState;
-        docFields['users'] = [];
       }
       const result = await db.collection('artifacts').insertOne(docFields as any);
       const newDoc = await db.collection('artifacts').findOne({ _id: result.insertedId });
