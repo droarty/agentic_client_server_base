@@ -1,5 +1,5 @@
 import { Suspense, ReactNode } from 'react';
-import { LayoutNode, ChildTemplate } from '@multiplayer-base/shared-types';
+import { LayoutNode } from '@multiplayer-base/shared-types';
 import { getLayoutComponent } from '@/app/registry/layoutRegistry';
 
 interface Props {
@@ -40,22 +40,36 @@ function resolveEmits(
   return result;
 }
 
-function resolveChildTemplate(
-  childTemplate: ChildTemplate,
+function buildChildren(
+  node: LayoutNode,
   state: Record<string, unknown>,
   emit: Props['emit']
-): { dynamicChildren: ReactNode[]; dynamicTabIds: string[]; dynamicTabTitles: string[] } {
-  const { source, idField, titleField, template } = childTemplate;
-  const items = (resolveDotPath(state, source.startsWith('$') ? source.slice(1) : source) as Record<string, unknown>[]) ?? [];
-  return {
-    dynamicChildren: items.map((item, i) => (
-      <Suspense key={String(item[idField] ?? i)} fallback={null}>
-        {renderNode(template, { ...state, item }, emit)}
-      </Suspense>
-    )),
-    dynamicTabIds:    items.map((item) => String(item[idField]    ?? '')),
-    dynamicTabTitles: items.map((item) => String(item[titleField] ?? '')),
-  };
+): ReactNode[] {
+  if (!node.children) return [];
+  const result: ReactNode[] = [];
+  node.children.forEach((child, i) => {
+    if (child.componentType === 'forEach') {
+      const sourcePath = (child.props?.source ?? '').replace(/^\$/, '');
+      const items = (resolveDotPath(state, sourcePath) as Record<string, unknown>[]) ?? [];
+      items.forEach((item, j) => {
+        const itemState = { ...state, item };
+        (child.children ?? []).forEach((template, k) => {
+          result.push(
+            <Suspense key={`${i}-${j}-${k}`} fallback={null}>
+              {renderNode(template, itemState, emit)}
+            </Suspense>
+          );
+        });
+      });
+    } else {
+      result.push(
+        <Suspense key={i} fallback={null}>
+          {renderNode(child, state, emit)}
+        </Suspense>
+      );
+    }
+  });
+  return result;
 }
 
 function renderNode(
@@ -71,22 +85,12 @@ function renderNode(
 
   const resolvedProps = resolveProps(node.props, state);
   const resolvedEmits = resolveEmits(node.emits, emit);
-
-  const children = node.children?.map((child, i) => (
-    <Suspense key={i} fallback={null}>
-      {renderNode(child, state, emit)}
-    </Suspense>
-  ));
-
-  const templateProps = node.childTemplate
-    ? resolveChildTemplate(node.childTemplate, state, emit)
-    : {};
+  const children = buildChildren(node, state, emit);
 
   return (
     <Component
       {...resolvedProps}
       {...resolvedEmits}
-      {...templateProps}
       targetId={node.targetId}
     >
       {children}
