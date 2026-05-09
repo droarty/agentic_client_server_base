@@ -22,7 +22,7 @@ function resolveProps(
   if (!props) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    result[key] = resolveDotPath(state, value.startsWith('$') ? value.slice(1) : value);
+    result[key] = value.startsWith('$') ? resolveDotPath(state, value.slice(1)) : value;
   }
   return result;
 }
