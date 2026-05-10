@@ -56,7 +56,6 @@ export interface WorkflowLogEntry {
 export interface WorkflowEngineDeps {
   publishToClient: (msg: OutboundMessage) => Promise<void>;
   persistToDatabase: (msg: OutboundMessage, context: WorkflowContext) => Promise<void>;
-  appendToReplayLog?: (msg: OutboundMessage) => Promise<void>;
   logWorkflowStep?: (entry: WorkflowLogEntry) => void;
   sendToAi: (
     channel: string,
@@ -325,7 +324,6 @@ export class WorkflowEngine {
 
       const ops: Promise<void>[] = [];
       if (routes.includes('client')) ops.push(this.deps.publishToClient(outbound));
-      if (routes.includes('client') && this.deps.appendToReplayLog) ops.push(this.deps.appendToReplayLog(outbound));
       if (routes.includes('database')) ops.push(this.deps.persistToDatabase(outbound, context));
       await Promise.all(ops);
       return;

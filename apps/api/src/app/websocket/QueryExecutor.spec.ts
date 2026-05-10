@@ -28,7 +28,6 @@ async function insertArtifact(overrides: Record<string, unknown> = {}) {
     type: 'configged-chat',
     userId: USER_ID,
     currentChannelId: CHANNEL,
-    messages: [],
     state: { title: 'hello' },
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -197,14 +196,13 @@ describe('get-document-summary', () => {
     expect(result['document']).toBeNull();
   });
 
-  test('finds by documentId and excludes state/messages from result', async () => {
+  test('finds by documentId and excludes state from result', async () => {
     const artifact = await insertArtifact({ name: 'Summary' });
     const execute = makeExecutor();
     const result = await execute('get-document-summary', makeContext(USER_ID, { documentId: String(artifact._id) }));
     const doc = result['document'] as Record<string, unknown>;
     expect(doc['name']).toBe('Summary');
     expect(doc['state']).toBeUndefined();
-    expect(doc['messages']).toBeUndefined();
   });
 
   test('finds by channel', async () => {

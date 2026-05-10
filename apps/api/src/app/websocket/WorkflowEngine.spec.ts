@@ -78,7 +78,6 @@ function makeDeps(overrides: Partial<WorkflowEngineDeps> = {}): WorkflowEngineDe
   return {
     publishToClient: jest.fn().mockResolvedValue(undefined),
     persistToDatabase: jest.fn().mockResolvedValue(undefined),
-    appendToReplayLog: jest.fn().mockResolvedValue(undefined),
     logWorkflowStep: jest.fn(),
     sendToAi: jest.fn(),
     getDocumentType: jest.fn().mockResolvedValue('test-workflow'),
@@ -172,12 +171,6 @@ describe('step routing — client', () => {
     expect(outbound['channel']).toBe('ch-1');
   });
 
-  test('appendToReplayLog called alongside publishToClient', async () => {
-    const deps = makeDeps();
-    await makeEngine(deps).execute(makeContext('client-message', { text: 'hi' }));
-    expect(deps.appendToReplayLog).toHaveBeenCalled();
-  });
-
   test('persistToDatabase NOT called on client-only route', async () => {
     const deps = makeDeps();
     await makeEngine(deps).execute(makeContext('client-message', { text: 'hi' }));
@@ -202,11 +195,6 @@ describe('step routing — database', () => {
     expect(deps.publishToClient).not.toHaveBeenCalled();
   });
 
-  test('appendToReplayLog NOT called on database-only route', async () => {
-    const deps = makeDeps();
-    await makeEngine(deps).execute(makeContext('db-message'));
-    expect(deps.appendToReplayLog).not.toHaveBeenCalled();
-  });
 });
 
 describe('step routing — combined client + database', () => {
