@@ -103,7 +103,6 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           type,
           userId,
           currentChannelId: randomUUID(),
-          messages: [],
           createdAt: now,
           updatedAt: now,
         };

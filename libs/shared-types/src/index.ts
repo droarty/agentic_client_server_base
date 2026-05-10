@@ -7,7 +7,6 @@ export interface SsoProvider {
 
 export * from './message.types';
 export * from './group.types';
-import type { OutboundMessage } from './message.types';
 
 export interface ArtifactSummary {
   _id: string;
@@ -24,7 +23,6 @@ export interface Artifact {
   name: string;
   type: string;
   currentChannelId: string;
-  messages: OutboundMessage[];
   state?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;

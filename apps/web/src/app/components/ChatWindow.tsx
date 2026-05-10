@@ -12,13 +12,12 @@ const COLORS = ['#e74c3c', '#e67e22', '#27ae60', '#2980b9', '#8e44ad', '#e91e63'
 interface ChatWindowProps {
   chatKey: string;
   title?: string;
-  initialMessages?: OutboundMessage[];
   targets?: string[];
   placeholder?: string;
 }
 
-export function ChatWindow({ chatKey, title, initialMessages, targets, placeholder = 'Type a message...' }: ChatWindowProps) {
-  const [messages, setMessages] = useState<OutboundMessage[]>(initialMessages ?? []);
+export function ChatWindow({ chatKey, title, targets, placeholder = 'Type a message...' }: ChatWindowProps) {
+  const [messages, setMessages] = useState<OutboundMessage[]>([]);
   const [text, setText] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<string>(targets?.[0] ?? chatKey);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);

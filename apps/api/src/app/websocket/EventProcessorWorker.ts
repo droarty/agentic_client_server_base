@@ -42,14 +42,6 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
   await redis.publish(PUBSUB_CHANNEL, JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
-async function appendToReplayLog(outbound: OutboundMessage): Promise<void> {
-  await dbReady;
-  await mongoClient.db().collection('artifacts').updateOne(
-    { currentChannelId: outbound.channel },
-    { $push: { messages: outbound } } as any
-  );
-}
-
 async function getDocumentType(channel: string): Promise<string | null> {
   try {
     await dbReady;
@@ -70,7 +62,6 @@ const engine = new WorkflowEngine(
   {
     publishToClient,
     persistToDatabase,
-    appendToReplayLog,
     logWorkflowStep,
     sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user, correlationId) => {
       const msg: ValidateTextMessage = {
