@@ -12,8 +12,7 @@
       "sectionIdField": "id",
       "sectionTriggerFields": ["label"],
       "documentSection": [{ "id": "documents", "label": "Documents" }],
-      "groupSection":   [{ "id": "groups",    "label": "Groups"    }],
-      "availableTypes": ["configged-chat", "log-review"]
+      "groupSection":   [{ "id": "groups",    "label": "Groups"    }]
     }
   },
   "handlers": {
@@ -123,7 +122,7 @@
                       },
                       {
                         "componentType": "newDocument",
-                        "props": { "availableTypes": "$state.config.availableTypes" },
+                        "props": { "availableTypes": "$temp.availableTypes" },
                         "emits": { "create": "create-document" }
                       }
                     ]
@@ -146,6 +145,24 @@
         {
           "route": "database-query",
           "query": { "name": "get-user-documents", "responseType": "document-list-result" }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-available-types", "responseType": "available-types-result" }
+        }
+      ]
+    },
+    "available-types-result": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.availableTypes", "value": "$message.availableTypes" }
+            ]
+          }
         }
       ]
     },
