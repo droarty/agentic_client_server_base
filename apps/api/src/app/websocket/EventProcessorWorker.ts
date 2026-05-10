@@ -146,6 +146,14 @@ async function executeQuery(queryName: string, context: WorkflowContext): Promis
   try {
     await dbReady;
     const db = mongoClient.db();
+    if (queryName === 'get-available-types') {
+      const files = fs.readdirSync(configDir);
+      const availableTypes = files
+        .filter((f: string) => f.endsWith('.json'))
+        .map((f: string) => f.replace('.json', ''))
+        .filter((t: string) => t !== 'user-dashboard');
+      return { availableTypes };
+    }
     if (queryName === 'get-user-documents') {
       const userId = context.user?.['id'] as string | undefined;
       if (!userId) return { documents: [] };
