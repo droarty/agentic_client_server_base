@@ -1,7 +1,7 @@
-# Multiplayer Base
-### Note: this is still very much a WIP
+# Agentic Client/Server Base
+🚧🚧🚧 **Note: this is still very much a WIP**
 
-This project is a demo of what I think might be some best practices for an agentic client/server stack.  The agentic part infers AI infused, but it is more than that.  Agentic also means flexible workflows, it means many data types, and it means reuseable components.  It also means lots of asynchronous data flows.  This last part, in particular, reminds me of a multiplayer game.
+This project is a demo of what I think might be some best practices for an agentic client/server stack.  The agentic part infers AI infused, but it is more than that.  Agentic also means flexible workflows, it means many data types, and it means reuseable components.  It also means lots of asynchronous data flows.  This last part, in particular, reminds me of a multiplayer game, which this design lends itself to.
 
 To accommodate all these aspects of an agentic client/server stack there are several architectural decisions that I have long wanted to try out.  So this demo app is where I will experiement with it:
 - We start with the MERN stack as a great way to manage data types across the frontend and backend.
@@ -10,17 +10,27 @@ To accommodate all these aspects of an agentic client/server stack there are sev
 - We make the server be the source of truth for most data.  The client may have smart components that maintain internal state, but any data that matters is coming from the server, even if it originates from the client.
   - ie. the user types in some data we want persisted, the client model is not updated directly until it makes the round trip to the server and back.
   - I wrestle with the fact that this could be limiting offline features but that is a task for another day.
-  - I also believe that the event structure will ultimately benefit a future attempt to build off line event queueing and short circuited model updates.
+  - I also believe that this event structure will ultimately lend itself a future attempt to build off line event queueing and short circuited model updates.
 - And at the core of all of this is workflow configuration.   The primary means of building a new UI, data persistence, third party data processing is all through a json file.
+  - new workflows, think SPA sized apps, can be configured by developers, non-developers, and AI tools.
   - This requires that all UI components, persistence layer modules and third party services respond to events.
-  - On the client the configuration defines document models, component props and eventnames, and data transforms triggered by those named events.
+  - On the client the configuration defines a document model, component props and eventnames, and data transforms triggered by those named events.
   - Likewise, on the server, the configuration defines the chain of data transforms and named callbacks sent to backend services.
 - Side benefits to the event bus and configuration include:
   - it allows us to easily track and debug complicated workflows as we can read through logs of every step in the process
-  - it allows us to replay event on the client for debugging purposes
-  - it allows us to easily incorporate multi-user features to workflows in the same document where model updates from one user are reflected in the client of another user.
+  - it allows us to replay events on the client for debugging purposes
+  - it allows us to easily incorporate multi-user features in workflows. ie. two users interacting with the same document cause model updates from one user to be broadcast to the client of the other user.
 
 This work is about 20% done at the moment, but the pieces are falling in place (May 2026).
+
+### Try it out
+What can you do with it?  At the moment, not much.  I have hard coded three configured workflows.  One to manage documents, one to open a silly chat that checks for inappropriate content, and one to view the logs of the other two workflows.
+
+Soon I will have more frontend components and backend services that will allow users to create new workflows of their own design.
+
+For now you could describe a simple new workflow to Claude and see what it does.  There is enough precedent that it will easily configure the thing for you and might offer to create new components as needed.
+
+<hr>
 
 Below, I am letting Claude take over the summary and instructions for using the app.
 
