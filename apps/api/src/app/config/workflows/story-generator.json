@@ -5,7 +5,17 @@
     "chatMessages": [
       {
         "messageType": "system",
-        "text": "Welcome! We are going to generate a story just for you. Enter your character's name, the setting, and the problem the character is facing, then click 'Generate Story'!"
+        "text": "Welcome! We are going to generate a story just for you. Enter your character's name, the setting, and the problem the character is facing!"
+      },
+      {
+        "messageType": "multi-field-input",
+        "emits": { "submit": "submit-story-inputs" },
+        "fields": [
+          { "name": "name_of_character", "label": "Character Name", "placeholder": "e.g. Alex" },
+          { "name": "setting", "label": "Setting", "placeholder": "e.g. Outer Space" },
+          { "name": "problem_the_character_is_facing", "label": "Problem", "placeholder": "e.g. lost their spaceship" }
+        ],
+        "submitLabel": "Generate Story"
       }
     ],
     "inputs": {
@@ -53,30 +63,11 @@
                 "componentType": "twoColumnLayout",
                 "children": [
                   {
-                    "componentType": "fullPanel",
-                    "children": [
-                      {
-                        "componentType": "chatBody",
-                        "props": {
-                          "messages": "$state.chatMessages"
-                        }
-                      },
-                      {
-                        "componentType": "multiFieldInput",
-                        "props": {
-                          "fields": [
-                            { "name": "name_of_character", "label": "Character Name", "placeholder": "e.g. Alex" },
-                            { "name": "setting", "label": "Setting", "placeholder": "e.g. Outer Space" },
-                            { "name": "problem_the_character_is_facing", "label": "Problem", "placeholder": "e.g. lost their spaceship" }
-                          ],
-                          "submitLabel": "Generate Story",
-                          "values": "$state.inputs"
-                        },
-                        "emits": {
-                          "submit": "submit-story-inputs"
-                        }
-                      }
-                    ]
+                    "componentType": "chatBody",
+                    "props": {
+                      "messages": "$state.chatMessages",
+                      "inputValues": "$state.inputs"
+                    }
                   },
                   {
                     "componentType": "textDisplay",
@@ -114,7 +105,7 @@
                 "path": "$state.chatMessages",
                 "value": {
                   "messageType": "system",
-                  "text": "Great choices! Let me generate that story..."
+                  "text": "Great! Let me generate your story."
                 }
               }
             ]
@@ -160,11 +151,23 @@
               {
                 "actionType": "append",
                 "path": "$state.chatMessages",
-                "value": {
-                  "messageType": "inappropriate-text",
-                  "color": "red",
-                  "text": "Please use appropriate language! Try again with different inputs."
-                }
+                "value": [
+                  {
+                    "messageType": "inappropriate-text",
+                    "color": "red",
+                    "text": "Please use appropriate language! Try again with different inputs."
+                  },
+                  {
+                    "messageType": "multi-field-input",
+                    "emits": { "submit": "submit-story-inputs" },
+                    "fields": [
+                      { "name": "name_of_character", "label": "Character Name", "placeholder": "e.g. Alex" },
+                      { "name": "setting", "label": "Setting", "placeholder": "e.g. Outer Space" },
+                      { "name": "problem_the_character_is_facing", "label": "Problem", "placeholder": "e.g. lost their spaceship" }
+                    ],
+                    "submitLabel": "Try Again"
+                  }
+                ]
               }
             ]
           }
