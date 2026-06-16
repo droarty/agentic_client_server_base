@@ -1,6 +1,5 @@
-import { ActionItem, InitializeClientMessage, LayoutNode, OutboundMessage, UpdateStateMessage } from '@multiplayer-base/shared-types';
+import type { ActionItem, InitializeClientMessage, LayoutNode, OutboundMessage, UpdateStateMessage, InboundMessage } from '@multiplayer-base/shared-types';
 import { eventManager } from './EventManager';
-import { InboundMessage } from '@multiplayer-base/shared-types';
 
 interface DocState {
   state: Record<string, unknown>;

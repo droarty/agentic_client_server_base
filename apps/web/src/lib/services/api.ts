@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, User, UpdateUserRequest, Artifact } from '@multiplayer-base/shared-types';
+import type { AuthResponse, User, UpdateUserRequest, Artifact } from '@multiplayer-base/shared-types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 

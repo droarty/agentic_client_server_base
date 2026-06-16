@@ -1,4 +1,4 @@
-import { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import type { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 
 type MessageCallback = (message: OutboundMessage) => void;
 
