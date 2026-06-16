@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   darkMode: ['class'],
-  content: ['./src/**/*.{html,js,ts,svelte}'],
+  content: ['./apps/web/src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -47,10 +47,10 @@ export default {
       keyframes: {
         'accordion-down': {
           from: { height: '0' },
-          to: { height: 'var(--bits-accordion-content-height)' },
+          to: { height: 'var(--radix-accordion-content-height)' },
         },
         'accordion-up': {
-          from: { height: 'var(--bits-accordion-content-height)' },
+          from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
       },
