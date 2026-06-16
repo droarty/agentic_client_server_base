@@ -8,6 +8,7 @@ export interface AiStepConfig {
   model: string;
   maxTokens: number;
   systemPrompt: string;
+  responseTypes?: string[];
 }
 
 interface StepDefinition {

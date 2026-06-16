@@ -37,6 +37,15 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   layoutDocumentView: lazy(() =>
     import('@/components/layout/LayoutDocumentViewLayout').then((m) => ({ default: m.LayoutDocumentViewLayout as ComponentType<LayoutComponentProps> }))
   ),
+  twoColumnLayout: lazy(() =>
+    import('@/components/layout/TwoColumnLayout').then((m) => ({ default: m.TwoColumnLayout as ComponentType<LayoutComponentProps> }))
+  ),
+  multiFieldInput: lazy(() =>
+    import('@/components/layout/MultiFieldInput').then((m) => ({ default: m.MultiFieldInput as ComponentType<LayoutComponentProps> }))
+  ),
+  textDisplay: lazy(() =>
+    import('@/components/layout/TextDisplay').then((m) => ({ default: m.TextDisplay as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

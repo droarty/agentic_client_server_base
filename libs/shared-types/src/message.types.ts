@@ -114,7 +114,7 @@ export interface LayoutNode {
   componentType: string;
   targetId?: string;
   locationId?: string;
-  props?: Record<string, string>;
+  props?: Record<string, unknown>;
   emits?: Record<string, string>;
   children?: LayoutNode[];
 }
@@ -167,7 +167,18 @@ export interface InappropriateTextAiResponse {
   correlationId?: string;
 }
 
-export type AiResponse = ValidTextAiResponse | InappropriateTextAiResponse;
+export interface GenericAiResponse {
+  type: string;
+  from: 'ai-service';
+  to: 'server';
+  channel: string;
+  timestamp: string;
+  text?: string;
+  senderEmail?: string;
+  correlationId?: string;
+}
+
+export type AiResponse = ValidTextAiResponse | InappropriateTextAiResponse | GenericAiResponse;
 
 // ── WebSocket protocol envelopes ──────────────────────────────────────────
 

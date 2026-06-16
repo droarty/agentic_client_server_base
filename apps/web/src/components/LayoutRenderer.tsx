@@ -16,13 +16,16 @@ function resolveDotPath(obj: Record<string, unknown>, path: string): unknown {
 }
 
 function resolveProps(
-  props: Record<string, string> | undefined,
+  props: Record<string, unknown> | undefined,
   state: Record<string, unknown>
 ): Record<string, unknown> {
   if (!props) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    result[key] = value.startsWith('$') ? resolveDotPath(state, value.slice(1)) : value;
+    result[key] =
+      typeof value === 'string' && value.startsWith('$')
+        ? resolveDotPath(state, value.slice(1))
+        : value;
   }
   return result;
 }
@@ -49,7 +52,7 @@ function buildChildren(
   const result: ReactNode[] = [];
   node.children.forEach((child, i) => {
     if (child.componentType === 'forEach') {
-      const sourcePath = (child.props?.source ?? '').replace(/^\$/, '');
+      const sourcePath = ((child.props?.source as string) ?? '').replace(/^\$/, '');
       const items = (resolveDotPath(state, sourcePath) as Record<string, unknown>[]) ?? [];
       items.forEach((item, j) => {
         const itemState = { ...state, item };
