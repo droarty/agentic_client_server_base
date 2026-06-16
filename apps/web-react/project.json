@@ -1,7 +1,7 @@
 {
-  "name": "web",
+  "name": "web-react",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/web/src",
+  "sourceRoot": "apps/web-react/src",
   "projectType": "application",
   "targets": {
     "build-css": {
