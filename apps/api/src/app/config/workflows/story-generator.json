@@ -1,0 +1,175 @@
+{
+  "name": "story-generator",
+  "version": "1.0.0",
+  "initialState": {
+    "chatMessages": [
+      {
+        "messageType": "system",
+        "text": "Welcome! We are going to generate a story just for you. Enter your character's name, the setting, and the problem the character is facing, then click 'Generate Story'!"
+      }
+    ],
+    "inputs": {
+      "name_of_character": "",
+      "setting": "",
+      "problem_the_character_is_facing": ""
+    },
+    "storyHtml": ""
+  },
+  "handlers": {
+    "initializeState": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": {
+            "name": "get-document",
+            "responseType": "initialize-state-document"
+          }
+        }
+      ]
+    },
+    "initialize-state-document": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "initialState": "$message.document.state",
+            "layoutConfig": []
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "twoColumnLayout",
+                "children": [
+                  {
+                    "componentType": "fullPanel",
+                    "children": [
+                      {
+                        "componentType": "chatBody",
+                        "props": {
+                          "messages": "$state.chatMessages"
+                        }
+                      },
+                      {
+                        "componentType": "multiFieldInput",
+                        "props": {
+                          "fields": [
+                            { "name": "name_of_character", "label": "Character Name", "placeholder": "e.g. Alex" },
+                            { "name": "setting", "label": "Setting", "placeholder": "e.g. Outer Space" },
+                            { "name": "problem_the_character_is_facing", "label": "Problem", "placeholder": "e.g. lost their spaceship" }
+                          ],
+                          "submitLabel": "Generate Story",
+                          "values": "$state.inputs"
+                        },
+                        "emits": {
+                          "submit": "submit-story-inputs"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "textDisplay",
+                    "props": {
+                      "text": "$state.storyHtml",
+                      "placeholder": "Your story will appear here once you click 'Generate Story'!"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "submit-story-inputs": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "update",
+                "path": "$state.inputs",
+                "value": {
+                  "name_of_character": "$message.name_of_character",
+                  "setting": "$message.setting",
+                  "problem_the_character_is_facing": "$message.problem_the_character_is_facing"
+                }
+              },
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": {
+                  "messageType": "system",
+                  "text": "Great choices! Let me generate that story..."
+                }
+              }
+            ]
+          }
+        },
+        {
+          "route": "ai",
+          "ai": {
+            "model": "claude-haiku-4-5-20251001",
+            "maxTokens": 600,
+            "systemPrompt": "You are a children's story generator for 4th grade students (age 9-10).\n\nStory inputs:\n- Character name: {{$message.name_of_character}}\n- Setting: {{$message.setting}}\n- Problem: {{$message.problem_the_character_is_facing}}\n\nFirst check all three inputs for inappropriate content (profanity, violence, adult themes, hate speech, or harmful language).\n\nIf any input is inappropriate, respond ONLY with valid JSON (no markdown, no extra text):\n{\"type\":\"inappropriate-input\"}\n\nIf all inputs are appropriate, generate an engaging story that:\n- Is suitable for a 4th grade student\n- Is under 200 words\n- Features the character facing and overcoming the problem in the given setting\n- Uses age-appropriate language and ends with a positive message\n\nRespond ONLY with valid JSON (no markdown, no extra text):\n{\"type\":\"story-content\",\"text\":\"<the complete story here>\"}",
+            "responseTypes": ["story-content", "inappropriate-input"]
+          }
+        }
+      ]
+    },
+    "story-content": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "update",
+                "path": "$state.storyHtml",
+                "value": "$message.text"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "inappropriate-input": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": {
+                  "messageType": "inappropriate-text",
+                  "color": "red",
+                  "text": "Please use appropriate language! Try again with different inputs."
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

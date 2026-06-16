@@ -29,42 +29,45 @@ export class AIEventManager {
 
   private async process(request: ValidateTextMessage, config: AiStepConfig, user?: { id: string; email: string }): Promise<void> {
     const userPrompt = `Evaluate this text: "${request.text}"`;
-    const raw = await aiService.complete(config.systemPrompt, userPrompt, env.AI_SERVICE_TYPE);
+    const raw = await aiService.complete(config.systemPrompt, userPrompt, env.AI_SERVICE_TYPE, {
+      model: config.model,
+      maxTokens: config.maxTokens,
+    });
 
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 
-    let parsed: { type: string };
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(cleaned);
     } catch {
       throw new Error(`AI service returned invalid JSON: ${raw}`);
     }
 
-    if (parsed.type !== 'valid-text' && parsed.type !== 'inappropriate-text') {
-      throw new Error(`AI service returned unexpected type: ${parsed.type}`);
+    const responseType = parsed['type'] as string | undefined;
+    if (!responseType) {
+      throw new Error(`AI service response missing type field: ${raw}`);
     }
 
-    const response: AiResponse =
-      parsed.type === 'valid-text'
-        ? {
-            type: 'valid-text',
-            from: 'ai-service',
-            to: 'server',
-            channel: request.channel,
-            timestamp: new Date().toISOString(),
-            text: request.text,
-            senderEmail: request.senderEmail,
-            correlationId: request.correlationId,
-          }
-        : {
-            type: 'inappropriate-text',
-            from: 'ai-service',
-            to: 'server',
-            channel: request.channel,
-            timestamp: new Date().toISOString(),
-            senderEmail: request.senderEmail,
-            correlationId: request.correlationId,
-          };
+    const allowedTypes = config.responseTypes ?? ['valid-text', 'inappropriate-text'];
+    if (!allowedTypes.includes(responseType)) {
+      throw new Error(`AI service returned unexpected type: ${responseType}`);
+    }
+
+    // Forward the AI's own text field if present; otherwise fall back to the
+    // original request text for valid-text (so configged-chat $message.text still works).
+    const aiText = 'text' in parsed ? (parsed['text'] as string) : undefined;
+    const textToForward = aiText ?? (responseType === 'valid-text' ? request.text : undefined);
+
+    const response: AiResponse = {
+      type: responseType,
+      from: 'ai-service',
+      to: 'server',
+      channel: request.channel,
+      timestamp: new Date().toISOString(),
+      senderEmail: request.senderEmail,
+      correlationId: request.correlationId,
+      ...(textToForward !== undefined ? { text: textToForward } : {}),
+    };
 
     const eventProcessor = new EventProcessor();
     eventProcessor.process(response, user);
