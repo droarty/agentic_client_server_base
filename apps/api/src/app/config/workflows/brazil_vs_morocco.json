@@ -7,7 +7,8 @@
         "messageType": "system",
         "text": "Watch the video on the right to learn about the Brazil vs Morocco match. When you're done, we'll test your knowledge!"
       }
-    ]
+    ],
+    "leftWidth": "25%"
   },
   "handlers": {
     "initializeState": {
@@ -45,7 +46,7 @@
             "layoutConfig": [
               {
                 "componentType": "twoColumnLayout",
-                "props": { "leftWidth": "25%" },
+                "props": { "leftWidth": "$state.leftWidth" },
                 "children": [
                   {
                     "componentType": "chatBody",
@@ -84,6 +85,50 @@
                   "messageType": "system",
                   "text": "Good job, now you are ready for a quiz"
                 }
+              },
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": {
+                  "id": "$uuid",
+                  "messageType": "multiple-choice-quiz",
+                  "answer": null,
+                  "question": "What happened in the game?",
+                  "correctKey": "C",
+                  "options": [
+                    { "key": "A", "label": "Morocco won!", "feedback": "Not quite — Morocco played well but didn't take the win." },
+                    { "key": "B", "label": "Brazil won!", "feedback": "That's not right — Brazil didn't win this one." },
+                    { "key": "C", "label": "It was a tie", "feedback": "Correct! The match ended in a draw." },
+                    { "key": "D", "label": "The game was cancelled", "feedback": "Nope — the game was played to completion." }
+                  ],
+                  "emits": { "answer": "quiz-answer" }
+                }
+              },
+              {
+                "actionType": "update",
+                "path": "$state.leftWidth",
+                "value": "60%"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "quiz-answer": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "update-in",
+                "path": "$state.chatMessages",
+                "findKey": "id",
+                "findValue": "$message.formId",
+                "subPath": "answer",
+                "value": "$message.key"
               }
             ]
           }
