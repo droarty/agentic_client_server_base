@@ -89,6 +89,7 @@
                       {
                         "componentType": "smartTab",
                         "props": { "id": "$item._id", "title": "$item.name" },
+                        "emits": { "close": "close-tab" },
                         "children": [
                           {
                             "componentType": "layoutDocumentView",
@@ -288,6 +289,25 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$state.openAccordions.documents", "value": "$message.id" }
+            ]
+          }
+        }
+      ]
+    },
+    "close-tab": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "remove",
+                "path": "$state.openDocs",
+                "value": "$message",
+                "keys": ["_id"]
+              }
             ]
           }
         }
