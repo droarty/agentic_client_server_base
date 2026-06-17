@@ -96,13 +96,15 @@ export interface DisplayJsonMessage extends Message {
 }
 
 export interface ActionItem {
-  actionType: 'update' | 'merge' | 'append' | 'prepend' | 'upsert' | 'remove' | 'update-in';
+  actionType: 'update' | 'merge' | 'append' | 'prepend' | 'upsert' | 'remove' | 'update-in' | 'slice';
   path: string;
   value: unknown;
   keys?: string[];
   findKey?: string;
   findValue?: unknown;
   subPath?: string;
+  start?: number;
+  end?: number;
 }
 
 export interface UpdateStateMessage extends Message {

@@ -140,6 +140,10 @@ function applyAction(next: Record<string, unknown>, action: ActionItem): Record<
       if (idx < 0) return next;
       return setAtPath(next, `${resolvedPath}.${idx}.${subPath}`, value);
     }
+    case 'slice': {
+      const existing = (getAtPath(next, resolvedPath) as unknown[]) ?? [];
+      return setAtPath(next, resolvedPath, existing.slice(action.start, action.end));
+    }
     default:
       return next;
   }
