@@ -6,9 +6,9 @@ export function UserDashboardPage() {
   const channelId = useDashboardChannelId();
 
   return (
-    <div className="page">
+    <div className="page" style={{ height: '100vh', overflow: 'hidden' }}>
       <PageHeader title="User Dashboard" />
-      <main>
+      <main style={{ flex: 1, overflow: 'hidden', padding: 0 }}>
         {channelId
           ? <LayoutDocumentView channelId={channelId} />
           : <p className="doc-empty">Loading…</p>

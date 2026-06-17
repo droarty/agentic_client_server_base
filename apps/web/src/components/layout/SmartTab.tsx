@@ -18,5 +18,5 @@ export function SmartTab({ id: externalId, title = '', children }: SmartTabProps
     return () => ctx?.unregisterTab(id);
   }, [id, title, ctx]);
 
-  return <TabsContent value={id}>{children}</TabsContent>;
+  return <TabsContent value={id} className="flex-1 min-h-0 mt-0">{children}</TabsContent>;
 }
