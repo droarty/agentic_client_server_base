@@ -1,0 +1,94 @@
+{
+  "name": "brazil_vs_morocco",
+  "version": "1.0.0",
+  "initialState": {
+    "chatMessages": [
+      {
+        "messageType": "system",
+        "text": "Watch the video on the right to learn about the Brazil vs Morocco match. When you're done, we'll test your knowledge!"
+      }
+    ]
+  },
+  "handlers": {
+    "initializeState": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": {
+            "name": "get-document",
+            "responseType": "initialize-state-document"
+          }
+        }
+      ]
+    },
+    "initialize-state-document": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "initialState": "$message.document.state",
+            "layoutConfig": []
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "twoColumnLayout",
+                "props": { "leftWidth": "25%" },
+                "children": [
+                  {
+                    "componentType": "chatBody",
+                    "props": {
+                      "messages": "$state.chatMessages"
+                    }
+                  },
+                  {
+                    "componentType": "youtubePlayer",
+                    "props": {
+                      "videoId": "0rih2fCaXF4"
+                    },
+                    "emits": {
+                      "videoEnd": "video-ended"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "video-ended": {
+      "transformer": "simple",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": {
+                  "messageType": "system",
+                  "text": "Good job, now you are ready for a quiz"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
