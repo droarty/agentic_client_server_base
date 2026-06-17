@@ -1,10 +1,17 @@
 import { useRef, useEffect } from 'react';
 import { MultiFieldInput } from './MultiFieldInput';
+import { MultipleChoiceQuiz } from './MultipleChoiceQuiz';
 
 interface FieldDef {
   name: string;
   label: string;
   placeholder?: string;
+}
+
+interface QuizOption {
+  key: string;
+  label: string;
+  feedback: string;
 }
 
 interface ChatMessage {
@@ -16,6 +23,10 @@ interface ChatMessage {
   fields?: FieldDef[];
   submitLabel?: string;
   inputs?: Record<string, string> | null;
+  question?: string;
+  correctKey?: string;
+  options?: QuizOption[];
+  answer?: string | null;
   emits?: Record<string, string>;
 }
 
@@ -50,6 +61,21 @@ export function ChatBody({ messages = [], inputValues, emit }: Props) {
               onSubmit={
                 msg.emits?.submit && emit
                   ? (payload) => emit(msg.emits!['submit'], { ...(payload as Record<string, unknown>), formId: msg.id })
+                  : undefined
+              }
+            />
+          )
+          : msg.messageType === 'multiple-choice-quiz'
+          ? (
+            <MultipleChoiceQuiz
+              key={i}
+              question={msg.question}
+              options={msg.options}
+              correctKey={msg.correctKey}
+              answer={msg.answer ?? undefined}
+              onAnswer={
+                msg.emits?.answer && emit
+                  ? (payload) => emit(msg.emits!['answer'], { ...(payload as Record<string, unknown>), formId: msg.id })
                   : undefined
               }
             />
