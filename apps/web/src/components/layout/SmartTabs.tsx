@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useCallback, useMemo, createContext, ReactNode } from 'react';
+import { useState, useLayoutEffect, useEffect, useCallback, useMemo, createContext, ReactNode } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TabEntry {
@@ -13,9 +13,15 @@ export interface SmartTabsContextValue {
 
 export const SmartTabsContext = createContext<SmartTabsContextValue | null>(null);
 
-export function SmartTabs({ children }: { children?: ReactNode }) {
+export function SmartTabs({ children, selectedId }: { children?: ReactNode; selectedId?: string }) {
   const [tabs, setTabs] = useState<TabEntry[]>([]);
   const [activeTab, setActiveTab] = useState('');
+
+  useEffect(() => {
+    if (selectedId && tabs.find(t => t.id === selectedId)) {
+      setActiveTab(selectedId);
+    }
+  }, [selectedId, tabs]);
 
   const registerTab = useCallback((id: string, title: string) => {
     setTabs(prev => {

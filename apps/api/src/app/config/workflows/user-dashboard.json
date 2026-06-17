@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "initialState": {
     "openDocs": [],
+    "activeDocId": "",
     "openAccordions": {
       "documents": "documents",
       "groups": "groups"
@@ -66,6 +67,7 @@
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
+                "props": { "selectedId": "$state.activeDocId" },
                 "children": [
                   {
                     "componentType": "smartTab",
@@ -218,6 +220,11 @@
                 "path": "$state.openDocs",
                 "value": "$message.document",
                 "keys": ["_id"]
+              },
+              {
+                "actionType": "update",
+                "path": "$state.activeDocId",
+                "value": "$message.document._id"
               }
             ]
           }
@@ -247,6 +254,11 @@
                 "path": "$state.openDocs",
                 "value": "$message.document",
                 "keys": ["_id"]
+              },
+              {
+                "actionType": "update",
+                "path": "$state.activeDocId",
+                "value": "$message.document._id"
               }
             ]
           }
