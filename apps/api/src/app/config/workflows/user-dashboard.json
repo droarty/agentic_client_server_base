@@ -43,6 +43,15 @@
               { "actionType": "update", "path": "$temp._channelId", "value": "$message.document.currentChannelId" }
             ]
           }
+        },
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "slice", "path": "$state.openDocs", "start": -5 }
+            ]
+          }
         }
       ]
     },

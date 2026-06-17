@@ -105,6 +105,20 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
           );
           break;
         }
+        case 'slice': {
+          const start = action['start'] as number | undefined;
+          const end = action['end'] as number | undefined;
+          if (start === undefined && end === undefined) break;
+          const fieldRef = `$${mongoPath}`;
+          const sliceExpr = end !== undefined
+            ? { $slice: [fieldRef, start ?? 0, end] }
+            : { $slice: [fieldRef, start] };
+          await db.collection('artifacts').updateOne(
+            { currentChannelId: outbound.channel, userId },
+            [{ $set: { [mongoPath]: sliceExpr } }] as any
+          );
+          break;
+        }
       }
     }
 
