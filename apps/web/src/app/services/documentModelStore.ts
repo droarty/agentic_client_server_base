@@ -79,8 +79,15 @@ function setAtPath(obj: Record<string, unknown>, path: string, value: unknown): 
   let curr: Record<string, unknown> = result;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
-    curr[k] = typeof curr[k] === 'object' && curr[k] !== null ? { ...(curr[k] as Record<string, unknown>) } : {};
-    curr = curr[k] as Record<string, unknown>;
+    const child = curr[k];
+    if (Array.isArray(child)) {
+      const copy = [...child] as unknown[];
+      curr[k] = copy;
+      curr = copy as unknown as Record<string, unknown>;
+    } else {
+      curr[k] = typeof child === 'object' && child !== null ? { ...(child as Record<string, unknown>) } : {};
+      curr = curr[k] as Record<string, unknown>;
+    }
   }
   curr[keys[keys.length - 1]] = value;
   return result;
@@ -124,6 +131,14 @@ function applyAction(next: Record<string, unknown>, action: ActionItem): Record<
       return setAtPath(next, resolvedPath, existing.filter(
         (el) => !keys.every((k) => (el as Record<string, unknown>)[k] === matcher[k])
       ));
+    }
+    case 'update-in': {
+      const { findKey, findValue, subPath } = action;
+      if (!findKey || !subPath) { console.error('applyAction: update-in missing findKey or subPath', action); return next; }
+      const existing = (getAtPath(next, resolvedPath) as Record<string, unknown>[]) ?? [];
+      const idx = existing.findIndex((el) => el[findKey] === findValue);
+      if (idx < 0) return next;
+      return setAtPath(next, `${resolvedPath}.${idx}.${subPath}`, value);
     }
     default:
       return next;

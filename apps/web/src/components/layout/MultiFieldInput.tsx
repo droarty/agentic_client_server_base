@@ -11,12 +11,13 @@ interface Props {
   fields?: FieldDef[];
   submitLabel?: string;
   values?: Record<string, string>;
+  inputs?: Record<string, string>;
   onSubmit?: (payload: Record<string, string>) => void;
 }
 
-export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = {}, onSubmit }: Props) {
+export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = {}, inputs, onSubmit }: Props) {
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(fields.map((f) => [f.name, values[f.name] ?? '']))
+    Object.fromEntries(fields.map((f) => [f.name, inputs?.[f.name] ?? values[f.name] ?? '']))
   );
 
   function handleChange(name: string, value: string) {
@@ -28,6 +29,19 @@ export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = 
     if (!allFilled) return;
     const text = fields.map((f) => `${f.label}: ${fieldValues[f.name]}`).join(', ');
     onSubmit?.({ ...fieldValues, text });
+  }
+
+  if (inputs) {
+    return (
+      <div className="border-t border-border p-3 flex flex-col gap-2">
+        {fields.map((field) => (
+          <div key={field.name} className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+            <span className="px-2 py-1 text-sm text-foreground">{inputs[field.name]}</span>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (

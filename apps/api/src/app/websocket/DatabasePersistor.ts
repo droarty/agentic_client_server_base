@@ -93,6 +93,18 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
           pullOps[mongoPath] = pullMatcher;
           break;
         }
+        case 'update-in': {
+          const findKey = action['findKey'] as string | undefined;
+          const findValue = action['findValue'];
+          const subPath = action['subPath'] as string | undefined;
+          if (!findKey || !subPath) { logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: 'persistToDatabase: update-in action missing findKey or subPath', errorDetail: action }); break; }
+          await db.collection('artifacts').updateOne(
+            { currentChannelId: outbound.channel, userId },
+            { $set: { [`${mongoPath}.$[elem].${subPath}`]: value } } as any,
+            { arrayFilters: [{ [`elem.${findKey}`]: findValue }] }
+          );
+          break;
+        }
       }
     }
 

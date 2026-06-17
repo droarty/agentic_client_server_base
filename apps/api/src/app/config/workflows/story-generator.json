@@ -8,7 +8,9 @@
         "text": "Welcome! We are going to generate a story just for you. Enter your character's name, the setting, and the problem the character is facing!"
       },
       {
+        "id": "form-initial",
         "messageType": "multi-field-input",
+        "inputs": null,
         "emits": { "submit": "submit-story-inputs" },
         "fields": [
           { "name": "name_of_character", "label": "Character Name", "placeholder": "e.g. Alex" },
@@ -107,6 +109,18 @@
                   "messageType": "system",
                   "text": "Great! Let me generate your story."
                 }
+              },
+              {
+                "actionType": "update-in",
+                "path": "$state.chatMessages",
+                "findKey": "id",
+                "findValue": "$message.formId",
+                "subPath": "inputs",
+                "value": {
+                  "name_of_character": "$message.name_of_character",
+                  "setting": "$message.setting",
+                  "problem_the_character_is_facing": "$message.problem_the_character_is_facing"
+                }
               }
             ]
           }
@@ -158,7 +172,9 @@
                     "text": "Please use appropriate language! Try again with different inputs."
                   },
                   {
+                    "id": "$uuid",
                     "messageType": "multi-field-input",
+                    "inputs": null,
                     "emits": { "submit": "submit-story-inputs" },
                     "fields": [
                       { "name": "name_of_character", "label": "Character Name", "placeholder": "e.g. Alex" },
