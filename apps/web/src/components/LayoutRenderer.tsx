@@ -94,6 +94,7 @@ function renderNode(
     <Component
       {...resolvedProps}
       {...resolvedEmits}
+      emit={emit}
       targetId={node.targetId}
     >
       {children}
