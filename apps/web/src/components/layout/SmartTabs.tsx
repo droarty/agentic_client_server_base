@@ -46,7 +46,7 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
 
   return (
     <SmartTabsContext.Provider value={ctx}>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
         <TabsList variant="line">
           {tabs.map(tab => (
             <TabsTrigger key={tab.id} variant="line" value={tab.id}>
