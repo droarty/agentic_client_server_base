@@ -52,24 +52,27 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
     <SmartTabsContext.Provider value={ctx}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList variant="line">
-          {tabs.map(tab => (
-            <div key={tab.id} className="inline-flex items-stretch">
-              <TabsTrigger variant="line" value={tab.id} className={tab.onClose ? 'pr-1' : ''}>
-                {tab.title}
-              </TabsTrigger>
-              {tab.onClose && (
-                <button
-                  type="button"
-                  aria-label={`Close ${tab.title}`}
-                  tabIndex={-1}
-                  onClick={() => tab.onClose!()}
-                  className="px-1 opacity-60 hover:opacity-100 border-b-2 border-transparent"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
+          {tabs.map(tab => {
+            const isActive = tab.id === activeTab;
+            return (
+              <div key={tab.id} className="inline-flex items-stretch border-r border-border">
+                <TabsTrigger variant="line" value={tab.id} className={tab.onClose ? 'pr-1' : ''}>
+                  {tab.title}
+                </TabsTrigger>
+                {tab.onClose && (
+                  <button
+                    type="button"
+                    aria-label={`Close ${tab.title}`}
+                    tabIndex={-1}
+                    onClick={() => tab.onClose!()}
+                    className={`pr-2 opacity-40 hover:opacity-100 border-b-2 ${isActive ? 'border-primary' : 'border-transparent'}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </TabsList>
         {children}
       </Tabs>
