@@ -620,6 +620,33 @@ body {
   color: #aaa;
 }
 
+.doc-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+
+.doc-open-btn {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  background: white;
+  color: #0070f3;
+  border: 1px solid #0070f3;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.doc-open-btn:hover {
+  background: #0070f3;
+  color: white;
+}
+
 .doc-create-form {
   display: flex;
   gap: 0.5rem;
