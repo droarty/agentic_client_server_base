@@ -55,7 +55,7 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
           {tabs.map(tab => {
             const isActive = tab.id === activeTab;
             return (
-              <div key={tab.id} className="inline-flex items-stretch border-r border-border">
+              <div key={tab.id} className="inline-flex items-stretch border-r border-foreground/60">
                 <TabsTrigger variant="line" value={tab.id} className={tab.onClose ? 'pr-1' : ''}>
                   {tab.title}
                 </TabsTrigger>
