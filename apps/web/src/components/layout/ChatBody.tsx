@@ -8,12 +8,14 @@ interface FieldDef {
 }
 
 interface ChatMessage {
+  id?: string;
   messageType: string;
   text?: string;
   authorEmail?: string;
   color?: string;
   fields?: FieldDef[];
   submitLabel?: string;
+  inputs?: Record<string, string> | null;
   emits?: Record<string, string>;
 }
 
@@ -44,9 +46,10 @@ export function ChatBody({ messages = [], inputValues, emit }: Props) {
               fields={msg.fields}
               submitLabel={msg.submitLabel}
               values={inputValues}
+              inputs={msg.inputs ?? undefined}
               onSubmit={
                 msg.emits?.submit && emit
-                  ? (payload) => emit(msg.emits!['submit'], payload as Record<string, unknown>)
+                  ? (payload) => emit(msg.emits!['submit'], { ...(payload as Record<string, unknown>), formId: msg.id })
                   : undefined
               }
             />

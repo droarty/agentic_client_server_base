@@ -79,6 +79,9 @@ function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown 
 
 function resolveSimpleValue(value: unknown, context: WorkflowContext): unknown {
   if (typeof value === 'string' && value.startsWith('$')) {
+    if (value === '$uuid') {
+      return randomUUID();
+    }
     if (value.startsWith('$state.') || value.startsWith('$temp.') || value.startsWith('$item.')) {
       return value;
     }
