@@ -17,13 +17,14 @@ export function DocumentList({ items = [], onSelect }: Props) {
         <li key={doc._id} className="doc-list-item">
           <span className="doc-name">
             {doc.name} ({doc.type}, {new Date(doc.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })})
+            {' '}
+            <button
+              className="doc-open-btn"
+              onClick={() => onSelect?.({ documentId: doc._id })}
+            >
+              Open
+            </button>
           </span>
-          <button
-            className="doc-open-btn"
-            onClick={() => onSelect?.({ documentId: doc._id })}
-          >
-            Open
-          </button>
         </li>
       ))}
     </ul>
