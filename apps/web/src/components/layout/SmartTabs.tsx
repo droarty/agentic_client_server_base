@@ -4,10 +4,11 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 interface TabEntry {
   id: string;
   title: string;
+  onClose?: () => void;
 }
 
 export interface SmartTabsContextValue {
-  registerTab: (id: string, title: string) => void;
+  registerTab: (id: string, title: string, onClose?: () => void) => void;
   unregisterTab: (id: string) => void;
 }
 
@@ -23,11 +24,12 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
     }
   }, [selectedId, tabs]);
 
-  const registerTab = useCallback((id: string, title: string) => {
+  const registerTab = useCallback((id: string, title: string, onClose?: () => void) => {
     setTabs(prev => {
-      if (prev.find(t => t.id === id && t.title === title)) return prev;
+      const existing = prev.find(t => t.id === id);
+      if (existing && existing.title === title && (existing.onClose != null) === (onClose != null)) return prev;
       const filtered = prev.filter(t => t.id !== id);
-      return [...filtered, { id, title }];
+      return [...filtered, { id, title, onClose }];
     });
   }, []);
 
@@ -36,7 +38,9 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
   }, []);
 
   useLayoutEffect(() => {
-    if (tabs.length > 0 && !activeTab) setActiveTab(tabs[0].id);
+    if (tabs.length > 0 && (!activeTab || !tabs.find(t => t.id === activeTab))) {
+      setActiveTab(tabs[0].id);
+    }
   }, [tabs, activeTab]);
 
   const ctx = useMemo<SmartTabsContextValue>(
@@ -48,11 +52,27 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
     <SmartTabsContext.Provider value={ctx}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
         <TabsList variant="line">
-          {tabs.map(tab => (
-            <TabsTrigger key={tab.id} variant="line" value={tab.id}>
-              {tab.title}
-            </TabsTrigger>
-          ))}
+          {tabs.map(tab => {
+            const isActive = tab.id === activeTab;
+            return (
+              <div key={tab.id} className="inline-flex items-stretch border-r border-foreground/60">
+                <TabsTrigger variant="line" value={tab.id} className={tab.onClose ? 'pr-1' : ''}>
+                  {tab.title}
+                </TabsTrigger>
+                {tab.onClose && (
+                  <button
+                    type="button"
+                    aria-label={`Close ${tab.title}`}
+                    tabIndex={-1}
+                    onClick={() => tab.onClose!()}
+                    className={`pr-2 opacity-40 hover:opacity-100 border-b-2 ${isActive ? 'border-primary' : 'border-transparent'}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </TabsList>
         {children}
       </Tabs>

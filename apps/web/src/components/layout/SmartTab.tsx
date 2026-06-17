@@ -5,18 +5,21 @@ import { SmartTabsContext } from './SmartTabs';
 interface SmartTabProps {
   id?: string;
   title?: string;
+  onClose?: (payload: Record<string, unknown>) => void;
   children?: ReactNode;
 }
 
-export function SmartTab({ id: externalId, title = '', children }: SmartTabProps) {
+export function SmartTab({ id: externalId, title = '', onClose, children }: SmartTabProps) {
   const generatedId = useId();
   const id = externalId ?? generatedId;
   const ctx = useContext(SmartTabsContext);
 
   useLayoutEffect(() => {
-    ctx?.registerTab(id, title);
+    const handleClose = onClose ? () => onClose({ _id: id }) : undefined;
+    ctx?.registerTab(id, title, handleClose);
     return () => ctx?.unregisterTab(id);
-  }, [id, title, ctx]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, title, !!onClose, ctx]);
 
   return <TabsContent value={id} className="flex-1 min-h-0 mt-0">{children}</TabsContent>;
 }
