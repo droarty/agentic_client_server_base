@@ -46,6 +46,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   textDisplay: lazy(() =>
     import('@/components/layout/TextDisplay').then((m) => ({ default: m.TextDisplay as ComponentType<LayoutComponentProps> }))
   ),
+  youtubePlayer: lazy(() =>
+    import('@/components/layout/YouTubePlayer').then((m) => ({ default: m.YouTubePlayer as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
