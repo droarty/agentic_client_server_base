@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
     "module": "CommonJS",
-    "types": ["node", "@wdio/globals/types", "expect-webdriverio"]
+    "types": ["node", "@wdio/globals/types", "expect-webdriverio", "mocha"]
   },
   "include": ["src/**/*.ts", "wdio.conf.ts"]
 }

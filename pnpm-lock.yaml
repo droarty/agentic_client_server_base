@@ -117,6 +117,9 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.6
         version: 9.0.10
+      '@types/mocha':
+        specifier: ^10.0.10
+        version: 10.0.10
       '@types/node':
         specifier: ^20.14.2
         version: 20.19.39
@@ -141,6 +144,9 @@ importers:
       '@wdio/cli':
         specifier: ^8.39.0
         version: 8.46.0(encoding@0.1.13)
+      '@wdio/globals':
+        specifier: ^8.46.0
+        version: 8.46.0(encoding@0.1.13)
       '@wdio/local-runner':
         specifier: ^8.39.0
         version: 8.46.0(encoding@0.1.13)
@@ -150,6 +156,9 @@ importers:
       '@wdio/spec-reporter':
         specifier: ^8.39.0
         version: 8.43.0
+      '@wdio/types':
+        specifier: ^8.41.0
+        version: 8.41.0
       autoprefixer:
         specifier: ^10.5.0
         version: 10.5.0(postcss@8.5.12)
