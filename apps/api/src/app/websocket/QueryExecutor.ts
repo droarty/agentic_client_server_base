@@ -35,7 +35,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: JSON.parse(JSON.stringify(rawDocs)) };
+        return { documents: structuredClone(rawDocs) };
       }
       if (queryName === 'get-reviewable-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -47,7 +47,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: JSON.parse(JSON.stringify(rawDocs)) };
+        return { documents: structuredClone(rawDocs) };
       }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
@@ -61,7 +61,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId });
         }
-        return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
+        return { document: rawDoc ? structuredClone(rawDoc) : null };
       }
       if (queryName === 'get-document-summary') {
         const userId = context.user?.['id'] as string | undefined;
@@ -76,14 +76,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId }, projection);
         }
-        return { document: rawDoc ? JSON.parse(JSON.stringify(rawDoc)) : null };
+        return { document: rawDoc ? structuredClone(rawDoc) : null };
       }
       if (queryName === 'get-users') {
         const users = await db
           .collection('users')
           .find({}, { projection: { _id: 1, email: 1, roles: 1 } })
           .toArray();
-        return { users: JSON.parse(JSON.stringify(users)) };
+        return { users: structuredClone(users) };
       }
       if (queryName === 'create-document') {
         const name = (context.message['name'] as string | undefined)?.trim();
@@ -119,7 +119,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           )
           .toArray();
         return {
-          document: JSON.parse(JSON.stringify({
+          document: structuredClone({
             _id: newDoc!._id,
             name: newDoc!.name,
             type: newDoc!.type,
@@ -127,8 +127,8 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             currentChannelId: newDoc!.currentChannelId,
             createdAt: newDoc!.createdAt,
             updatedAt: newDoc!.updatedAt,
-          })),
-          documents: JSON.parse(JSON.stringify(rawDocs)),
+          }),
+          documents: structuredClone(rawDocs),
         };
       }
       if (queryName === 'get-workflow-logs') {
@@ -145,7 +145,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
-        return { id, workflowLogs: JSON.parse(JSON.stringify(logs)) };
+        return { id, workflowLogs: structuredClone(logs) };
       }
       async function buildTree(executionId: string, channel: string): Promise<unknown[]> {
         const routes = await db
@@ -160,7 +160,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             name: route.logType === 'error'
               ? `[${route.stepIndex ?? '?'}] error: ${route.errorMessage ?? ''}`
               : `[${route.stepIndex ?? '?'}] route: ${Array.isArray(route.route) ? (route.route as string[]).join(', ') : route.route}`,
-            rawData: JSON.parse(JSON.stringify(route)),
+            rawData: structuredClone(route),
             children: [],
           };
           const subHandler = await db.collection('workflowlogs').findOne({
@@ -174,7 +174,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             (routeNode.children as unknown[]).push({
               id: String(subHandler._id),
               name: `handler: ${subHandler.handlerName}`,
-              rawData: JSON.parse(JSON.stringify(subHandler)),
+              rawData: structuredClone(subHandler),
               children: subChildren,
             });
           }
@@ -199,7 +199,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const treeData = [{
           id: String(root._id),
           name: `handler: ${root.handlerName}`,
-          rawData: JSON.parse(JSON.stringify(root)),
+          rawData: structuredClone(root),
           children: rootChildren,
         }];
         return { id, treeData };
@@ -220,7 +220,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
-        return { workflowLogs: JSON.parse(JSON.stringify(logs)) };
+        return { workflowLogs: structuredClone(logs) };
       }
       if (queryName === 'rehydrate-log-tree') {
         const userId = context.user?.['id'] as string | undefined;
@@ -240,7 +240,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const treeData = [{
           id: String(root._id),
           name: `handler: ${root.handlerName}`,
-          rawData: JSON.parse(JSON.stringify(root)),
+          rawData: structuredClone(root),
           children: rootChildren,
         }];
         return { treeData };

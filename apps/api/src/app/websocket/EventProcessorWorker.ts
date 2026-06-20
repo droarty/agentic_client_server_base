@@ -1,6 +1,7 @@
 import { parentPort } from 'worker_threads';
 import * as path from 'path';
 import * as fs from 'fs';
+import { pack } from 'msgpackr';
 import Redis from 'ioredis';
 import { MongoClient } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@multiplayer-base/shared-types';
@@ -38,8 +39,8 @@ function logWorkflowStep(entry: WorkflowLogEntry): void {
 async function publishToClient(outbound: OutboundMessage): Promise<void> {
   const socketIds = await redis.smembers(`channel:${outbound.channel}`);
   if (socketIds.length === 0) return;
-  const frame = JSON.stringify({ type: 'channel-message', message: outbound } satisfies WsServerMessage);
-  await redis.publish(PUBSUB_CHANNEL, JSON.stringify({ frame, socketIds } satisfies DeliveryInstruction));
+  const frame = pack({ type: 'channel-message', message: outbound } satisfies WsServerMessage);
+  await redis.publish(PUBSUB_CHANNEL, pack({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
 async function getDocumentType(channel: string): Promise<string | null> {
