@@ -8,6 +8,7 @@ const MAX_RECONNECT_DELAY = 30000;
 
 class EventManager {
   private ws: WebSocket | null = null;
+  private debugMode = process.env['NODE_ENV'] === 'development';
   private subscribers = new Map<string, Set<MessageCallback>>();
   private subscribedChannels = new Set<string>();
   private isAuthenticated = false;
@@ -39,6 +40,7 @@ class EventManager {
     this.ws.onmessage = (event) => {
       try {
         const msg = decode(event.data) as WsServerMessage;
+        if (this.debugMode) console.log('[WS ←]', JSON.stringify(msg, null, 2));
         if (msg.type === 'auth_success') {
           this.isAuthenticated = true;
           if (msg.dashboardChannelId) {
@@ -125,7 +127,12 @@ class EventManager {
     }
   }
 
+  setDebugMode(enabled: boolean): void {
+    this.debugMode = enabled;
+  }
+
   private send(msg: WsClientMessage): void {
+    if (this.debugMode) console.log('[WS →]', JSON.stringify(msg, null, 2));
     this.ws?.send(encode(msg));
   }
 
