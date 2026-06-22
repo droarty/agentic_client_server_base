@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { pack, unpack } from 'msgpackr';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { randomUUID } from 'crypto';
@@ -35,8 +36,8 @@ export class UserEventManager {
       console.error('Redis subscribe error:', err)
     );
 
-    redisSub.on('message', (_ch, data) => {
-      const { frame, socketIds }: DeliveryInstruction = JSON.parse(data);
+    redisSub.on('messageBuffer', (_ch: Buffer, data: Buffer) => {
+      const { frame, socketIds } = unpack(data) as DeliveryInstruction;
       for (const socketId of socketIds) {
         const ws = this.localSockets.get(socketId);
         if (ws?.readyState === WebSocket.OPEN) {
@@ -58,7 +59,7 @@ export class UserEventManager {
 
     ws.on('message', (data) => {
       try {
-        const msg = JSON.parse(data.toString()) as WsClientMessage;
+        const msg = unpack(data as Buffer) as WsClientMessage;
 
         if (msg.type === 'auth') {
           void this.handleAuth(ws, msg.token, authTimeout);
@@ -140,6 +141,6 @@ export class UserEventManager {
   }
 
   private send(ws: WebSocket, msg: WsServerMessage): void {
-    ws.send(JSON.stringify(msg));
+    ws.send(pack(msg));
   }
 }

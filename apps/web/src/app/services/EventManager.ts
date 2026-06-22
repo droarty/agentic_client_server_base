@@ -1,3 +1,4 @@
+import { encode, decode } from '@msgpack/msgpack';
 import { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
 
 type MessageCallback = (message: OutboundMessage) => void;
@@ -27,6 +28,7 @@ class EventManager {
 
     this.shouldReconnect = true;
     this.ws = new WebSocket(WS_URL);
+    this.ws.binaryType = 'arraybuffer';
 
     this.ws.onopen = () => {
       this.reconnectDelay = 1000;
@@ -36,7 +38,7 @@ class EventManager {
 
     this.ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data) as WsServerMessage;
+        const msg = decode(event.data) as WsServerMessage;
         if (msg.type === 'auth_success') {
           this.isAuthenticated = true;
           if (msg.dashboardChannelId) {
@@ -124,7 +126,7 @@ class EventManager {
   }
 
   private send(msg: WsClientMessage): void {
-    this.ws?.send(JSON.stringify(msg));
+    this.ws?.send(encode(msg));
   }
 
   private notify(channel: string, message: OutboundMessage): void {

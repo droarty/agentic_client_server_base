@@ -6,6 +6,6 @@ export interface WorkerInput {
 }
 
 export interface DeliveryInstruction {
-  frame: string;
+  frame: Buffer;
   socketIds: string[];
 }
