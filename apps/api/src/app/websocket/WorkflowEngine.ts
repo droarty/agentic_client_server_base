@@ -9,6 +9,12 @@ export interface AiStepConfig {
   maxTokens: number;
   systemPrompt: string;
   responseTypes?: string[];
+  // file-chat and file-extract step types
+  type?: 'text' | 'file-chat' | 'file-extract';
+  fileIdPath?: string;      // e.g. "$state.fileId"
+  historyPath?: string;     // e.g. "$state.chatHistory"
+  userMessagePath?: string; // e.g. "$message.text"
+  schemaPath?: string;      // e.g. "$state.proposedSchema"
 }
 
 interface StepDefinition {
@@ -63,6 +69,14 @@ export interface WorkflowEngineDeps {
     text: string,
     senderEmail: string | undefined,
     aiConfig: AiStepConfig,
+    user?: Record<string, unknown>,
+    correlationId?: string
+  ) => void;
+  // Handles file-chat and file-extract step types; loads document state internally
+  sendToAiWithFile?: (
+    channel: string,
+    aiConfig: AiStepConfig,
+    messageContext: Record<string, unknown>,
     user?: Record<string, unknown>,
     correlationId?: string
   ) => void;
@@ -273,8 +287,7 @@ export class WorkflowEngine {
     }
 
     if (routes.includes('ai') && step.ai) {
-      const text = context.message['text'] as string;
-      const senderEmail = context.message['senderEmail'] as string | undefined;
+      const aiType = step.ai.type ?? 'text';
       this.deps.logWorkflowStep?.({
         createdAt: new Date(),
         channel,
@@ -284,10 +297,18 @@ export class WorkflowEngine {
         executionId,
         stepIndex,
         route: 'ai',
-        resolvedMessage: { text, senderEmail },
+        resolvedMessage: { aiType },
       });
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user, `${executionId}:${stepIndex}`);
+      const resolvedConfig = { ...step.ai, systemPrompt: resolvedPrompt };
+
+      if ((aiType === 'file-chat' || aiType === 'file-extract') && this.deps.sendToAiWithFile) {
+        this.deps.sendToAiWithFile(channel, resolvedConfig, context.message, context.user, `${executionId}:${stepIndex}`);
+      } else {
+        const text = context.message['text'] as string;
+        const senderEmail = context.message['senderEmail'] as string | undefined;
+        this.deps.sendToAi(channel, text, senderEmail, resolvedConfig, context.user, `${executionId}:${stepIndex}`);
+      }
       return;
     }
 

@@ -49,6 +49,12 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   youtubePlayer: lazy(() =>
     import('@/components/layout/YouTubePlayer').then((m) => ({ default: m.YouTubePlayer as ComponentType<LayoutComponentProps> }))
   ),
+  chatUploadPanel: lazy(() =>
+    import('@/components/layout/ChatUploadPanel').then((m) => ({ default: m.ChatUploadPanel as ComponentType<LayoutComponentProps> }))
+  ),
+  jsonViewer: lazy(() =>
+    import('@/components/layout/JsonViewer').then((m) => ({ default: m.JsonViewer as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

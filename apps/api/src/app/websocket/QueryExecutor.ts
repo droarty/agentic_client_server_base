@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { MongoClient } from 'mongodb';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
+import { StructuredAssetModel } from '../models/structured-asset.model';
 
 interface QueryExecutorDeps {
   mongoClient: MongoClient;
@@ -244,6 +245,80 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           children: rootChildren,
         }];
         return { treeData };
+      }
+
+      if (queryName === 'get-asset-creator-document') {
+        const channel = context.message['channel'] as string;
+        const doc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+        if (!doc) return { document: null };
+        // Inject channelId and documentId into state so the client can use them for HTTP calls
+        const state = {
+          ...(doc.state ?? {}),
+          channelId: doc.currentChannelId,
+          documentId: doc._id.toString(),
+        };
+        return { document: { ...structuredClone(doc), _id: doc._id.toString(), state } };
+      }
+
+      if (queryName === 'check-asset-exists') {
+        // assetName + assetCategory come from the schema-proposed AI message
+        const assetName = context.message['assetName'] as string | undefined;
+        const assetCategory = context.message['assetCategory'] as string | undefined;
+        if (!assetName || !assetCategory) return { type: 'asset-not-found' };
+        const existing = await StructuredAssetModel
+          .findOne({ name: assetName, category: assetCategory })
+          .sort({ assetVersion: -1 });
+        if (!existing) return { type: 'asset-not-found' };
+        return {
+          type: 'asset-exists',
+          existingVersion: existing.assetVersion,
+          existingAssetId: existing._id.toString(),
+        };
+      }
+
+      if (queryName === 'persist-structured-asset') {
+        // Load current document state from MongoDB
+        const channel = context.message['channel'] as string;
+        const doc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+        const state = (doc?.state ?? {}) as Record<string, unknown>;
+
+        const saveIntent = state['saveIntent'] as string | undefined;
+        const assetName = state['assetName'] as string | undefined;
+        const assetCategory = state['assetCategory'] as string | undefined;
+        const confirmedSchema = (state['proposedSchema'] ?? state['confirmedSchema']) as Record<string, unknown> | undefined;
+        const extractedData = state['extractedData'] as Record<string, unknown>[] | undefined;
+        const fileName = state['fileName'] as string | undefined;
+        const existingAssetId = state['existingAssetId'] as string | undefined;
+        const existingVersion = state['existingVersion'] as number | undefined;
+
+        if (!assetName || !assetCategory || !confirmedSchema || !extractedData) {
+          return { type: 'asset-persisted', savedVersion: 0, count: 0 };
+        }
+
+        const base = {
+          schema: confirmedSchema,
+          schemaDescription: (confirmedSchema['description'] as string | undefined) ?? '',
+          data: extractedData,
+          recordCount: extractedData.length,
+          sourceFileName: fileName ?? '',
+          sourceDocumentId: doc?._id?.toString() ?? '',
+        };
+
+        let asset;
+        if (saveIntent === 'replace' && existingAssetId) {
+          asset = await StructuredAssetModel.findByIdAndUpdate(existingAssetId, base, { new: true });
+        } else if (saveIntent === 'new-version' && existingVersion !== undefined) {
+          asset = await StructuredAssetModel.create({ name: assetName, category: assetCategory, assetVersion: existingVersion + 1, ...base });
+        } else {
+          asset = await StructuredAssetModel.create({ name: assetName, category: assetCategory, assetVersion: 1, ...base });
+        }
+
+        return {
+          type: 'asset-persisted',
+          assetId: asset!._id.toString(),
+          count: asset!.recordCount,
+          savedVersion: asset!.assetVersion,
+        };
       }
 
       return {};
