@@ -11,6 +11,12 @@ interface QueryExecutorDeps {
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
 }
 
+// MongoDB ObjectIds don't serialize to strings through structuredClone + msgpack.
+// Convert _id to a plain string before sending to the client.
+function serializeDoc(doc: Record<string, unknown>): Record<string, unknown> {
+  return { ...doc, _id: String(doc['_id']) };
+}
+
 export function createQueryExecutor(deps: QueryExecutorDeps) {
   const { mongoClient, dbReady, configDir, logWorkflowStep } = deps;
 
@@ -36,7 +42,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: structuredClone(rawDocs) };
+        return { documents: rawDocs.map((d) => serializeDoc(structuredClone(d) as Record<string, unknown>)) };
       }
       if (queryName === 'get-reviewable-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -48,7 +54,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: structuredClone(rawDocs) };
+        return { documents: rawDocs.map((d) => serializeDoc(structuredClone(d) as Record<string, unknown>)) };
       }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
@@ -62,7 +68,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId });
         }
-        return { document: rawDoc ? structuredClone(rawDoc) : null };
+        return { document: rawDoc ? serializeDoc(structuredClone(rawDoc) as Record<string, unknown>) : null };
       }
       if (queryName === 'get-document-summary') {
         const userId = context.user?.['id'] as string | undefined;
@@ -77,7 +83,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId }, projection);
         }
-        return { document: rawDoc ? structuredClone(rawDoc) : null };
+        return { document: rawDoc ? serializeDoc(structuredClone(rawDoc) as Record<string, unknown>) : null };
       }
       if (queryName === 'get-users') {
         const users = await db
@@ -120,7 +126,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           )
           .toArray();
         return {
-          document: structuredClone({
+          document: serializeDoc(structuredClone({
             _id: newDoc!._id,
             name: newDoc!.name,
             type: newDoc!.type,
@@ -128,8 +134,8 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             currentChannelId: newDoc!.currentChannelId,
             createdAt: newDoc!.createdAt,
             updatedAt: newDoc!.updatedAt,
-          }),
-          documents: structuredClone(rawDocs),
+          }) as Record<string, unknown>),
+          documents: rawDocs.map((d) => serializeDoc(structuredClone(d) as Record<string, unknown>)),
         };
       }
       if (queryName === 'get-workflow-logs') {
