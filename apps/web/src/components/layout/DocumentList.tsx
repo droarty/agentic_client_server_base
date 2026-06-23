@@ -14,7 +14,7 @@ export function DocumentList({ items = [], onSelect }: Props) {
   return (
     <ul className="doc-list">
       {items.map((doc) => (
-        <li key={String(doc._id)} className="doc-list-item">
+        <li key={doc.currentChannelId ?? String(doc._id)} className="doc-list-item">
           <span className="doc-name">
             {doc.name} ({doc.type}, {new Date(doc.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })})
             {' '}

@@ -11,10 +11,12 @@ interface QueryExecutorDeps {
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
 }
 
-// MongoDB ObjectIds don't serialize to strings through structuredClone + msgpack.
-// Convert _id to a plain string before sending to the client.
-function serializeDoc(doc: Record<string, unknown>): Record<string, unknown> {
-  return { ...doc, _id: String(doc['_id']) };
+// structuredClone preserves MongoDB ObjectIds as binary data; msgpack then
+// delivers them to the client as plain objects whose toString() returns
+// "[object Object]". JSON round-trip calls ObjectId.toJSON() which returns
+// the hex string, converting all ObjectId fields throughout the document tree.
+function jsonSerialize<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 export function createQueryExecutor(deps: QueryExecutorDeps) {
@@ -42,7 +44,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: rawDocs.map((d) => serializeDoc(structuredClone(d) as Record<string, unknown>)) };
+        return { documents: jsonSerialize(rawDocs) };
       }
       if (queryName === 'get-reviewable-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -54,7 +56,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: rawDocs.map((d) => serializeDoc(structuredClone(d) as Record<string, unknown>)) };
+        return { documents: jsonSerialize(rawDocs) };
       }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
@@ -68,7 +70,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId });
         }
-        return { document: rawDoc ? serializeDoc(structuredClone(rawDoc) as Record<string, unknown>) : null };
+        return { document: rawDoc ? jsonSerialize(rawDoc) : null };
       }
       if (queryName === 'get-document-summary') {
         const userId = context.user?.['id'] as string | undefined;
@@ -83,14 +85,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId }, projection);
         }
-        return { document: rawDoc ? serializeDoc(structuredClone(rawDoc) as Record<string, unknown>) : null };
+        return { document: rawDoc ? jsonSerialize(rawDoc) : null };
       }
       if (queryName === 'get-users') {
         const users = await db
           .collection('users')
           .find({}, { projection: { _id: 1, email: 1, roles: 1 } })
           .toArray();
-        return { users: structuredClone(users) };
+        return { users: jsonSerialize(users) };
       }
       if (queryName === 'create-document') {
         const name = (context.message['name'] as string | undefined)?.trim();
@@ -126,7 +128,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           )
           .toArray();
         return {
-          document: serializeDoc(structuredClone({
+          document: jsonSerialize({
             _id: newDoc!._id,
             name: newDoc!.name,
             type: newDoc!.type,
@@ -134,8 +136,8 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             currentChannelId: newDoc!.currentChannelId,
             createdAt: newDoc!.createdAt,
             updatedAt: newDoc!.updatedAt,
-          }) as Record<string, unknown>),
-          documents: rawDocs.map((d) => serializeDoc(structuredClone(d) as Record<string, unknown>)),
+          }),
+          documents: jsonSerialize(rawDocs),
         };
       }
       if (queryName === 'get-workflow-logs') {
@@ -263,7 +265,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           channelId: doc.currentChannelId,
           documentId: doc._id.toString(),
         };
-        return { document: { ...structuredClone(doc), _id: doc._id.toString(), state } };
+        return { document: jsonSerialize({ ...doc, state }) };
       }
 
       if (queryName === 'check-asset-exists') {
