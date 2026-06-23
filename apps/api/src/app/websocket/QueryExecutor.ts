@@ -13,6 +13,9 @@ interface QueryExecutorDeps {
 export function createQueryExecutor(deps: QueryExecutorDeps) {
   const { mongoClient, dbReady, configDir, logWorkflowStep } = deps;
 
+  const stringifyId = <T extends { _id: unknown }>(doc: T): Omit<T, '_id'> & { _id: string } =>
+    ({ ...doc, _id: String(doc._id) });
+
   return async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
     try {
       await dbReady;
@@ -35,7 +38,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: structuredClone(rawDocs) };
+        return { documents: rawDocs.map(stringifyId) };
       }
       if (queryName === 'get-reviewable-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -47,7 +50,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: structuredClone(rawDocs) };
+        return { documents: rawDocs.map(stringifyId) };
       }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
@@ -61,7 +64,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId });
         }
-        return { document: rawDoc ? structuredClone(rawDoc) : null };
+        return { document: rawDoc ? stringifyId(rawDoc) : null };
       }
       if (queryName === 'get-document-summary') {
         const userId = context.user?.['id'] as string | undefined;
@@ -76,14 +79,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId }, projection);
         }
-        return { document: rawDoc ? structuredClone(rawDoc) : null };
+        return { document: rawDoc ? stringifyId(rawDoc) : null };
       }
       if (queryName === 'get-users') {
         const users = await db
           .collection('users')
           .find({}, { projection: { _id: 1, email: 1, roles: 1 } })
           .toArray();
-        return { users: structuredClone(users) };
+        return { users: users.map(stringifyId) };
       }
       if (queryName === 'create-document') {
         const name = (context.message['name'] as string | undefined)?.trim();
@@ -119,7 +122,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           )
           .toArray();
         return {
-          document: structuredClone({
+          document: stringifyId({
             _id: newDoc!._id,
             name: newDoc!.name,
             type: newDoc!.type,
@@ -128,7 +131,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             createdAt: newDoc!.createdAt,
             updatedAt: newDoc!.updatedAt,
           }),
-          documents: structuredClone(rawDocs),
+          documents: rawDocs.map(stringifyId),
         };
       }
       if (queryName === 'get-workflow-logs') {
@@ -145,7 +148,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
-        return { id, workflowLogs: structuredClone(logs) };
+        return { id, workflowLogs: logs.map(stringifyId) };
       }
       async function buildTree(executionId: string, channel: string): Promise<unknown[]> {
         const routes = await db
@@ -220,7 +223,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
-        return { workflowLogs: structuredClone(logs) };
+        return { workflowLogs: logs.map(stringifyId) };
       }
       if (queryName === 'rehydrate-log-tree') {
         const userId = context.user?.['id'] as string | undefined;
