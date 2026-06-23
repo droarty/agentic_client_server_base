@@ -7,6 +7,7 @@ export interface SsoProvider {
 
 export * from './message.types';
 export * from './group.types';
+export * from './structured-asset.types';
 
 export interface ArtifactSummary {
   _id: string;

@@ -10,6 +10,7 @@ import { AIEventManager } from './AIEventManager';
 import { WorkflowEngine, AiStepConfig, WorkflowLogEntry } from './WorkflowEngine';
 import { createQueryExecutor } from './QueryExecutor';
 import { createDatabasePersistor } from './DatabasePersistor';
+import { fileExtractService, ChatMessage } from '../services/fileExtract.service';
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -59,6 +60,75 @@ async function getDocumentType(channel: string): Promise<string | null> {
 const executeQuery = createQueryExecutor({ mongoClient, dbReady, configDir, logWorkflowStep });
 const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
 
+async function handleFileAiStep(
+  channel: string,
+  aiConfig: AiStepConfig,
+  messageContext: Record<string, unknown>,
+  user: Record<string, unknown> | undefined,
+  correlationId: string | undefined
+): Promise<void> {
+  try {
+    await dbReady;
+    const db = mongoClient.db();
+    const doc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+    const state = (doc?.state ?? {}) as Record<string, unknown>;
+
+    const fileId = state['fileId'] as string | undefined;
+    if (!fileId) throw new Error('file-ai step: no fileId in document state');
+
+    let raw: string;
+    if (aiConfig.type === 'file-extract') {
+      const schema = state['proposedSchema'] as Record<string, unknown> | undefined;
+      if (!schema) throw new Error('file-extract step: no proposedSchema in document state');
+      raw = await fileExtractService.extractFromFile({
+        fileId,
+        schema,
+        systemPrompt: aiConfig.systemPrompt,
+        model: aiConfig.model,
+        maxTokens: aiConfig.maxTokens,
+      });
+    } else {
+      // file-chat
+      const chatHistory = (state['chatHistory'] ?? []) as ChatMessage[];
+      const userMessage = (messageContext['text'] as string | undefined) ?? '';
+      raw = await fileExtractService.fileChat({
+        fileId,
+        chatHistory,
+        userMessage,
+        systemPrompt: aiConfig.systemPrompt,
+        model: aiConfig.model,
+        maxTokens: aiConfig.maxTokens,
+      });
+    }
+
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error(`file-ai step: invalid JSON response: ${raw.slice(0, 200)}`);
+    }
+
+    const responseType = parsed['type'] as string | undefined;
+    if (!responseType) throw new Error(`file-ai step: response missing type field: ${raw.slice(0, 200)}`);
+
+    await engine.execute({
+      message: {
+        type: responseType,
+        channel,
+        timestamp: new Date().toISOString(),
+        senderEmail: messageContext['senderEmail'],
+        correlationId,
+        ...parsed,
+      },
+      user,
+      state,
+    });
+  } catch (err) {
+    logWorkflowStep({ createdAt: new Date(), channel, docType: '', handlerName: 'file-ai-step', logType: 'error', errorMessage: 'handleFileAiStep error', errorDetail: String(err) });
+  }
+}
+
 const engine = new WorkflowEngine(
   {
     publishToClient,
@@ -76,6 +146,11 @@ const engine = new WorkflowEngine(
         correlationId,
       };
       aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
+    },
+    sendToAiWithFile: (channel, aiConfig, messageContext, user, correlationId) => {
+      handleFileAiStep(channel, aiConfig, messageContext, user, correlationId).catch((err) =>
+        console.error('sendToAiWithFile error:', err)
+      );
     },
     getDocumentType,
     executeQuery,

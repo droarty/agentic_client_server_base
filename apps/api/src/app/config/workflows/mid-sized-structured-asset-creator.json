@@ -1,0 +1,288 @@
+{
+  "name": "mid-sized-structured-asset-creator",
+  "version": "1.0",
+  "initialState": {
+    "channelId": null,
+    "documentId": null,
+    "uploadStatus": "idle",
+    "fileId": null,
+    "fileName": null,
+    "chatHistory": [],
+    "proposedSchema": null,
+    "assetName": null,
+    "assetCategory": null,
+    "extractedData": null,
+    "recordCount": 0,
+    "saveIntent": null,
+    "existingVersion": null,
+    "existingAssetId": null,
+    "savedVersion": null
+  },
+  "handlers": {
+    "initializeState": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": {
+            "name": "get-asset-creator-document",
+            "responseType": "initialize-state-document"
+          }
+        }
+      ]
+    },
+    "initialize-state-document": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "initialState": "$message.document.state"
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-client",
+            "layoutConfig": {
+              "componentType": "twoColumnLayout",
+              "props": { "leftWidth": "42%" },
+              "children": [
+                {
+                  "componentType": "chatUploadPanel",
+                  "props": {
+                    "channelId": "$state.channelId",
+                    "documentId": "$state.documentId",
+                    "chatHistory": "$state.chatHistory",
+                    "uploadStatus": "$state.uploadStatus",
+                    "proposedSchema": "$state.proposedSchema",
+                    "assetName": "$state.assetName",
+                    "assetCategory": "$state.assetCategory",
+                    "existingVersion": "$state.existingVersion",
+                    "savedVersion": "$state.savedVersion",
+                    "recordCount": "$state.recordCount",
+                    "saveIntent": "$state.saveIntent"
+                  }
+                },
+                {
+                  "componentType": "jsonViewer",
+                  "props": {
+                    "data": "$state.extractedData",
+                    "schemaPreview": "$state.proposedSchema",
+                    "title": "Structured Asset Preview",
+                    "emptyMessage": "Upload a PDF to see the extracted data here."
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "send-chat-message": {
+      "steps": [
+        {
+          "route": "ai",
+          "ai": {
+            "type": "file-chat",
+            "model": "claude-opus-4-8",
+            "maxTokens": 2048,
+            "systemPrompt": "You are refining a schema for structured data extraction from a PDF document. The user will suggest changes to the schema, the asset name, or the category. Update the schema and identity accordingly.\n\nWhen the schema appears stable (user expresses no further changes), ask them to confirm it.\n\nYou MUST respond with valid JSON only — no markdown, no explanation, no code blocks.\nRespond with one of:\n{\"type\":\"chat-response\",\"content\":\"your message to the user\"}\n{\"type\":\"schema-proposed\",\"content\":\"your message\",\"schema\":{\"fields\":[{\"name\":\"...\",\"type\":\"...\",\"description\":\"...\"}],\"description\":\"...\"},\"assetName\":\"...\",\"assetCategory\":\"...\"}",
+            "responseTypes": ["chat-response", "schema-proposed"]
+          }
+        }
+      ]
+    },
+    "chat-response": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "append", "path": "$state.chatHistory", "value": { "role": "assistant", "content": "$message.content" } }
+            ]
+          }
+        }
+      ]
+    },
+    "schema-proposed": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.proposedSchema", "value": "$message.schema" },
+              { "actionType": "update", "path": "$state.assetName", "value": "$message.assetName" },
+              { "actionType": "update", "path": "$state.assetCategory", "value": "$message.assetCategory" },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "checking" },
+              { "actionType": "append", "path": "$state.chatHistory", "value": { "role": "assistant", "content": "$message.content" } }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "check-asset-exists", "responseType": "asset-not-found" }
+        }
+      ]
+    },
+    "asset-not-found": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.saveIntent", "value": "create" },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "schema-proposed" }
+            ]
+          }
+        }
+      ]
+    },
+    "asset-exists": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.existingVersion", "value": "$message.existingVersion" },
+              { "actionType": "update", "path": "$state.existingAssetId", "value": "$message.existingAssetId" },
+              { "actionType": "update", "path": "$state.saveIntent", "value": null },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "version-check" }
+            ]
+          }
+        }
+      ]
+    },
+    "choose-replace": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.saveIntent", "value": "replace" },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "schema-proposed" }
+            ]
+          }
+        }
+      ]
+    },
+    "choose-new-version": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.saveIntent", "value": "new-version" },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "schema-proposed" }
+            ]
+          }
+        }
+      ]
+    },
+    "change-asset-identity": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.assetName", "value": null },
+              { "actionType": "update", "path": "$state.assetCategory", "value": null },
+              { "actionType": "update", "path": "$state.existingVersion", "value": null },
+              { "actionType": "update", "path": "$state.existingAssetId", "value": null },
+              { "actionType": "update", "path": "$state.saveIntent", "value": null },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "schema-discussion" },
+              { "actionType": "append", "path": "$state.chatHistory", "value": { "role": "assistant", "content": "No problem. What name and category would you like to use instead?" } }
+            ]
+          }
+        }
+      ]
+    },
+    "confirm-schema": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "extracting" }
+            ]
+          }
+        },
+        {
+          "route": "ai",
+          "ai": {
+            "type": "file-extract",
+            "model": "claude-opus-4-8",
+            "maxTokens": 16000,
+            "systemPrompt": "Extract every record from this PDF document using the provided schema. Be exhaustive — include all records, do not truncate or summarize.\n\nYou MUST respond with valid JSON only — no markdown, no explanation, no code blocks.\nRespond with exactly:\n{\"type\":\"data-extracted\",\"data\":[...array of record objects...],\"count\":N}\n\nEach record must contain only the fields defined in the schema. Do not add extra fields.",
+            "responseTypes": ["data-extracted"]
+          }
+        }
+      ]
+    },
+    "data-extracted": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.extractedData", "value": "$message.data" },
+              { "actionType": "update", "path": "$state.recordCount", "value": "$message.count" },
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "review" }
+            ]
+          }
+        }
+      ]
+    },
+    "accept-import": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "persist-structured-asset", "responseType": "asset-persisted" }
+        }
+      ]
+    },
+    "asset-persisted": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "complete" },
+              { "actionType": "update", "path": "$state.extractedData", "value": null },
+              { "actionType": "update", "path": "$state.existingVersion", "value": null },
+              { "actionType": "update", "path": "$state.savedVersion", "value": "$message.savedVersion" }
+            ]
+          }
+        }
+      ]
+    },
+    "reject-import": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.uploadStatus", "value": "schema-proposed" },
+              { "actionType": "update", "path": "$state.extractedData", "value": null },
+              { "actionType": "append", "path": "$state.chatHistory", "value": { "role": "assistant", "content": "No problem. What would you like to change about the schema?" } }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

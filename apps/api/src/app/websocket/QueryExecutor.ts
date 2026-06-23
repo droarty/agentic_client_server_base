@@ -10,6 +10,14 @@ interface QueryExecutorDeps {
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
 }
 
+// structuredClone preserves MongoDB ObjectIds as binary data; msgpack then
+// delivers them to the client as plain objects whose toString() returns
+// "[object Object]". JSON round-trip calls ObjectId.toJSON() which returns
+// the hex string, converting all ObjectId fields throughout the document tree.
+function jsonSerialize<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 export function createQueryExecutor(deps: QueryExecutorDeps) {
   const { mongoClient, dbReady, configDir, logWorkflowStep } = deps;
 
@@ -35,7 +43,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: structuredClone(rawDocs) };
+        return { documents: jsonSerialize(rawDocs) };
       }
       if (queryName === 'get-reviewable-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -47,7 +55,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: structuredClone(rawDocs) };
+        return { documents: jsonSerialize(rawDocs) };
       }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
@@ -61,7 +69,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId });
         }
-        return { document: rawDoc ? structuredClone(rawDoc) : null };
+        return { document: rawDoc ? jsonSerialize(rawDoc) : null };
       }
       if (queryName === 'get-document-summary') {
         const userId = context.user?.['id'] as string | undefined;
@@ -76,14 +84,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         } else if (channel) {
           rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId }, projection);
         }
-        return { document: rawDoc ? structuredClone(rawDoc) : null };
+        return { document: rawDoc ? jsonSerialize(rawDoc) : null };
       }
       if (queryName === 'get-users') {
         const users = await db
           .collection('users')
           .find({}, { projection: { _id: 1, email: 1, roles: 1 } })
           .toArray();
-        return { users: structuredClone(users) };
+        return { users: jsonSerialize(users) };
       }
       if (queryName === 'create-document') {
         const name = (context.message['name'] as string | undefined)?.trim();
@@ -119,7 +127,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           )
           .toArray();
         return {
-          document: structuredClone({
+          document: jsonSerialize({
             _id: newDoc!._id,
             name: newDoc!.name,
             type: newDoc!.type,
@@ -128,7 +136,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             createdAt: newDoc!.createdAt,
             updatedAt: newDoc!.updatedAt,
           }),
-          documents: structuredClone(rawDocs),
+          documents: jsonSerialize(rawDocs),
         };
       }
       if (queryName === 'get-workflow-logs') {
@@ -244,6 +252,101 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           children: rootChildren,
         }];
         return { treeData };
+      }
+
+      if (queryName === 'get-asset-creator-document') {
+        const channel = context.message['channel'] as string;
+        const doc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+        if (!doc) return { document: null };
+        // Inject channelId and documentId into state so the client can use them for HTTP calls
+        const state = {
+          ...(doc.state ?? {}),
+          channelId: doc.currentChannelId,
+          documentId: doc._id.toString(),
+        };
+        return { document: jsonSerialize({ ...doc, state }) };
+      }
+
+      if (queryName === 'check-asset-exists') {
+        // assetName + assetCategory come from the schema-proposed AI message
+        const assetName = context.message['assetName'] as string | undefined;
+        const assetCategory = context.message['assetCategory'] as string | undefined;
+        if (!assetName || !assetCategory) return { type: 'asset-not-found' };
+        const existing = await db
+          .collection('structuredassets')
+          .findOne({ name: assetName, category: assetCategory }, { sort: { assetVersion: -1 } });
+        if (!existing) return { type: 'asset-not-found' };
+        return {
+          type: 'asset-exists',
+          existingVersion: existing['assetVersion'] as number,
+          existingAssetId: existing['_id'].toString(),
+        };
+      }
+
+      if (queryName === 'persist-structured-asset') {
+        // Load current document state from MongoDB
+        const channel = context.message['channel'] as string;
+        const doc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+        const state = (doc?.state ?? {}) as Record<string, unknown>;
+
+        const saveIntent = state['saveIntent'] as string | undefined;
+        const assetName = state['assetName'] as string | undefined;
+        const assetCategory = state['assetCategory'] as string | undefined;
+        const confirmedSchema = (state['proposedSchema'] ?? state['confirmedSchema']) as Record<string, unknown> | undefined;
+        const extractedData = state['extractedData'] as Record<string, unknown>[] | undefined;
+        const fileName = state['fileName'] as string | undefined;
+        const existingAssetId = state['existingAssetId'] as string | undefined;
+        const existingVersion = state['existingVersion'] as number | undefined;
+
+        if (!assetName || !assetCategory || !confirmedSchema || !extractedData) {
+          return { type: 'asset-persisted', savedVersion: 0, count: 0 };
+        }
+
+        const now = new Date();
+        const base = {
+          schema: confirmedSchema,
+          schemaDescription: (confirmedSchema['description'] as string | undefined) ?? '',
+          data: extractedData,
+          recordCount: extractedData.length,
+          sourceFileName: fileName ?? '',
+          sourceDocumentId: doc?._id?.toString() ?? '',
+          updatedAt: now,
+        };
+
+        const { ObjectId: ObjId } = await import('mongodb');
+        let savedAssetId: string;
+        let savedVersion: number;
+        let count: number;
+
+        if (saveIntent === 'replace' && existingAssetId) {
+          const result = await db.collection('structuredassets').findOneAndUpdate(
+            { _id: new ObjId(existingAssetId) },
+            { $set: base },
+            { returnDocument: 'after' }
+          );
+          savedAssetId = result!['_id'].toString();
+          savedVersion = result!['assetVersion'] as number;
+          count = result!['recordCount'] as number;
+        } else if (saveIntent === 'new-version' && existingVersion !== undefined) {
+          const newVersion = existingVersion + 1;
+          const r = await db.collection('structuredassets').insertOne({
+            name: assetName, category: assetCategory, assetVersion: newVersion,
+            ...base, createdAt: now,
+          });
+          savedAssetId = r.insertedId.toString();
+          savedVersion = newVersion;
+          count = extractedData.length;
+        } else {
+          const r = await db.collection('structuredassets').insertOne({
+            name: assetName, category: assetCategory, assetVersion: 1,
+            ...base, createdAt: now,
+          });
+          savedAssetId = r.insertedId.toString();
+          savedVersion = 1;
+          count = extractedData.length;
+        }
+
+        return { type: 'asset-persisted', assetId: savedAssetId, count, savedVersion };
       }
 
       return {};
