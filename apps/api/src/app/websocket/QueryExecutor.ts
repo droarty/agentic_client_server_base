@@ -21,11 +21,15 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
+        const systemExclusions = new Set(['user-dashboard', 'log-review']);
         const files = fs.readdirSync(configDir);
-        const availableTypes = files
+        const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
           .map((f: string) => f.replace('.json', ''))
-          .filter((t: string) => t !== 'user-dashboard');
+          .filter((t: string) => !systemExclusions.has(t));
+        const customConfigs = await db.collection('workflowconfigs').find({}, { projection: { name: 1 } }).toArray();
+        const customTypes = customConfigs.map((c) => c['name'] as string);
+        const availableTypes = [...new Set([...filesystemTypes, ...customTypes])];
         return { availableTypes };
       }
       if (queryName === 'get-user-documents') {
@@ -100,6 +104,11 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         if (fs.existsSync(configPath)) {
           const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
           initialState = wfConfig.initialState;
+        } else {
+          const customConfig = await db.collection('workflowconfigs').findOne({ name: type }, { projection: { initialState: 1 } });
+          if (customConfig?.['initialState']) {
+            initialState = customConfig['initialState'] as Record<string, unknown>;
+          }
         }
         const docFields: Record<string, unknown> = {
           name,

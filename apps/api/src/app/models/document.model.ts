@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 
 export interface IArtifact extends Document {
   name: string;
-  type: 'user-dashboard' | 'configged-chat' | 'brazil_vs_morocco';
+  type: string;
   userId?: string;
   currentChannelId: string;
   state?: Record<string, unknown>;
@@ -14,7 +14,7 @@ export interface IArtifact extends Document {
 const artifactSchema = new Schema<IArtifact>(
   {
     name: { type: String, required: true, trim: true },
-    type: { type: String, enum: ['user-dashboard', 'configged-chat', 'brazil_vs_morocco'], default: 'configged-chat' },
+    type: { type: String, required: true },
     userId: { type: String },
     currentChannelId: { type: String, default: () => randomUUID() },
     state: { type: Schema.Types.Mixed, default: undefined },

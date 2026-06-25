@@ -1,5 +1,6 @@
 {
   "name": "story-generator",
+  "displayName": "Story Generator",
   "version": "1.0.0",
   "initialState": {
     "chatMessages": [

@@ -1,5 +1,6 @@
 {
   "name": "brazil_vs_morocco",
+  "displayName": "Brazil vs Morocco",
   "version": "1.0.0",
   "initialState": {
     "chatMessages": [

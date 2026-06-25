@@ -68,6 +68,7 @@ export interface WorkflowEngineDeps {
   ) => void;
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
+  getWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
 }
 
 function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown {
@@ -175,7 +176,7 @@ export class WorkflowEngine {
       return;
     }
 
-    const config = this.loadConfig(docType);
+    const config = await this.loadConfig(docType);
     if (!config) {
       this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no config found for document type "${docType}"` });
       return;
@@ -220,18 +221,30 @@ export class WorkflowEngine {
     return docType;
   }
 
-  private loadConfig(docType: string): WorkflowConfig | null {
+  private async loadConfig(docType: string): Promise<WorkflowConfig | null> {
     if (this.configCache.has(docType)) return this.configCache.get(docType)!;
+
     const configPath = path.join(this.configDir, `${docType}.json`);
-    if (!fs.existsSync(configPath)) return null;
-    try {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as WorkflowConfig;
-      this.configCache.set(docType, config);
-      return config;
-    } catch (err) {
-      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel: '', docType, handlerName: '', logType: 'error', errorMessage: `failed to load config "${docType}.json"`, errorDetail: String(err) });
-      return null;
+    if (fs.existsSync(configPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as WorkflowConfig;
+        this.configCache.set(docType, config);
+        return config;
+      } catch (err) {
+        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel: '', docType, handlerName: '', logType: 'error', errorMessage: `failed to load config "${docType}.json"`, errorDetail: String(err) });
+        return null;
+      }
     }
+
+    if (this.deps.getWorkflowConfig) {
+      const config = await this.deps.getWorkflowConfig(docType);
+      if (config) {
+        this.configCache.set(docType, config);
+        return config;
+      }
+    }
+
+    return null;
   }
 
   private async executeStep(
