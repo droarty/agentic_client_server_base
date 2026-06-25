@@ -40,12 +40,12 @@ npx nx e2e web-e2e     # WebdriverIO e2e tests (requires running servers)
 
 ## Starting / restarting servers
 
-Always use the npm scripts — they kill the old process, start the new one, and verify it is responding before returning:
+Always use the pnpm scripts — they kill the old process, start the new one, and verify it is responding before returning:
 
 ```bash
-npm run restart:api    # restart API on :3000 (waits up to 30s for HTTP response)
-npm run restart:web    # restart web on :4200 (waits up to 20s for HTTP response)
-npm run restart:both   # restart both in parallel, verifies both
+pnpm run restart:api    # restart API on :3000 (waits up to 30s for HTTP response)
+pnpm run restart:web    # restart web on :4200 (waits up to 20s for HTTP response)
+pnpm run restart:both   # restart both in parallel, verifies both
 ```
 
 **These scripts are pre-approved — call them without asking the user for confirmation**, both when the user requests a restart and when one is needed (e.g. after shared-types changes, after API code changes). Never run the underlying `lsof`/`kill`/`npx nx serve` commands directly.
@@ -123,7 +123,7 @@ When `LayoutDocumentView` mounts on a channel it sends **two independent message
 - **PR merges**: Never merge a PR into main. Only the user can merge via GitHub.
 
 ## Key conventions
-- **Shared-types changes** require an API server restart (nodemon only watches `apps/api/src/`) — run `npm run restart:api` automatically, no confirmation needed
+- **Shared-types changes** require an API server restart (nodemon only watches `apps/api/src/`) — run `pnpm run restart:api` automatically, no confirmation needed
 - **senderEmail** is injected server-side by `UserEventManager` — clients never set it
 - **One-time OAuth codes**: 64-char hex, 60s TTL, single-use (stored in Redis)
 - **React 19 ref pattern**: all `components/ui/` components accept `ref` as a regular prop — no `forwardRef`. For Radix UI wrappers use `ComponentPropsWithRef<T>` (includes `ref`); for HTML wrappers add `ref?: React.Ref<Element>` to the props interface
