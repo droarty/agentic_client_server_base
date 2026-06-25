@@ -13,11 +13,13 @@ To accommodate all these aspects of an agentic client/server stack there are sev
   - ie. the user types in some data we want persisted, the client model is not updated directly until it makes the round trip to the server and back.
   - I wrestle with the fact that this could be limiting offline features but that is a task for another day.
   - I also believe that this event structure will ultimately lend itself a future attempt to build off line event queueing and short circuited model updates.
-- And at the core of all of this is workflow configuration.   The primary means of building a new UI, data persistence, third party data processing is all through a json file.
-  - new workflows, think SPA sized apps, can be configured by developers, non-developers, and AI tools.
+- And at the core of all of this is workflow configuration.   The primary means of building a new UI, data persistence, third party data processing is all through a json file.  Think of an SPA in json format.
+  - new workflows can be configured by any combination of developers, non-developers, and AI tools.
+  - logic can live within the configuration file itself to avoid ai calls
+  - or logic can live in configured prompts with access to configured tools
   - This requires that all UI components, persistence layer modules and third party services respond to events.
-  - On the client the configuration defines a document model, component props and eventnames, and data transforms triggered by those named events.
-  - Likewise, on the server, the configuration defines the chain of data transforms and named callbacks sent to backend services.
+  - On the client the configuration defines a layout, document model, component props and events, and data transforms triggered by those events.
+  - Likewise, on the server, the configuration defines the chain of data transforms and named callbacks sent to ai, persistence and other backend services.
 - Side benefits to the event bus and configuration include:
   - it allows us to easily track and debug complicated workflows as we can read through logs of every step in the process
   - it allows us to replay events on the client for debugging purposes
