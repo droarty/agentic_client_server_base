@@ -68,7 +68,7 @@ export interface WorkflowEngineDeps {
   ) => void;
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
-  getWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
+  fetchCustomWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
 }
 
 function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown {
@@ -236,8 +236,8 @@ export class WorkflowEngine {
       }
     }
 
-    if (this.deps.getWorkflowConfig) {
-      const config = await this.deps.getWorkflowConfig(docType);
+    if (this.deps.fetchCustomWorkflowConfig) {
+      const config = await this.deps.fetchCustomWorkflowConfig(docType);
       if (config) {
         this.configCache.set(docType, config);
         return config;

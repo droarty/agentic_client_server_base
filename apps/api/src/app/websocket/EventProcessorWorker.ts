@@ -56,7 +56,7 @@ async function getDocumentType(channel: string): Promise<string | null> {
   }
 }
 
-async function getWorkflowConfig(docType: string) {
+async function fetchCustomWorkflowConfig(docType: string) {
   try {
     await dbReady;
     const row = await mongoClient.db().collection('workflowconfigs').findOne({ name: docType });
@@ -90,7 +90,7 @@ const engine = new WorkflowEngine(
     },
     getDocumentType,
     executeQuery,
-    getWorkflowConfig,
+    fetchCustomWorkflowConfig,
   },
   configDir
 );
