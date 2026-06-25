@@ -2,9 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# multiplayer_base
+# agentic_client_server_base
 
-Full-stack Nx monorepo — a base for multiplayer applications built incrementally via numbered steps in `setup.md`.
+Full-stack Nx monorepo — a base for agentic client-server applications built incrementally via numbered steps in `setup.md`.
 
 ## Stack
 - **Monorepo:** Nx 20.x with pnpm workspaces
@@ -15,7 +15,7 @@ Full-stack Nx monorepo — a base for multiplayer applications built incremental
 - **Auth:** JWT (email + userId in payload) + bcryptjs + Google OAuth 2.0
 - **WebSockets:** `ws` library — EventManager (client), UserEventManager (server)
 - **Worker threads:** EventProcessorWorker runs in a separate thread; owns the full Redis-publish pipeline
-- **Shared types:** `libs/shared-types/src/` — imported by both api and web via path alias `@multiplayer-base/shared-types`
+- **Shared types:** `libs/shared-types/src/` — imported by both api and web via path alias `@agentic-client-server-base/shared-types`
 
 ## Projects
 | Name | Path | Purpose |

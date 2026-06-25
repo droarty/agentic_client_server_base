@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, User, UpdateUserRequest, Artifact } from '@multiplayer-base/shared-types';
+import { AuthResponse, User, UpdateUserRequest, Artifact } from '@agentic-client-server-base/shared-types';
 
 const API_URL = (typeof process !== 'undefined' && process.env['API_URL']) || 'http://localhost:3000';
 

@@ -1,5 +1,5 @@
 import { MongoClient } from 'mongodb';
-import { OutboundMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 
 interface DatabasePersistorDeps {

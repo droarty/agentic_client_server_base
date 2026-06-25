@@ -4,7 +4,7 @@ jest.mock('./EventProcessor');
 import { AiService } from './AiService';
 import { EventProcessor } from './EventProcessor';
 import { AIEventManager } from './AIEventManager';
-import { ValidateTextMessage } from '@multiplayer-base/shared-types';
+import { ValidateTextMessage } from '@agentic-client-server-base/shared-types';
 
 const flushPromises = () => new Promise(setImmediate);
 

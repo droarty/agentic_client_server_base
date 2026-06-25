@@ -1,5 +1,5 @@
 import { Suspense, ReactNode } from 'react';
-import { LayoutNode } from '@multiplayer-base/shared-types';
+import { LayoutNode } from '@agentic-client-server-base/shared-types';
 import { getLayoutComponent } from '@/app/registry/layoutRegistry';
 
 interface Props {

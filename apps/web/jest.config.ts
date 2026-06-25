@@ -8,7 +8,7 @@ export default {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'html'],
   coverageDirectory: '../../coverage/apps/web',
   moduleNameMapper: {
-    '^@multiplayer-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
+    '^@agentic-client-server-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
     '\\.css$': '<rootDir>/../../tools/__mocks__/styleMock.js',
   },
 };

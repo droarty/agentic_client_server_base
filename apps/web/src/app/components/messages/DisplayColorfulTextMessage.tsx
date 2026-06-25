@@ -1,4 +1,4 @@
-import { DisplayColorfulTextMessage as DisplayColorfulTextMsg } from '@multiplayer-base/shared-types';
+import { DisplayColorfulTextMessage as DisplayColorfulTextMsg } from '@agentic-client-server-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
 import { TargetPortal } from '../TargetPortal';
 

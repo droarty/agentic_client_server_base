@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SS_DIR = '.claude/skills/run-multiplayer-base/screenshots';
+const SS_DIR = '.claude/skills/run-agentic-client-server-base/screenshots';
 const EMAIL = `smoke-${Date.now()}@example.com`;
 const PASSWORD = 'password123';
 
@@ -10,7 +10,7 @@ async function screenshot(name: string) {
   await browser.saveScreenshot(path.join(SS_DIR, `${name}.png`));
 }
 
-describe('multiplayer-base smoke', () => {
+describe('agentic-client-server-base smoke', () => {
   before(async () => {
     // Register a fresh user
     await browser.url('/register');

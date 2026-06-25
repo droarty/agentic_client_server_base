@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SimpleTabMessage as SimpleTabMsg } from '@multiplayer-base/shared-types';
+import { SimpleTabMessage as SimpleTabMsg } from '@agentic-client-server-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
 import { TargetPortal } from '../TargetPortal';
 

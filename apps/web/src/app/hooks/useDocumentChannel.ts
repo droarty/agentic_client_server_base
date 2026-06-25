@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { OutboundMessage, InboundMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage, InboundMessage } from '@agentic-client-server-base/shared-types';
 import { eventManager } from '../services/EventManager';
 
 export function useDocumentChannel(channelId: string) {

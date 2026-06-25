@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { pack } from 'msgpackr';
 import Redis from 'ioredis';
 import { MongoClient } from 'mongodb';
-import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
 import { AIEventManager } from './AIEventManager';
 import { WorkflowEngine, AiStepConfig, WorkflowLogEntry } from './WorkflowEngine';
@@ -16,7 +16,7 @@ const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
 });
 redis.on('error', (err) => console.error('EventProcessorWorker Redis error:', err.message));
 
-const mongoUri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017/multiplayer_base';
+const mongoUri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017/agentic_client_server_base';
 const mongoClient = new MongoClient(mongoUri);
 const dbReady = mongoClient.connect();
 dbReady.catch((err) => console.error('EventProcessorWorker MongoDB error:', err.message));

@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import jsonata from 'jsonata';
-import { OutboundMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 
 export interface AiStepConfig {
   model: string;

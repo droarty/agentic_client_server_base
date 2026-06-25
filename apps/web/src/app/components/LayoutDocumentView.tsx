@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useEffect, useCallback } from 'react';
-import { Artifact, InboundMessage } from '@multiplayer-base/shared-types';
+import { Artifact, InboundMessage } from '@agentic-client-server-base/shared-types';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
 import { subscribeToModel, getModelSnapshot, mountChannel } from '../services/documentModelStore';

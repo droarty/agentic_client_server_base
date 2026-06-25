@@ -1,4 +1,4 @@
-import { ValidateTextMessage, AiResponse } from '@multiplayer-base/shared-types';
+import { ValidateTextMessage, AiResponse } from '@agentic-client-server-base/shared-types';
 import { AiService } from './AiService';
 import { EventProcessor } from './EventProcessor';
 import { AiStepConfig } from './WorkflowEngine';

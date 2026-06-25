@@ -1,5 +1,5 @@
 import { lazy, ComponentType } from 'react';
-import { Artifact } from '@multiplayer-base/shared-types';
+import { Artifact } from '@agentic-client-server-base/shared-types';
 
 export interface ArtifactViewProps {
   doc: Artifact;

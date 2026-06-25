@@ -1,6 +1,6 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Document } from 'mongodb';
-import { OutboundMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 import { createDatabasePersistor } from './DatabasePersistor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 

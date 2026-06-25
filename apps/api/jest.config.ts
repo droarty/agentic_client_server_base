@@ -8,6 +8,6 @@ export default {
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: '../../coverage/apps/api',
   moduleNameMapper: {
-    '^@multiplayer-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
+    '^@agentic-client-server-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
   },
 };

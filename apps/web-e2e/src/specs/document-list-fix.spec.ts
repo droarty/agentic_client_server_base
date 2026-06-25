@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SS_DIR = '.claude/skills/run-multiplayer-base/screenshots';
+const SS_DIR = '.claude/skills/run-agentic-client-server-base/screenshots';
 const EMAIL = `doclist-${Date.now()}@example.com`;
 const PASSWORD = 'password123';
 const DOC_NAME = 'Verification Doc';

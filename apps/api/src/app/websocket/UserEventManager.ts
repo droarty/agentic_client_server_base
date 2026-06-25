@@ -5,7 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import { WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { WsClientMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
 import { env } from '../config/env';
 import { redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';

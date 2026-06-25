@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User } from '@multiplayer-base/shared-types';
+import { User } from '@agentic-client-server-base/shared-types';
 import { useAuth } from '../contexts/AuthContext';
 import { apiGetUsers } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
