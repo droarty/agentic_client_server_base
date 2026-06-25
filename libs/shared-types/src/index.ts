@@ -80,3 +80,10 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
 }
+
+export interface WorkflowConfigSummary {
+  _id: string;
+  name: string;
+  displayName: string;
+  version: string;
+}

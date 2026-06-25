@@ -1,5 +1,6 @@
 {
-  "name": "configged-chat-workflow",
+  "name": "configged-chat",
+  "displayName": "Configged Chat",
   "version": "1.0.0",
   "initialState": {
     "chatMessages": []

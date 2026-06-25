@@ -56,6 +56,17 @@ async function getDocumentType(channel: string): Promise<string | null> {
   }
 }
 
+async function getWorkflowConfig(docType: string) {
+  try {
+    await dbReady;
+    const row = await mongoClient.db().collection('workflowconfigs').findOne({ name: docType });
+    if (!row) return null;
+    return { name: row['name'] as string, version: row['version'] as string, handlers: row['handlers'] as Record<string, unknown> };
+  } catch {
+    return null;
+  }
+}
+
 const executeQuery = createQueryExecutor({ mongoClient, dbReady, configDir, logWorkflowStep });
 const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
 
@@ -79,6 +90,7 @@ const engine = new WorkflowEngine(
     },
     getDocumentType,
     executeQuery,
+    getWorkflowConfig,
   },
   configDir
 );

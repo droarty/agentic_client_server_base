@@ -7,20 +7,18 @@ export interface ArtifactViewProps {
 
 type LazyDocumentComponent = ReturnType<typeof lazy<ComponentType<ArtifactViewProps>>>;
 
+const layoutDocumentView = lazy(() =>
+  import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))
+);
+
 const registry: Partial<Record<string, LazyDocumentComponent>> = {
-  'configged-chat': lazy(() =>
-    import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))
-  ),
-  'log-review': lazy(() =>
-    import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))
-  ),
-  'user-dashboard': lazy(() =>
-    import('../components/LayoutDocumentView').then((m) => ({ default: m.LayoutDocumentView }))
-  ),
+  'configged-chat': layoutDocumentView,
+  'log-review': layoutDocumentView,
+  'user-dashboard': layoutDocumentView,
 };
 
-export function getDocumentComponent(type: string): LazyDocumentComponent | null {
-  return registry[type] ?? null;
+export function getDocumentComponent(type: string): LazyDocumentComponent {
+  return registry[type] ?? layoutDocumentView;
 }
 
 export function getDocumentTypes(): string[] {
