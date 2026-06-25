@@ -1,5 +1,5 @@
 import { lazy, ComponentType } from 'react';
-import { OutboundMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 
 export interface MessageViewProps {
   message: OutboundMessage;

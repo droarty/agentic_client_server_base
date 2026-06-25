@@ -1,5 +1,5 @@
 import React from 'react';
-import { VerticalWorkspaceMessage as VerticalWorkspaceMsg } from '@multiplayer-base/shared-types';
+import { VerticalWorkspaceMessage as VerticalWorkspaceMsg } from '@agentic-client-server-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
 import { TargetPortal } from '../TargetPortal';
 

@@ -1,4 +1,4 @@
-import { DisplayTextMessage as DisplayTextMsg } from '@multiplayer-base/shared-types';
+import { DisplayTextMessage as DisplayTextMsg } from '@agentic-client-server-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
 import { TargetPortal } from '../TargetPortal';
 

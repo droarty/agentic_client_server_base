@@ -10,6 +10,6 @@ export default {
   moduleFileExtensions: ['ts', 'js'],
   coverageDirectory: '../../coverage/apps/api-e2e',
   moduleNameMapper: {
-    '^@multiplayer-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
+    '^@agentic-client-server-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
   },
 };

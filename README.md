@@ -200,7 +200,7 @@ brew install mongosh
 ### Connect
 
 ```bash
-~/bin/mongosh mongodb://localhost:27017/multiplayer_base
+~/bin/mongosh mongodb://localhost:27017/agentic_client_server_base
 ```
 
 ### Common Commands
@@ -318,7 +318,7 @@ See `.env.example` for all options. Key variables:
 
 ```
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/multiplayer_base
+MONGODB_URI=mongodb://localhost:27017/agentic_client_server_base
 JWT_SECRET=your-secret-here
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=http://localhost:4200

@@ -3,7 +3,7 @@ import {
   OutboundMessage,
   AddTextMessage,
   AddColorfulTextMessage,
-} from '@multiplayer-base/shared-types';
+} from '@agentic-client-server-base/shared-types';
 import { eventManager } from '../services/EventManager';
 import { getMessageComponent } from '../registry/messageRegistry';
 

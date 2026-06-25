@@ -5,7 +5,7 @@
  */
 const { MongoClient } = require('mongodb');
 
-const uri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017/multiplayer_base';
+const uri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017/agentic_client_server_base';
 
 async function main() {
   const client = new MongoClient(uri);

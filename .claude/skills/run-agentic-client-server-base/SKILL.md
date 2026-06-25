@@ -1,5 +1,5 @@
 ---
-name: run-multiplayer-base
+name: run-agentic-client-server-base
 description: run, start, launch, screenshot, drive, test the multiplayer-base web app and API server; browser automation; e2e smoke test
 ---
 
@@ -66,11 +66,11 @@ Runs 3 tests in headless Chrome (~15s):
 2. Clear localStorage → log in again → waits for `/dashboard`
 3. Navigate to `/dashboard/user` → waits for tabs to appear
 
-Screenshots land in `.claude/skills/run-multiplayer-base/screenshots/`.
+Screenshots land in `.claude/skills/run-agentic-client-server-base/screenshots/`.
 
 Expected output:
 ```
-[chrome 133.x mac #0-0] multiplayer-base smoke
+[chrome 133.x mac #0-0] agentic-client-server-base smoke
 [chrome 133.x mac #0-0]    ✓ lands on dashboard after register
 [chrome 133.x mac #0-0]    ✓ can logout and log back in
 [chrome 133.x mac #0-0]    ✓ user dashboard loads with tabs

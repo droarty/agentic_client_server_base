@@ -2,7 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { WorkflowEngine, WorkflowEngineDeps, WorkflowContext } from './WorkflowEngine';
-import { OutboundMessage } from '@multiplayer-base/shared-types';
+import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 
 let configDir: string;
 

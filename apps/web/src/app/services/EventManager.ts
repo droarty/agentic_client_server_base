@@ -1,5 +1,5 @@
 import { encode, decode } from '@msgpack/msgpack';
-import { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } from '@multiplayer-base/shared-types';
+import { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
 
 type MessageCallback = (message: OutboundMessage) => void;
 

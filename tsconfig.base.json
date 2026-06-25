@@ -17,7 +17,7 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
-      "@multiplayer-base/shared-types": ["libs/shared-types/src/index.ts"]
+      "@agentic-client-server-base/shared-types": ["libs/shared-types/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

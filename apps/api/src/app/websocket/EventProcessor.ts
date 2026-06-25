@@ -1,6 +1,6 @@
 import { Worker } from 'worker_threads';
 import { join } from 'path';
-import { InboundMessage } from '@multiplayer-base/shared-types';
+import { InboundMessage } from '@agentic-client-server-base/shared-types';
 import type { WorkerInput } from './EventProcessorTypes';
 
 export class EventProcessor {

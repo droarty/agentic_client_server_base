@@ -1,4 +1,4 @@
-import { DisplayJsonMessage as DisplayJsonMsg } from '@multiplayer-base/shared-types';
+import { DisplayJsonMessage as DisplayJsonMsg } from '@agentic-client-server-base/shared-types';
 import { MessageViewProps } from '../../registry/messageRegistry';
 import { TargetPortal } from '../TargetPortal';
 

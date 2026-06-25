@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthResponse } from '@multiplayer-base/shared-types';
+import { User, AuthResponse } from '@agentic-client-server-base/shared-types';
 import { apiLogin, apiRegister, apiGetMe } from '../services/api';
 import { eventManager } from '../services/EventManager';
 
