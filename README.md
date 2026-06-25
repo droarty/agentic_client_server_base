@@ -1,7 +1,9 @@
 # Agentic Client/Server Base
 🚧🚧🚧 **Note: this is still very much a WIP**
 
-This project is a demo of what I think might be some best practices for an agentic client/server stack.  The agentic part infers AI infused, but it is more than that.  Agentic also means flexible workflows, it means many data types, and it means reuseable components.  It also means lots of asynchronous data flows.  This last part, in particular, reminds me of a multiplayer game, which this design lends itself to.
+This project is a demo of what I think might be some best practices for an agentic client/server stack that lets users create workflows for other users.  My primary use case for this is educators creating lessons for students, but it could be anyone creating workflows for any group.
+
+The agentic part infers AI infused, but it is more than that.  Agentic also means flexible workflows, it means many data types, and it means reuseable components.  It also means lots of asynchronous data flows.  This last part, in particular, reminds me of a multiplayer game, which this design also lends itself to.
 
 To accommodate all these aspects of an agentic client/server stack there are several architectural decisions that I have long wanted to try out.  So this demo app is where I will experiement with it:
 - We start with the MERN stack as a great way to manage data types across the frontend and backend.
@@ -21,12 +23,12 @@ To accommodate all these aspects of an agentic client/server stack there are sev
   - it allows us to replay events on the client for debugging purposes
   - it allows us to easily incorporate multi-user features in workflows. ie. two users interacting with the same document cause model updates from one user to be broadcast to the client of the other user.
 
-This work is about 20% done at the moment, but the pieces are falling in place (May 2026).
+This work is about 20% done at the moment, but the pieces are falling in place (June 2026).
 
 ### Try it out
-What can you do with it?  At the moment, not much.  I have hard coded three configured workflows.  One to manage documents, one to open a silly chat that checks for inappropriate content, and one to view the logs of the other two workflows.
+What can you do with it?  At the moment, not much.  After setting up the repo and logging into the app the first time, you can run a script to seed the db with some custom workflows (`pnpm run seed:workflows`).  You can use these in the UI to create new documents right away.   You can also ask claude to write new scripts from your terminal.   Soon, you will be able to do so from within the app.
 
-Soon I will have more frontend components and backend services that will allow users to create new workflows of their own design.
+I will be adding more frontend components and backend services as we go along.  And I will be adding more user, group, document and workflow management features.
 
 For now you could describe a simple new workflow to Claude and see what it does.  There is enough precedent that it will easily configure the thing for you and might offer to create new components as needed.
 
