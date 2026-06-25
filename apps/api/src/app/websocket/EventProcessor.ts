@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { InboundMessage } from '@agentic-client-server-base/shared-types';
 import type { WorkerInput } from './EventProcessorTypes';
 
@@ -8,8 +8,7 @@ export class EventProcessor {
 
   constructor() {
     const workerPath = join(__dirname, 'EventProcessorWorker');
-    const tsConfigPath = join(
-      process.cwd(),
+    const tsConfigPath = resolve(
       process.env['TS_NODE_PROJECT'] || 'apps/api/tsconfig.app.json'
     );
 
