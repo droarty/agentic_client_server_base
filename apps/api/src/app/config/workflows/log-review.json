@@ -21,7 +21,6 @@
       ]
     },
     "initialize-state-document": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -34,7 +33,6 @@
       ]
     },
     "defaultView": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -48,26 +46,26 @@
                   {
                     "componentType": "smartAccordion",
                     "props": {
-                      "items": "$temp.documentList",
-                      "idField": "$state.config.idField",
-                      "triggerFields": "$state.config.triggerFields",
-                      "selectedId": "$state.selectedDocumentId"
+                      "items": "@temp.documentList",
+                      "idField": "@state.config.idField",
+                      "triggerFields": "@state.config.triggerFields",
+                      "selectedId": "@state.selectedDocumentId"
                     },
                     "emits": { "select": "select-log-document" },
                     "children": [
                       {
                         "componentType": "smartAccordion",
                         "props": {
-                          "items": "$temp.selectedDocumentLogs",
-                          "idField": "$state.config.contentIdField",
-                          "triggerFields": "$state.config.contentTriggerFields",
-                          "selectedId": "$state.selectedLogId"
+                          "items": "@temp.selectedDocumentLogs",
+                          "idField": "@state.config.contentIdField",
+                          "triggerFields": "@state.config.contentTriggerFields",
+                          "selectedId": "@state.selectedLogId"
                         },
                         "emits": { "select": "select-log-entry" },
                         "children": [
                           {
                             "componentType": "logTreePanel",
-                            "props": { "treeData": "$temp.selectedLogTree" }
+                            "props": { "treeData": "@temp.selectedLogTree" }
                           }
                         ]
                       }
@@ -85,7 +83,6 @@
       ]
     },
     "document-list-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -99,7 +96,6 @@
       ]
     },
     "rehydrate-logs-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -113,7 +109,6 @@
       ]
     },
     "rehydrate-tree-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -136,7 +131,6 @@
       ]
     },
     "workflow-logs-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -168,7 +162,6 @@
       ]
     },
     "log-tree-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],

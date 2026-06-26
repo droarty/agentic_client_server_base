@@ -74,36 +74,22 @@ Each artifact document in MongoDB has a `currentChannelId` (UUID). When a browse
 
 ```json
 "handlerName": {
-  "transformer": "simple",
   "condition": "$message.text",
   "steps": [ ... ]
 }
 ```
 
-| Field | Type | Default | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `transformer` | `"simple"` \| `"jsonata"` | `"simple"` | How path expressions are evaluated in `transform` objects and `condition`. |
-| `condition` | string | none | Evaluated before any steps run. If falsy, the entire handler is skipped. Evaluated using the handler's `transformer` mode. |
-| `steps` | array | required | Ordered list of step definitions executed sequentially. |
-
-### Transformer modes
-
-**`"simple"`** (default): Recognizes `$`-prefixed path patterns (see [Transform Syntax](#transform-syntax-and-path-substitution)). Fast and sufficient for most workflows.
-
-**`"jsonata"`**: Strips the leading `$` and evaluates the remainder as a full [JSONata](https://jsonata.org) expression against a context object `{ message, user, state }`. Use when you need filtering, arithmetic, string ops, or conditional logic that simple dot-path substitution cannot express. Falls back to `undefined` on evaluation error.
+| `condition` | string | no | Evaluated before any steps run. If falsy, the entire handler is skipped. Supports all value syntaxes (`$`, `@`, `~{}`). |
+| `steps` | array | yes | Ordered list of step definitions executed sequentially. |
 
 ### Condition examples
 
 ```json
-"condition": "$message.text"          // truthy if message.text is non-empty
-"condition": "$message.documentId"    // truthy if message.documentId exists
-"condition": "$message.id"            // truthy if message.id exists
-```
-
-In JSONata mode the condition is a full expression:
-```json
-"transformer": "jsonata",
-"condition": "$message.count > 0"
+"condition": "$message.text"                       // truthy if message.text is non-empty
+"condition": "$message.documentId"                 // truthy if message.documentId exists
+"condition": "~{ $count(message.items) > 0 }"     // JSONata: truthy if items array is non-empty
 ```
 
 ---
@@ -210,25 +196,36 @@ See [AI Step Configuration](#ai-step-configuration) for full details.
 
 ## Transform Syntax and Path Substitution
 
-The `transform` object is a template that the engine resolves before dispatching the outbound message. String values can contain path references that are replaced with live data.
+The `transform` object is a template that the engine resolves before dispatching the outbound message. String values use one of three sigils to declare where and how they are resolved:
 
-### `"simple"` mode patterns
+### Sigil reference
 
-| Pattern | Resolves to | Notes |
-|---|---|---|
-| `"$message.fieldName"` | `context.message.fieldName` | Supports dot-notation: `"$message.document.state"` |
-| `"$user.fieldName"` | `context.user.fieldName` | e.g. `"$user.id"`, `"$user.email"` |
-| `"$uuid"` | A newly generated UUID v4 | Useful for generating unique IDs for new items |
-| `"$state.path"` | Returned **as-is** string | Resolved client-side by LayoutRenderer — do not expect server resolution |
-| `"$temp.path"` | Returned **as-is** string | Same — client-side only |
-| `"$item.fieldName"` | Returned **as-is** string | Used inside `forEach` layout nodes — client-side only |
-| Any other string | Returned as-is | Literal string values |
+| Sigil | Example | Resolved by | When |
+|---|---|---|---|
+| `$message.x` | `"$message.text"` | Server (WorkflowEngine) | At step execution — substituted with live value |
+| `$user.x` | `"$user.email"` | Server (WorkflowEngine) | At step execution — substituted with live value |
+| `$uuid` | `"$uuid"` | Server (WorkflowEngine) | At step execution — generates a new UUID v4 |
+| `~{ expr }` | `"~{ message.items[0].id }"` | Server (JSONata eval) | At step execution — full JSONata expression |
+| `@state.x` | `"@state.chatMessages"` | Client (LayoutRenderer) | At render time — use only in `layoutConfig` props |
+| `@temp.x` | `"@temp.documentList"` | Client (LayoutRenderer) | At render time — use only in `layoutConfig` props |
+| `@item.x` | `"@item.name"` | Client (LayoutRenderer, forEach) | At render time — current forEach iteration element |
+| Any other string | `"hello"` | Not resolved | Literal value passed through unchanged |
 
-**Critical:** `$state.*`, `$temp.*`, and `$item.*` are **not** resolved by the server. They are passed through as literal strings and resolved later by the client-side LayoutRenderer when binding props to components. Only use `$state.*` and `$temp.*` in `layoutConfig` prop values — not in transform action values (where you need actual data). In action `value` fields, use `$message.*` to pull data from the inbound message.
+**Rule:** `$` and `~{}` are for server-side resolution in `transform` values, `condition`, and `action.value` fields. `@` is for client-side prop bindings in `layoutConfig` nodes. Never use `@state.*` or `@temp.*` in action `value` fields — they will be stored as literal strings.
+
+### `~{ expr }` — JSONata expressions
+
+Wrap a [JSONata](https://jsonata.org) expression in `~{` and `}` to evaluate it server-side against the context object `{ message, user, state }`. Use for filtering, arithmetic, string operations, or conditional logic that dot-path substitution cannot express. Falls back to `undefined` on evaluation error.
+
+```json
+"value": "~{ message.items[count > 0].id }"
+"condition": "~{ $count(state.openDocs) < 10 }"
+"value": "~{ $uppercase(message.text) }"
+```
 
 ### Arrays and objects in transforms
 
-Arrays are resolved element-by-element. Objects are resolved key-by-key. Nested structures are fully traversed:
+Arrays are resolved element-by-element. Objects are resolved key-by-key recursively. Nested structures are fully traversed:
 
 ```json
 "value": {
@@ -246,33 +243,15 @@ Valid values for `clientMessageType`:
 - `"initialize-client"` — seeds layout and/or state
 - `"update-state"` — applies mutations to client-side DocState
 
-### JSONata mode
-
-In `"jsonata"` transformer mode, string values beginning with `$` are treated as JSONata expressions. The leading `$` is stripped, and the remainder is evaluated against `{ message, user, state }`. Example:
-
-```json
-"transformer": "jsonata",
-"transform": {
-  "clientMessageType": "update-state",
-  "actions": [
-    {
-      "actionType": "update",
-      "path": "$state.count",
-      "value": "$message.items[$count > 0].id"
-    }
-  ]
-}
-```
-
 ---
 
 ## Action Types (update-state)
 
 Actions appear in the `actions` array of an `update-state` message. Each action mutates one path in the client's DocState and (when route includes `"database"`) also in MongoDB.
 
-**Path rules:**
-- `"$state.xxx"` — persisted to MongoDB. Client resolves as `state.xxx`.
-- `"$temp.xxx"` — **not** persisted. Client resolves as `temp.xxx`. Use for ephemeral UI state.
+**Path rules for `action.path`:**
+- `"$state.xxx"` — persisted to MongoDB. The `$state.` prefix is stripped to derive the MongoDB dot-path. Client state at `DocState.state.xxx` is updated.
+- `"$temp.xxx"` — **not** persisted. Persistor skips these. Client state at `DocState.temp.xxx` is updated ephemerally.
 
 ### `update` — set a field
 
@@ -551,10 +530,10 @@ A step with `"route": "ai"` sends the inbound message's `text` field to Claude (
 
 ### System prompt templating
 
-Use `{{$message.fieldName}}` syntax (double braces) in `systemPrompt` to inject live values. This is separate from the `$` substitution used in `transform` objects.
+Use `{{path.to.field}}` syntax (double braces) in `systemPrompt` to inject live values. The path is a dot-path relative to the context object `{ message, user, state }` — no leading sigil needed.
 
 ```json
-"systemPrompt": "Generate a story about character '{{$message.name_of_character}}' in setting '{{$message.setting}}' who faces '{{$message.problem_the_character_is_facing}}'."
+"systemPrompt": "Generate a story about character '{{message.name_of_character}}' in setting '{{message.setting}}' who faces '{{message.problem_the_character_is_facing}}'."
 ```
 
 ### AI response format
@@ -642,7 +621,7 @@ A `layoutConfig` is an array of `LayoutNode` objects. The LayoutRenderer recursi
   "targetId": "my-panel",
   "locationId": "my-panel",
   "props": {
-    "someStateProp": "$state.myField",
+    "someStateProp": "@state.myField",
     "literalProp": "hello"
   },
   "emits": {
@@ -659,17 +638,17 @@ A `layoutConfig` is an array of `LayoutNode` objects. The LayoutRenderer recursi
 | `componentType` | string | yes | Must be a registered type (see [Registered Component Types](#registered-component-types)) or `"forEach"` |
 | `targetId` | string | no | Sets the HTML `id` attribute on the rendered element |
 | `locationId` | string | no | Not used by the renderer; available for server-side logic |
-| `props` | object | no | Props passed to the component. String values starting with `$` are resolved against live DocState. |
+| `props` | object | no | Props passed to the component. String values starting with `@` are resolved against live DocState. |
 | `emits` | object | no | Map of camelCase event names → handler message type strings |
 | `children` | LayoutNode[] | no | Child nodes passed as the `children` prop to the component |
 
 ### Prop resolution
 
-String prop values starting with `$` are resolved by the client:
-- `"$state.fieldName"` → `DocState.state.fieldName`
-- `"$temp.fieldName"` → `DocState.temp.fieldName`
-- `"$item.fieldName"` → current `forEach` iteration item's `fieldName`
-- Non-`$` strings → literal values
+String prop values starting with `@` are resolved by the client LayoutRenderer:
+- `"@state.fieldName"` → `DocState.state.fieldName`
+- `"@temp.fieldName"` → `DocState.temp.fieldName`
+- `"@item.fieldName"` → current `forEach` iteration item's `fieldName`
+- Non-`@` strings → literal values
 
 Non-string values (numbers, booleans, objects, arrays) are passed as-is.
 
@@ -680,11 +659,11 @@ Non-string values (numbers, booleans, objects, arrays) are passed as-is.
 ```json
 {
   "componentType": "forEach",
-  "props": { "source": "$state.openDocs" },
+  "props": { "source": "@state.openDocs" },
   "children": [
     {
       "componentType": "smartTab",
-      "props": { "id": "$item._id", "title": "$item.name" },
+      "props": { "id": "@item._id", "title": "@item.name" },
       "emits": { "close": "close-tab" },
       "children": [ ... ]
     }
@@ -692,8 +671,8 @@ Non-string values (numbers, booleans, objects, arrays) are passed as-is.
 }
 ```
 
-- `props.source` must be a `$state.*` or `$temp.*` path pointing to an array.
-- Inside `children`, use `$item.fieldName` to access the current element's fields.
+- `props.source` must be an `@state.*` or `@temp.*` path pointing to an array.
+- Inside `children`, use `@item.fieldName` to access the current element's fields.
 - Each iteration receives its own scoped state: `{ ...docState, item: currentElement }`.
 
 ---
@@ -722,8 +701,8 @@ Renders a scrolling list of chat messages. Supports multiple message subtypes.
 {
   "componentType": "chatBody",
   "props": {
-    "messages": "$state.chatMessages",
-    "inputValues": "$state.inputs"
+    "messages": "@state.chatMessages",
+    "inputValues": "@state.inputs"
   }
 }
 ```
@@ -759,10 +738,10 @@ An accordion list. Each item renders as an expandable row. Children are rendered
 {
   "componentType": "smartAccordion",
   "props": {
-    "items": "$state.config.documentSection",
-    "idField": "$state.config.sectionIdField",
-    "triggerFields": "$state.config.sectionTriggerFields",
-    "selectedId": "$state.openAccordions.documents"
+    "items": "@state.config.documentSection",
+    "idField": "@state.config.sectionIdField",
+    "triggerFields": "@state.config.sectionTriggerFields",
+    "selectedId": "@state.openAccordions.documents"
   },
   "emits": { "select": "save-documents-accordion" },
   "children": [ ... ]
@@ -788,7 +767,7 @@ Renders a nested tree of workflow execution log entries. Used by `log-review`.
 ```json
 {
   "componentType": "logTreePanel",
-  "props": { "treeData": "$temp.selectedLogTree" }
+  "props": { "treeData": "@temp.selectedLogTree" }
 }
 ```
 
@@ -803,7 +782,7 @@ A tabbed workspace. `smartTabs` is the container; `smartTab` is each individual 
 ```json
 {
   "componentType": "smartTabs",
-  "props": { "selectedId": "$state.activeDocId" },
+  "props": { "selectedId": "@state.activeDocId" },
   "children": [
     {
       "componentType": "smartTab",
@@ -822,7 +801,7 @@ A tabbed workspace. `smartTabs` is the container; `smartTab` is each individual 
 **`smartTab` props:**
 | Prop | Type | Description |
 |---|---|---|
-| `id` | string | Unique tab identifier. Omit for static tabs (auto-generated). Use `"$item._id"` in forEach. |
+| `id` | string | Unique tab identifier. Omit for static tabs (auto-generated). Use `"@item._id"` in forEach. |
 | `title` | string | Tab label |
 
 `smartTab` emits `close` with payload `{ _id: string }` when a tab's close button is clicked.
@@ -836,7 +815,7 @@ Renders a list of artifact documents. Each row shows the document name and type.
 ```json
 {
   "componentType": "documentList",
-  "props": { "items": "$temp.documentList" },
+  "props": { "items": "@temp.documentList" },
   "emits": { "select": "select-document" }
 }
 ```
@@ -854,7 +833,7 @@ A form to create a new document. Shows a text input for name and a dropdown for 
 ```json
 {
   "componentType": "newDocument",
-  "props": { "availableTypes": "$temp.availableTypes" },
+  "props": { "availableTypes": "@temp.availableTypes" },
   "emits": { "create": "create-document" }
 }
 ```
@@ -873,8 +852,8 @@ Embeds another document's layout inside the current layout. The embedded documen
 {
   "componentType": "layoutDocumentView",
   "props": {
-    "channelId": "$temp._channelId",
-    "viewHandler": "$state.config.userManagementViewHandler"
+    "channelId": "@temp._channelId",
+    "viewHandler": "@state.config.userManagementViewHandler"
   }
 }
 ```
@@ -895,8 +874,8 @@ A two-column flex layout. Pass exactly two children: the left column and the rig
 {
   "componentType": "twoColumnLayout",
   "children": [
-    { "componentType": "chatBody", "props": { "messages": "$state.chatMessages" } },
-    { "componentType": "textDisplay", "props": { "text": "$state.storyHtml" } }
+    { "componentType": "chatBody", "props": { "messages": "@state.chatMessages" } },
+    { "componentType": "textDisplay", "props": { "text": "@state.storyHtml" } }
   ]
 }
 ```
@@ -946,7 +925,7 @@ Renders a block of text with `white-space: pre-wrap`.
 {
   "componentType": "textDisplay",
   "props": {
-    "text": "$state.storyHtml",
+    "text": "@state.storyHtml",
     "placeholder": "Nothing here yet."
   }
 }
@@ -1003,19 +982,23 @@ The handler for the emitted message type receives this payload as `context.messa
 
 ## State Path Namespaces
 
-| Namespace | Scope | Persisted to DB | Description |
+| Namespace | Where used | Persisted to DB | Description |
 |---|---|---|---|
-| `$state.*` | Server + Client | Yes | Primary document state. Mutations with `"database"` route are written to MongoDB. Survives page reload. |
-| `$temp.*` | Client only | No | Ephemeral UI state (e.g., loaded lists, computed values). Never written to MongoDB. Lost on page reload. Re-fetched via queries on reconnect. |
-| `$item.*` | Client only (forEach) | No | Current iteration element inside a `forEach` layout node. |
-| `$message.*` | Server (transform) | N/A | Inbound message fields. Resolved server-side in transforms. |
-| `$user.*` | Server (transform) | N/A | Authenticated user fields. Resolved server-side in transforms. |
-| `$uuid` | Server (transform) | N/A | Generates a new UUID. Resolved server-side. |
+| `$state.*` in `action.path` | `transform` → `actions[].path` | Yes | DB path target. Tells the persistor which MongoDB field to write. Prefix is stripped before the update. |
+| `$temp.*` in `action.path` | `transform` → `actions[].path` | No | Ephemeral path target. Persistor skips these. Client applies the mutation to `DocState.temp.*`. |
+| `@state.*` | `layoutConfig` props only | N/A | Client-side binding. LayoutRenderer resolves at render time to `DocState.state.*`. |
+| `@temp.*` | `layoutConfig` props only | N/A | Client-side binding. LayoutRenderer resolves at render time to `DocState.temp.*`. |
+| `@item.*` | `layoutConfig` props in `forEach` | N/A | Client-side binding. Resolves to the current forEach iteration element's field. |
+| `$message.*` | `transform` values, `condition` | N/A | Server-resolved. Substituted with inbound message field at step execution time. |
+| `$user.*` | `transform` values, `condition` | N/A | Server-resolved. Substituted with authenticated user field at step execution time. |
+| `$uuid` | `transform` values | N/A | Server-resolved. Generates a new UUID v4 at step execution time. |
+| `~{ expr }` | `transform` values, `condition` | N/A | Server-resolved JSONata expression evaluated against `{ message, user, state }`. |
 
 **Rule of thumb:**
-- Use `$state.*` for anything that must survive a page reload.
-- Use `$temp.*` for lists loaded from queries (document lists, available types). Re-fetch them on view initialization using `database-query` steps.
-- Never use `$temp.*` paths in `"database"` route actions — the DB persisitor silently ignores them.
+- Use `$state.*` in `action.path` for anything that must survive a page reload.
+- Use `$temp.*` in `action.path` for lists loaded from queries. Re-fetch them in view handlers using `database-query` steps.
+- Use `@state.*` and `@temp.*` only in `layoutConfig` node `props` — never in `action.value` fields.
+- Never use `@temp.*` paths in `"database"` route actions — the DB persistor silently ignores them anyway, but the intent should be expressed with `$temp.*` in `action.path`.
 
 ---
 
@@ -1083,7 +1066,7 @@ Called by the client once per channel+view on mount. Should send `initialize-cli
 }
 ```
 
-A view handler can also fan out additional `database-query` steps to pre-populate `$temp.*` state immediately after delivering the layout:
+A view handler can also fan out additional `database-query` steps to pre-populate `@temp.*` bindings immediately after delivering the layout:
 
 ```json
 "defaultView": {
@@ -1101,7 +1084,7 @@ Multiple `database-query` steps in a single handler are executed sequentially (e
 
 ## ChatMessage Object Format
 
-`chatBody` renders an array of `ChatMessage` objects stored in state (typically `$state.chatMessages`). Each object has a `messageType` discriminator:
+`chatBody` renders an array of `ChatMessage` objects stored in state (bound via `@state.chatMessages` in the layout). Each object has a `messageType` discriminator:
 
 ### `display-text`
 
@@ -1216,7 +1199,6 @@ Below is a minimal but complete workflow config that demonstrates all major feat
 
     // --- Required companion: send loaded state to client ---
     "initialize-state-document": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -1231,7 +1213,6 @@ Below is a minimal but complete workflow config that demonstrates all major feat
 
     // --- Required: deliver the UI layout ---
     "defaultView": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -1244,6 +1225,7 @@ Below is a minimal but complete workflow config that demonstrates all major feat
                 "children": [
                   {
                     // Left column: a form for submitting feedback
+                    // @state.inputValues is resolved client-side at render time
                     "componentType": "multiFieldInput",
                     "props": {
                       "fields": [
@@ -1251,14 +1233,14 @@ Below is a minimal but complete workflow config that demonstrates all major feat
                         { "name": "message",  "label": "Message",  "placeholder": "Describe the issue" }
                       ],
                       "submitLabel": "Submit Feedback",
-                      "values": "$state.inputValues"
+                      "values": "@state.inputValues"
                     },
                     "emits": { "submit": "submit-feedback" }
                   },
                   {
                     // Right column: list of submitted feedback
                     "componentType": "chatBody",
-                    "props": { "messages": "$state.feedbackItems" }
+                    "props": { "messages": "@state.feedbackItems" }
                   }
                 ]
               }
@@ -1271,7 +1253,6 @@ Below is a minimal but complete workflow config that demonstrates all major feat
     // --- User action: submit the form ---
     // Guard: only proceed if message field is non-empty.
     "submit-feedback": {
-      "transformer": "simple",
       "condition": "$message.message",
       "steps": [
         {
@@ -1305,7 +1286,7 @@ Below is a minimal but complete workflow config that demonstrates all major feat
           "ai": {
             "model": "claude-haiku-4-5-20251001",
             "maxTokens": 32,
-            "systemPrompt": "You are a content moderator. Check if the following feedback message is appropriate.\n\nFeedback: {{$message.message}}\n\nRespond ONLY with valid JSON:\n{\"type\":\"appropriate-feedback\"}\nor\n{\"type\":\"inappropriate-feedback\"}",
+            "systemPrompt": "You are a content moderator. Check if the following feedback message is appropriate.\n\nFeedback: {{message.message}}\n\nRespond ONLY with valid JSON:\n{\"type\":\"appropriate-feedback\"}\nor\n{\"type\":\"inappropriate-feedback\"}",
             "responseTypes": ["appropriate-feedback", "inappropriate-feedback"]
           }
         }
@@ -1314,7 +1295,6 @@ Below is a minimal but complete workflow config that demonstrates all major feat
 
     // --- AI response: feedback passed moderation ---
     "appropriate-feedback": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -1338,7 +1318,6 @@ Below is a minimal but complete workflow config that demonstrates all major feat
 
     // --- AI response: feedback blocked by moderation ---
     "inappropriate-feedback": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
