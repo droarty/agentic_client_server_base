@@ -14,7 +14,7 @@ This document is a complete reference for writing workflow JSON configuration fi
 6. [Action Types (update-state)](#action-types-update-state)
 7. [Named Queries (database-query)](#named-queries-database-query)
 8. [AI Step Configuration](#ai-step-configuration)
-9. [initialize-client Message](#initialize-client-message)
+9. [initialize-state and initialize-view Messages](#initialize-state-and-initialize-view-messages)
 10. [Layout Node Structure](#layout-node-structure)
 11. [Registered Component Types](#registered-component-types)
 12. [Emit System](#emit-system)
@@ -117,7 +117,7 @@ Required: a `transform` object. The `clientMessageType` key is renamed to `type`
 {
   "route": "client",
   "transform": {
-    "clientMessageType": "initialize-client",
+    "clientMessageType": "initialize-view",
     "viewHandler": "defaultView",
     "layoutConfig": [ ... ]
   }
@@ -240,7 +240,8 @@ Arrays are resolved element-by-element. Objects are resolved key-by-key recursiv
 In any `transform` object, the key `clientMessageType` is renamed to `type` in the final outbound message. This is the message discriminator that the client uses to route the message.
 
 Valid values for `clientMessageType`:
-- `"initialize-client"` — seeds layout and/or state
+- `"initialize-state"` — seeds initial document state into the client store
+- `"initialize-view"` — delivers a layout tree for a named view
 - `"update-state"` — applies mutations to client-side DocState
 
 ---
@@ -567,47 +568,59 @@ inbound message (type: "add-text")
 
 ---
 
-## initialize-client Message
+## initialize-state and initialize-view Messages
 
-This is the message type used to deliver the initial layout tree and/or initial state to the client. It is sent via `"route": "client"` with `clientMessageType: "initialize-client"`.
+Initialization uses two distinct message types — one for state, one for layout. Neither carries the other's fields.
+
+### `initialize-state` — seed document state
+
+Sent once per channel session (by the `initialize-state-document` handler). Delivers the persisted `DocState` to the client.
 
 ```json
 {
   "route": "client",
   "transform": {
-    "clientMessageType": "initialize-client",
+    "clientMessageType": "initialize-state",
+    "initialState": "$message.document.state"
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `clientMessageType` | `"initialize-state"` | Required |
+| `initialState` | object \| path string | Initial `DocState.state`. Typically `"$message.document.state"`. |
+
+### `initialize-view` — deliver a layout tree
+
+Sent once per channel+view (by view handlers like `defaultView`). Delivers the layout for a specific named view.
+
+```json
+{
+  "route": "client",
+  "transform": {
+    "clientMessageType": "initialize-view",
     "viewHandler": "defaultView",
-    "initialState": "$message.document.state",
     "layoutConfig": [ ... ]
   }
 }
 ```
 
-### Fields
-
 | Field | Type | Description |
 |---|---|---|
-| `clientMessageType` | `"initialize-client"` | Required — becomes `type` in the outbound frame |
-| `viewHandler` | string | The view name this layout applies to. Omit to use the default. |
-| `initialState` | object \| path string | Initial `DocState.state` object. Typically `"$message.document.state"` (loaded from MongoDB). Only needed once per channel session. |
-| `layoutConfig` | LayoutNode[] | The layout tree. Can be an empty array `[]` if this message only carries `initialState`. |
+| `clientMessageType` | `"initialize-view"` | Required |
+| `viewHandler` | string | Required — names which layout slot this tree fills. |
+| `layoutConfig` | LayoutNode[] | The layout tree. Must be non-empty. |
 
 ### Lifecycle on the client
 
-The client (`documentModelStore`) gates rendering until **both** of these have been received for a channel:
-1. An `initialize-client` message carrying `initialState` → sets `DocState.state`.
-2. An `initialize-client` message carrying a non-empty `layoutConfig` for the requested `viewHandler`.
+`documentModelStore` gates rendering until **both** of these have been received for a given channel+view:
+1. An `initialize-state` message → sets `DocState.state`, drains any queued `update-state` messages.
+2. An `initialize-view` message for the requested `viewHandler` → stores the layout.
 
-`update-state` messages that arrive before `initialState` is set are queued and replayed in order once state is initialized.
+`update-state` messages that arrive before state is initialized are queued and replayed in order once `initialize-state` is received.
 
-### Sending layout and state separately
-
-The conventional pattern splits them into two separate handlers, triggered by two separate client-side messages:
-
-1. `initializeState` handler — called once per channel; returns `initialize-client` with `initialState` only and `layoutConfig: []`.
-2. `defaultView` (or named view) handler — called once per channel+view; returns `initialize-client` with `layoutConfig` only and no `initialState`.
-
-This separation means the layout can be re-fetched independently of state.
+**Re-render on new layout:** If `initialize-view` arrives when state is already initialized (e.g. a second view mounts on the same channel), the client renders immediately without waiting for a new `initialize-state`.
 
 ---
 
@@ -1024,40 +1037,35 @@ Called by the client once per channel on mount. Should load the document's persi
 
 ### `initialize-state-document` (required companion)
 
-Called by the query executor when `get-document` completes. Sends `initialize-client` with the loaded state.
+Called by the query executor when `get-document` completes. Sends `initialize-state` with the loaded state.
 
 **Conventional implementation:**
 ```json
 "initialize-state-document": {
-  "transformer": "simple",
   "steps": [
     {
       "route": "client",
       "transform": {
-        "clientMessageType": "initialize-client",
-        "initialState": "$message.document.state",
-        "layoutConfig": []
+        "clientMessageType": "initialize-state",
+        "initialState": "$message.document.state"
       }
     }
   ]
 }
 ```
 
-The `layoutConfig: []` is intentional — state seeding and layout delivery are separate.
-
 ### View handlers (at least one required)
 
-Called by the client once per channel+view on mount. Should send `initialize-client` with `layoutConfig`. The default view handler is `"defaultView"`.
+Called by the client once per channel+view on mount. Should send `initialize-view` with `layoutConfig`. The default view handler is `"defaultView"`.
 
 **Conventional implementation:**
 ```json
 "defaultView": {
-  "transformer": "simple",
   "steps": [
     {
       "route": "client",
       "transform": {
-        "clientMessageType": "initialize-client",
+        "clientMessageType": "initialize-view",
         "viewHandler": "defaultView",
         "layoutConfig": [ ... ]
       }
@@ -1071,7 +1079,7 @@ A view handler can also fan out additional `database-query` steps to pre-populat
 ```json
 "defaultView": {
   "steps": [
-    { "route": "client", "transform": { "clientMessageType": "initialize-client", "viewHandler": "defaultView", "layoutConfig": [ ... ] } },
+    { "route": "client", "transform": { "clientMessageType": "initialize-view", "viewHandler": "defaultView", "layoutConfig": [ ... ] } },
     { "route": "database-query", "query": { "name": "get-user-documents", "responseType": "document-list-result" } },
     { "route": "database-query", "query": { "name": "get-available-types", "responseType": "available-types-result" } }
   ]
@@ -1203,9 +1211,8 @@ Below is a minimal but complete workflow config that demonstrates all major feat
         {
           "route": "client",
           "transform": {
-            "clientMessageType": "initialize-client",
-            "initialState": "$message.document.state",
-            "layoutConfig": []
+            "clientMessageType": "initialize-state",
+            "initialState": "$message.document.state"
           }
         }
       ]
@@ -1217,7 +1224,7 @@ Below is a minimal but complete workflow config that demonstrates all major feat
         {
           "route": "client",
           "transform": {
-            "clientMessageType": "initialize-client",
+            "clientMessageType": "initialize-view",
             "viewHandler": "defaultView",
             "layoutConfig": [
               {

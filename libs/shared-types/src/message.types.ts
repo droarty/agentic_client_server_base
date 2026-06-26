@@ -124,17 +124,24 @@ export interface LayoutNode {
   children?: LayoutNode[];
 }
 
-export interface InitializeClientMessage extends Message {
-  type: 'initialize-client';
+export interface InitializeStateMessage extends Message {
+  type: 'initialize-state';
   from: 'server';
   to: 'client';
   id: string;
-  viewHandler?: string;
-  layoutConfig: LayoutNode[];
-  initialState?: Record<string, unknown>;
+  initialState: Record<string, unknown>;
 }
 
-export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeClientMessage;
+export interface InitializeViewMessage extends Message {
+  type: 'initialize-view';
+  from: 'server';
+  to: 'client';
+  id: string;
+  viewHandler: string;
+  layoutConfig: LayoutNode[];
+}
+
+export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeStateMessage | InitializeViewMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 

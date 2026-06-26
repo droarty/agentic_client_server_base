@@ -22,9 +22,8 @@
         {
           "route": "client",
           "transform": {
-            "clientMessageType": "initialize-client",
-            "initialState": "$message.document.state",
-            "layoutConfig": []
+            "clientMessageType": "initialize-state",
+            "initialState": "$message.document.state"
           }
         }
       ]
@@ -34,7 +33,7 @@
         {
           "route": "client",
           "transform": {
-            "clientMessageType": "initialize-client",
+            "clientMessageType": "initialize-view",
             "viewHandler": "defaultView",
             "layoutConfig": [
               {
