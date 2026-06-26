@@ -1,4 +1,4 @@
-import { ActionItem, InitializeClientMessage, LayoutNode, OutboundMessage, UpdateStateMessage } from '@agentic-client-server-base/shared-types';
+import { ActionItem, InitializeStateMessage, InitializeViewMessage, LayoutNode, OutboundMessage, UpdateStateMessage } from '@agentic-client-server-base/shared-types';
 import { eventManager } from './EventManager';
 import { InboundMessage } from '@agentic-client-server-base/shared-types';
 
@@ -169,32 +169,28 @@ function rebuildAllSnapshots(data: ChannelData): void {
 function handleMessage(channelId: string, msg: OutboundMessage): void {
   const m = msg as unknown as Record<string, unknown>;
 
-  if (m['type'] === 'initialize-client') {
-    const im = msg as unknown as InitializeClientMessage;
-    const vh = im.viewHandler ?? 'defaultView';
-    const layout = im.layoutConfig ?? [];
+  if (m['type'] === 'initialize-state') {
+    const im = msg as unknown as InitializeStateMessage;
     const data = getOrCreateChannelData(channelId);
-
-    if (im.initialState !== undefined) {
-      data.stateInitialized = true;
-      data.docState = {
-        state: im.initialState,
-        temp: {},
-      };
-      const pending = pendingUpdates.get(channelId);
-      if (pending?.length) {
-        pendingUpdates.delete(channelId);
-        for (const um of pending) {
-          data.docState = applyActions(data.docState, um);
-        }
+    data.stateInitialized = true;
+    data.docState = { state: im.initialState, temp: {} };
+    const pending = pendingUpdates.get(channelId);
+    if (pending?.length) {
+      pendingUpdates.delete(channelId);
+      for (const um of pending) {
+        data.docState = applyActions(data.docState, um);
       }
-      rebuildAllSnapshots(data);
     }
-
-    if (layout.length > 0) {
-      data.layouts.set(vh, layout);
-      data.snapshots.set(vh, { layoutConfig: layout, docState: data.docState });
-    }
+    rebuildAllSnapshots(data);
+    notifyAll(channelId);
+  } else if (m['type'] === 'initialize-view') {
+    const im = msg as unknown as InitializeViewMessage;
+    const vh = im.viewHandler;
+    const data = getOrCreateChannelData(channelId);
+    data.layouts.set(vh, im.layoutConfig);
+    data.snapshots.set(vh, { layoutConfig: im.layoutConfig, docState: data.docState });
+    const key = `${channelId}:${vh}`;
+    listeners.get(key)?.forEach((cb) => cb());
   } else if (m['type'] === 'update-state') {
     const data = channelData.get(channelId);
     const um = msg as unknown as UpdateStateMessage;
@@ -205,11 +201,8 @@ function handleMessage(channelId: string, msg: OutboundMessage): void {
     }
     data.docState = applyActions(data.docState, um);
     rebuildAllSnapshots(data);
-  } else {
-    return;
+    notifyAll(channelId);
   }
-
-  notifyAll(channelId);
 }
 
 export function mountChannel(
