@@ -99,7 +99,7 @@ async function resolveValue(value: unknown, context: WorkflowContext): Promise<u
       if (value === '$uuid') return randomUUID();
       const [root, ...rest] = value.slice(1).split('.');
       const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
-      if (rootObj == null) return undefined;
+      if (rootObj == null) return value;
       if (rest.length === 0) return rootObj;
       return resolveDotPath(rootObj, rest.join('.'));
     }
@@ -133,9 +133,10 @@ async function evaluateCondition(condition: string, context: WorkflowContext): P
 function substitutePromptTemplate(template: string, context: WorkflowContext): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_, expr: string) => {
     const path = expr.trim();
+    const strippedPath = path.startsWith('$') ? path.slice(1) : path;
     const value = resolveDotPath(
       context as unknown as Record<string, unknown>,
-      path
+      strippedPath
     );
     return value == null ? '' : String(value);
   });
