@@ -2,8 +2,22 @@ import { Types } from 'mongoose';
 import { Group, IGroup } from '../models/group.model';
 import { Membership, IMembership, GroupRole } from '../models/membership.model';
 
-export async function createGroup(name: string, creatorUserId: string): Promise<IGroup> {
-  const group = await Group.create({ name });
+export async function createGroup(name: string, creatorUserId: string, parentGroupId?: string): Promise<IGroup> {
+  let ancestors: Types.ObjectId[] = [];
+  let parentId: Types.ObjectId | undefined;
+
+  if (parentGroupId) {
+    const parent = await Group.findById(parentGroupId, { ancestors: 1 });
+    if (!parent) {
+      const err = new Error('Parent group not found') as Error & { statusCode: number };
+      err.statusCode = 404;
+      throw err;
+    }
+    parentId = parent._id as Types.ObjectId;
+    ancestors = [...(parent.ancestors as Types.ObjectId[]), parentId];
+  }
+
+  const group = await Group.create({ name, parentGroupId: parentId ?? null, ancestors });
   await Membership.create({
     userId: new Types.ObjectId(creatorUserId),
     groupId: group._id,
@@ -16,6 +30,10 @@ export async function getGroupsForUser(userId: string): Promise<IGroup[]> {
   const memberships = await Membership.find({ userId: new Types.ObjectId(userId) }, { groupId: 1 });
   const groupIds = memberships.map((m) => m.groupId);
   return Group.find({ _id: { $in: groupIds } }).sort({ createdAt: -1 });
+}
+
+export async function getSubgroups(parentGroupId: string): Promise<IGroup[]> {
+  return Group.find({ parentGroupId: new Types.ObjectId(parentGroupId) }).sort({ createdAt: -1 });
 }
 
 export async function getGroupById(id: string): Promise<IGroup | null> {

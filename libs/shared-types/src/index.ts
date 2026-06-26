@@ -13,7 +13,9 @@ export interface ArtifactSummary {
   name: string;
   type: string;
   userId?: string;
+  groupId?: string;
   currentChannelId: string;
+  permissions: import('./group.types').ArtifactPermission[];
   createdAt: string;
   updatedAt: string;
 }
@@ -22,10 +24,17 @@ export interface Artifact {
   _id: string;
   name: string;
   type: string;
+  groupId?: string;
   currentChannelId: string;
+  permissions: import('./group.types').ArtifactPermission[];
   state?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateDocumentRequest {
+  name: string;
+  groupId: string;
 }
 
 export interface DashboardArtifact {

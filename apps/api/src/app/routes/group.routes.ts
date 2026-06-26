@@ -4,6 +4,7 @@ import { getMembership } from '../services/group.service';
 import {
   listGroups, createGroup, getGroup,
   listMembers, addMember, updateMember, removeMember,
+  listSubgroups,
 } from '../controllers/group.controller';
 
 export const groupRoutes = Router();
@@ -31,8 +32,9 @@ async function requireAdminOrOwner(req: AuthRequest, res: Response, next: NextFu
   next();
 }
 
-groupRoutes.get('/:id',         requireMember,       getGroup);
-groupRoutes.get('/:id/members', requireMember,       listMembers);
+groupRoutes.get('/:id',             requireMember,       getGroup);
+groupRoutes.get('/:id/subgroups',   requireMember,       listSubgroups);
+groupRoutes.get('/:id/members',     requireMember,       listMembers);
 groupRoutes.post('/:id/members',               requireAdminOrOwner, addMember);
 groupRoutes.patch('/:id/members/:userId',      requireAdminOrOwner, updateMember);
 groupRoutes.delete('/:id/members/:userId',     requireAdminOrOwner, removeMember);

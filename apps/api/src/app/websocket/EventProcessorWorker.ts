@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { pack } from 'msgpackr';
 import Redis from 'ioredis';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
 import { AIEventManager } from './AIEventManager';
@@ -67,8 +67,64 @@ async function fetchCustomWorkflowConfig(docType: string) {
   }
 }
 
+const ACCESS_RANK: Record<string, number> = { none: 0, read: 1, write: 2, admin: 3 };
+
+async function getEffectiveGroupIds(userId: string): Promise<ObjectId[]> {
+  await dbReady;
+  const db = mongoClient.db();
+  const memberships = await db.collection('memberships')
+    .find({ userId: new ObjectId(userId) }, { projection: { groupId: 1 } })
+    .toArray();
+  if (memberships.length === 0) return [];
+  const directIds = memberships.map((m) => m['groupId'] as ObjectId);
+  const groups = await db.collection('groups')
+    .find({ _id: { $in: directIds } }, { projection: { ancestors: 1 } })
+    .toArray();
+  const allIds = new Set<string>(directIds.map((id) => id.toString()));
+  for (const g of groups) {
+    for (const anc of (g['ancestors'] as ObjectId[] | undefined) ?? []) {
+      allIds.add(anc.toString());
+    }
+  }
+  return [...allIds].map((id) => new ObjectId(id));
+}
+
+async function checkWriteAccess(userId: string, channel: string): Promise<boolean> {
+  const effectiveIds = await getEffectiveGroupIds(userId);
+  if (effectiveIds.length === 0) return false;
+  const db = mongoClient.db();
+  const artifact = await db.collection('artifacts').findOne(
+    {
+      currentChannelId: channel,
+      permissions: { $elemMatch: { groupId: { $in: effectiveIds }, access: { $in: ['write', 'admin'] } } },
+    },
+    { projection: { _id: 1 } }
+  );
+  return artifact !== null;
+}
+
+async function checkHandlerAccess(userId: string, channel: string, requiredAccess: string): Promise<boolean> {
+  const effectiveIds = await getEffectiveGroupIds(userId);
+  if (effectiveIds.length === 0) return false;
+  const db = mongoClient.db();
+  const artifact = await db.collection('artifacts').findOne(
+    { currentChannelId: channel, 'permissions.groupId': { $in: effectiveIds } },
+    { projection: { permissions: 1 } }
+  );
+  if (!artifact) return false;
+  const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
+  let best = 0;
+  for (const perm of (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []) {
+    if (effectiveSet.has(perm.groupId.toString())) {
+      const rank = ACCESS_RANK[perm.access] ?? 0;
+      if (rank > best) best = rank;
+    }
+  }
+  return best >= (ACCESS_RANK[requiredAccess] ?? 0);
+}
+
 const executeQuery = createQueryExecutor({ mongoClient, dbReady, configDir, logWorkflowStep });
-const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
+const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep, checkWriteAccess });
 
 const engine = new WorkflowEngine(
   {
@@ -91,6 +147,7 @@ const engine = new WorkflowEngine(
     getDocumentType,
     executeQuery,
     fetchCustomWorkflowConfig,
+    checkHandlerAccess,
   },
   configDir
 );

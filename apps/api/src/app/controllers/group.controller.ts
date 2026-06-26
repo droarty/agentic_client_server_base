@@ -20,13 +20,22 @@ export async function listGroups(req: AuthRequest, res: Response, next: NextFunc
 
 export async function createGroup(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { name } = req.body;
+    const { name, parentGroupId } = req.body;
     if (!name || typeof name !== 'string') {
       res.status(400).json({ message: 'name is required' });
       return;
     }
-    const group = await groupService.createGroup(name.trim(), req.userId!);
+    const group = await groupService.createGroup(name.trim(), req.userId!, parentGroupId);
     res.status(201).json(group);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listSubgroups(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const subgroups = await groupService.getSubgroups(req.params['id']);
+    res.json(subgroups);
   } catch (err) {
     next(err);
   }
