@@ -61,7 +61,7 @@ async function fetchCustomWorkflowConfig(docType: string) {
     await dbReady;
     const row = await mongoClient.db().collection('workflowconfigs').findOne({ name: docType });
     if (!row) return null;
-    return { name: row['name'] as string, version: row['version'] as string, handlers: row['handlers'] as Record<string, unknown> };
+    return { name: row['name'] as string, version: row['version'] as string, handlers: row['handlers'] as Record<string, never> };
   } catch {
     return null;
   }

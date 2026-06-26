@@ -24,7 +24,6 @@
       ]
     },
     "initialize-state-document": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -37,7 +36,6 @@
       ]
     },
     "defaultView": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -47,12 +45,12 @@
             "layoutConfig": [
               {
                 "componentType": "twoColumnLayout",
-                "props": { "leftWidth": "$state.leftWidth" },
+                "props": { "leftWidth": "@state.leftWidth" },
                 "children": [
                   {
                     "componentType": "chatBody",
                     "props": {
-                      "messages": "$state.chatMessages"
+                      "messages": "@state.chatMessages"
                     }
                   },
                   {
@@ -72,7 +70,6 @@
       ]
     },
     "video-ended": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -116,7 +113,6 @@
       ]
     },
     "quiz-answer": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],

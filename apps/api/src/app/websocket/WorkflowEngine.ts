@@ -19,7 +19,6 @@ interface StepDefinition {
 }
 
 interface HandlerDefinition {
-  transformer?: 'simple' | 'jsonata';
   condition?: string;
   steps: StepDefinition[];
 }
@@ -78,80 +77,66 @@ function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown 
   }, obj);
 }
 
-function resolveSimpleValue(value: unknown, context: WorkflowContext): unknown {
-  if (typeof value === 'string' && value.startsWith('$')) {
-    if (value === '$uuid') {
-      return randomUUID();
+// Resolves a single value against context.
+// - `~{ expr }` → JSONata expression evaluated against { message, user, state }
+// - `@state.x`, `@temp.x`, `@item.x` → passed through as-is for client-side resolution
+// - `$message.x`, `$user.x`, `$uuid` → resolved immediately server-side
+// - Everything else → returned as-is
+async function resolveValue(value: unknown, context: WorkflowContext): Promise<unknown> {
+  if (typeof value === 'string') {
+    if (value.startsWith('~{') && value.endsWith('}')) {
+      try {
+        const expr = jsonata(value.slice(2, -1).trim());
+        return await expr.evaluate(context);
+      } catch {
+        return undefined;
+      }
     }
-    if (value.startsWith('$state.') || value.startsWith('$temp.') || value.startsWith('$item.')) {
+    if (value.startsWith('@')) {
       return value;
     }
-    const [root, ...rest] = value.slice(1).split('.');
-    const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
-    if (rootObj == null) return undefined;
-    if (rest.length === 0) return rootObj;
-    return resolveDotPath(rootObj, rest.join('.'));
+    if (value.startsWith('$')) {
+      if (value === '$uuid') return randomUUID();
+      const [root, ...rest] = value.slice(1).split('.');
+      const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
+      if (rootObj == null) return undefined;
+      if (rest.length === 0) return rootObj;
+      return resolveDotPath(rootObj, rest.join('.'));
+    }
   }
   if (Array.isArray(value)) {
-    return (value as unknown[]).map((item) => resolveSimpleValue(item, context));
+    return Promise.all((value as unknown[]).map((item) => resolveValue(item, context)));
   }
   if (typeof value === 'object' && value !== null) {
-    return resolveTransformSimple(value as Record<string, unknown>, context);
+    return resolveTransform(value as Record<string, unknown>, context);
   }
   return value;
 }
 
-function resolveTransformSimple(
-  template: Record<string, unknown>,
-  context: WorkflowContext
-): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(template)) {
-    result[key] = resolveSimpleValue(value, context);
-  }
-  return result;
-}
-
-async function resolveTransformJsonata(
+async function resolveTransform(
   template: Record<string, unknown>,
   context: WorkflowContext
 ): Promise<Record<string, unknown>> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(template)) {
-    if (typeof value === 'string' && value.startsWith('$')) {
-      try {
-        const expr = jsonata(value.slice(1));
-        result[key] = await expr.evaluate(context);
-      } catch {
-        result[key] = undefined;
-      }
-    } else {
-      result[key] = value;
-    }
+    result[key] = await resolveValue(value, context);
   }
   return result;
 }
 
-async function evaluateCondition(
-  condition: string,
-  context: WorkflowContext,
-  transformer: 'simple' | 'jsonata'
-): Promise<boolean> {
-  if (transformer === 'simple') {
-    return Boolean(resolveSimpleValue(condition, context));
-  }
-  try {
-    const expr = jsonata(condition.startsWith('$') ? condition.slice(1) : condition);
-    return Boolean(await expr.evaluate(context));
-  } catch {
-    return false;
-  }
+async function evaluateCondition(condition: string, context: WorkflowContext): Promise<boolean> {
+  return Boolean(await resolveValue(condition, context));
 }
 
+// Resolves `{{path.to.field}}` interpolations in AI system prompt strings.
+// Uses simple dot-path resolution only (no JSONata, no client refs).
 function substitutePromptTemplate(template: string, context: WorkflowContext): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_, expr: string) => {
-    const trimmed = expr.trim();
-    const value = resolveSimpleValue(trimmed, context);
+    const path = expr.trim();
+    const value = resolveDotPath(
+      context as unknown as Record<string, unknown>,
+      path
+    );
     return value == null ? '' : String(value);
   });
 }
@@ -188,10 +173,8 @@ export class WorkflowEngine {
       return;
     }
 
-    const transformer = handler.transformer ?? 'simple';
-
     if (handler.condition) {
-      const passes = await evaluateCondition(handler.condition, context, transformer);
+      const passes = await evaluateCondition(handler.condition, context);
       if (!passes) return;
     }
 
@@ -210,7 +193,7 @@ export class WorkflowEngine {
     });
 
     for (let i = 0; i < handler.steps.length; i++) {
-      await this.executeStep(handler.steps[i], transformer, context, docType, type, executionId, i);
+      await this.executeStep(handler.steps[i], context, docType, type, executionId, i);
     }
   }
 
@@ -249,7 +232,6 @@ export class WorkflowEngine {
 
   private async executeStep(
     step: StepDefinition,
-    transformer: 'simple' | 'jsonata',
     context: WorkflowContext,
     docType = '',
     handlerName = '',
@@ -313,12 +295,7 @@ export class WorkflowEngine {
         timestamp: new Date().toISOString(),
       };
 
-      const resolved =
-        step.transform
-          ? transformer === 'jsonata'
-            ? await resolveTransformJsonata(step.transform, context)
-            : resolveTransformSimple(step.transform, context)
-          : {};
+      const resolved = step.transform ? await resolveTransform(step.transform, context) : {};
 
       if ('clientMessageType' in resolved) {
         resolved['type'] = resolved['clientMessageType'];

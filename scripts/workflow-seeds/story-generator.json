@@ -41,7 +41,6 @@
       ]
     },
     "initialize-state-document": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -54,7 +53,6 @@
       ]
     },
     "defaultView": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -68,14 +66,14 @@
                   {
                     "componentType": "chatBody",
                     "props": {
-                      "messages": "$state.chatMessages",
-                      "inputValues": "$state.inputs"
+                      "messages": "@state.chatMessages",
+                      "inputValues": "@state.inputs"
                     }
                   },
                   {
                     "componentType": "textDisplay",
                     "props": {
-                      "text": "$state.storyHtml",
+                      "text": "@state.storyHtml",
                       "placeholder": "Your story will appear here once you click 'Generate Story'!"
                     }
                   }
@@ -87,7 +85,6 @@
       ]
     },
     "submit-story-inputs": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -131,14 +128,13 @@
           "ai": {
             "model": "claude-haiku-4-5-20251001",
             "maxTokens": 600,
-            "systemPrompt": "You are a children's story generator for 4th grade students (age 9-10).\n\nStory inputs:\n- Character name: {{$message.name_of_character}}\n- Setting: {{$message.setting}}\n- Problem: {{$message.problem_the_character_is_facing}}\n\nFirst check all three inputs for inappropriate content (profanity, violence, adult themes, hate speech, or harmful language).\n\nIf any input is inappropriate, respond ONLY with valid JSON (no markdown, no extra text):\n{\"type\":\"inappropriate-input\"}\n\nIf all inputs are appropriate, generate an engaging story that:\n- Is suitable for a 4th grade student\n- Is under 200 words\n- Features the character facing and overcoming the problem in the given setting\n- Uses age-appropriate language and ends with a positive message\n\nRespond ONLY with valid JSON (no markdown, no extra text):\n{\"type\":\"story-content\",\"text\":\"<the complete story here>\"}",
+            "systemPrompt": "You are a children's story generator for 4th grade students (age 9-10).\n\nStory inputs:\n- Character name: {{message.name_of_character}}\n- Setting: {{message.setting}}\n- Problem: {{message.problem_the_character_is_facing}}\n\nFirst check all three inputs for inappropriate content (profanity, violence, adult themes, hate speech, or harmful language).\n\nIf any input is inappropriate, respond ONLY with valid JSON (no markdown, no extra text):\n{\"type\":\"inappropriate-input\"}\n\nIf all inputs are appropriate, generate an engaging story that:\n- Is suitable for a 4th grade student\n- Is under 200 words\n- Features the character facing and overcoming the problem in the given setting\n- Uses age-appropriate language and ends with a positive message\n\nRespond ONLY with valid JSON (no markdown, no extra text):\n{\"type\":\"story-content\",\"text\":\"<the complete story here>\"}",
             "responseTypes": ["story-content", "inappropriate-input"]
           }
         }
       ]
     },
     "story-content": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -156,7 +152,6 @@
       ]
     },
     "inappropriate-input": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],

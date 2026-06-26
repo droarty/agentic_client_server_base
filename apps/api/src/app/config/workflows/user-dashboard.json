@@ -26,7 +26,6 @@
       ]
     },
     "initialize-state-document": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -57,7 +56,6 @@
       ]
     },
     "defaultView": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -67,7 +65,7 @@
             "layoutConfig": [
               {
                 "componentType": "smartTabs",
-                "props": { "selectedId": "$state.activeDocId" },
+                "props": { "selectedId": "@state.activeDocId" },
                 "children": [
                   {
                     "componentType": "smartTab",
@@ -76,24 +74,24 @@
                       {
                         "componentType": "layoutDocumentView",
                         "props": {
-                          "channelId": "$temp._channelId",
-                          "viewHandler": "$state.config.userManagementViewHandler"
+                          "channelId": "@temp._channelId",
+                          "viewHandler": "@state.config.userManagementViewHandler"
                         }
                       }
                     ]
                   },
                   {
                     "componentType": "forEach",
-                    "props": { "source": "$state.openDocs" },
+                    "props": { "source": "@state.openDocs" },
                     "children": [
                       {
                         "componentType": "smartTab",
-                        "props": { "id": "$item._id", "title": "$item.name" },
+                        "props": { "id": "@item._id", "title": "@item.name" },
                         "emits": { "close": "close-tab" },
                         "children": [
                           {
                             "componentType": "layoutDocumentView",
-                            "props": { "channelId": "$item.currentChannelId" }
+                            "props": { "channelId": "@item.currentChannelId" }
                           }
                         ]
                       }
@@ -120,21 +118,21 @@
                   {
                     "componentType": "smartAccordion",
                     "props": {
-                      "items":         "$state.config.documentSection",
-                      "idField":       "$state.config.sectionIdField",
-                      "triggerFields": "$state.config.sectionTriggerFields",
-                      "selectedId":    "$state.openAccordions.documents"
+                      "items":         "@state.config.documentSection",
+                      "idField":       "@state.config.sectionIdField",
+                      "triggerFields": "@state.config.sectionTriggerFields",
+                      "selectedId":    "@state.openAccordions.documents"
                     },
                     "emits": { "select": "save-documents-accordion" },
                     "children": [
                       {
                         "componentType": "documentList",
-                        "props": { "items": "$temp.documentList" },
+                        "props": { "items": "@temp.documentList" },
                         "emits": { "select": "select-document" }
                       },
                       {
                         "componentType": "newDocument",
-                        "props": { "availableTypes": "$temp.availableTypes" },
+                        "props": { "availableTypes": "@temp.availableTypes" },
                         "emits": { "create": "create-document" }
                       }
                     ]
@@ -142,10 +140,10 @@
                   {
                     "componentType": "smartAccordion",
                     "props": {
-                      "items":         "$state.config.groupSection",
-                      "idField":       "$state.config.sectionIdField",
-                      "triggerFields": "$state.config.sectionTriggerFields",
-                      "selectedId":    "$state.openAccordions.groups"
+                      "items":         "@state.config.groupSection",
+                      "idField":       "@state.config.sectionIdField",
+                      "triggerFields": "@state.config.sectionTriggerFields",
+                      "selectedId":    "@state.openAccordions.groups"
                     },
                     "emits": { "select": "save-groups-accordion" }
                   }
@@ -165,7 +163,6 @@
       ]
     },
     "available-types-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -187,7 +184,6 @@
       ]
     },
     "document-list-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": "client",
@@ -209,7 +205,6 @@
       ]
     },
     "display-document-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -233,7 +228,6 @@
       ]
     },
     "create-document": {
-      "transformer": "simple",
       "condition": "$message.name",
       "steps": [
         {
@@ -243,7 +237,6 @@
       ]
     },
     "document-created-result": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -281,7 +274,6 @@
       ]
     },
     "save-documents-accordion": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -295,7 +287,6 @@
       ]
     },
     "close-tab": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],
@@ -314,7 +305,6 @@
       ]
     },
     "save-groups-accordion": {
-      "transformer": "simple",
       "steps": [
         {
           "route": ["client", "database"],

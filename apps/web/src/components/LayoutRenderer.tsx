@@ -23,7 +23,7 @@ function resolveProps(
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
     result[key] =
-      typeof value === 'string' && value.startsWith('$')
+      typeof value === 'string' && value.startsWith('@')
         ? resolveDotPath(state, value.slice(1))
         : value;
   }
@@ -52,7 +52,7 @@ function buildChildren(
   const result: ReactNode[] = [];
   node.children.forEach((child, i) => {
     if (child.componentType === 'forEach') {
-      const sourcePath = ((child.props?.source as string) ?? '').replace(/^\$/, '');
+      const sourcePath = ((child.props?.source as string) ?? '').replace(/^@/, '');
       const items = (resolveDotPath(state, sourcePath) as Record<string, unknown>[]) ?? [];
       items.forEach((item, j) => {
         const itemState = { ...state, item };
