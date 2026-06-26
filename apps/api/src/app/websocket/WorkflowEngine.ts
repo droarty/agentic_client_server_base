@@ -20,6 +20,7 @@ interface StepDefinition {
 
 interface HandlerDefinition {
   condition?: string;
+  requiredAccess?: 'read' | 'write' | 'admin';
   steps: StepDefinition[];
 }
 
@@ -68,6 +69,7 @@ export interface WorkflowEngineDeps {
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
   fetchCustomWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
+  checkHandlerAccess?: (userId: string, channel: string, requiredAccess: string) => Promise<boolean>;
 }
 
 function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown {
@@ -177,6 +179,19 @@ export class WorkflowEngine {
     if (handler.condition) {
       const passes = await evaluateCondition(handler.condition, context);
       if (!passes) return;
+    }
+
+    if (handler.requiredAccess && this.deps.checkHandlerAccess) {
+      const userId = context.user?.['id'] as string | undefined;
+      if (!userId) {
+        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `handler "${type}" requires access "${handler.requiredAccess}" but no userId in context` });
+        return;
+      }
+      const allowed = await this.deps.checkHandlerAccess(userId, channel, handler.requiredAccess);
+      if (!allowed) {
+        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `handler "${type}" requires access "${handler.requiredAccess}" — denied for user ${userId}` });
+        return;
+      }
     }
 
     this.deps.logWorkflowStep?.({

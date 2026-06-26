@@ -6,10 +6,11 @@ interface DatabasePersistorDeps {
   mongoClient: MongoClient;
   dbReady: Promise<MongoClient>;
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
+  checkWriteAccess: (userId: string, channel: string) => Promise<boolean>;
 }
 
 export function createDatabasePersistor(deps: DatabasePersistorDeps) {
-  const { mongoClient, dbReady, logWorkflowStep } = deps;
+  const { mongoClient, dbReady, logWorkflowStep, checkWriteAccess } = deps;
 
   return async function persistToDatabase(outbound: OutboundMessage, context: WorkflowContext): Promise<void> {
     await dbReady;
@@ -20,6 +21,12 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
 
     const userId = context.user?.['id'] as string | undefined;
     if (!userId) return;
+
+    const hasAccess = await checkWriteAccess(userId, outbound.channel);
+    if (!hasAccess) {
+      logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: `persistToDatabase: write access denied for user ${userId}` });
+      return;
+    }
 
     const actions = rec['actions'] as Array<Record<string, unknown>> | undefined;
     if (!actions?.length) return;
@@ -70,7 +77,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
             ? { $in: [item[keys[0]], { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keys[0]}` } }] }
             : { $gt: [{ $size: { $filter: { input: { $ifNull: [fieldRef, []] }, as: 'el', cond: matchCond } } }, 0] };
           await db.collection('artifacts').updateOne(
-            { currentChannelId: outbound.channel, userId },
+            { currentChannelId: outbound.channel },
             [{
               $set: {
                 [mongoPath]: {
@@ -99,7 +106,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
           const subPath = action['subPath'] as string | undefined;
           if (!findKey || !subPath) { logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: 'persistToDatabase: update-in action missing findKey or subPath', errorDetail: action }); break; }
           await db.collection('artifacts').updateOne(
-            { currentChannelId: outbound.channel, userId },
+            { currentChannelId: outbound.channel },
             { $set: { [`${mongoPath}.$[elem].${subPath}`]: value } } as any,
             { arrayFilters: [{ [`elem.${findKey}`]: findValue }] }
           );
@@ -114,7 +121,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
             ? { $slice: [fieldRef, start ?? 0, end] }
             : { $slice: [fieldRef, start] };
           await db.collection('artifacts').updateOne(
-            { currentChannelId: outbound.channel, userId },
+            { currentChannelId: outbound.channel },
             [{ $set: { [mongoPath]: sliceExpr } }] as any
           );
           break;
@@ -129,7 +136,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
 
     if (Object.keys(mongoUpdate).length) {
       await db.collection('artifacts').updateOne(
-        { currentChannelId: outbound.channel, userId }, mongoUpdate as any
+        { currentChannelId: outbound.channel }, mongoUpdate as any
       );
     }
   };
