@@ -28,8 +28,15 @@ export class DocumentPage extends BasePage {
     );
   }
 
+  async waitForCreateForm(timeout = 20000) {
+    await browser.waitUntil(
+      async () => (await $('input.doc-create-input').isDisplayed()),
+      { timeout, timeoutMsg: 'doc-create-input never became visible' }
+    );
+  }
+
   async createDocument(name: string) {
-    await this.docCreateInput.waitForDisplayed({ timeout: 8000 });
+    await this.waitForCreateForm();
     await this.docCreateInput.setValue(name);
     await this.createSubmitBtn.click();
     await this.waitForText(name);

@@ -43,18 +43,6 @@ describe('workflow config round-trip', () => {
     expect(severeErrors).toHaveLength(0);
   });
 
-  it('select-document workflow adds a new tab (display-document-result handler)', async () => {
-    const tabsBefore = (await documentPage.tabs).length;
-
-    await documentPage.clickTab('Dashboard');
-    await documentPage.openDocument();
-
-    await documentPage.waitForTabCount(tabsBefore + 1);
-
-    const src = await browser.getPageSource();
-    expect(src).toContain(DOC_NAME);
-  });
-
   it('close-tab workflow removes the tab (close-tab handler)', async () => {
     const tabsBefore = (await documentPage.tabs).length;
 
@@ -65,8 +53,19 @@ describe('workflow config round-trip', () => {
       { timeout: 6000, timeoutMsg: 'tab count did not decrease after close-tab' }
     );
 
-    const src = await browser.getPageSource();
-    const tabTitles = await Promise.all((await documentPage.tabs).map((t) => t.getText()));
+    const tabTitles = await (await documentPage.tabs).map((t) => t.getText());
     expect(tabTitles).not.toContain(DOC_NAME);
+  });
+
+  it('select-document workflow re-opens tab (display-document-result handler)', async () => {
+    const tabsBefore = (await documentPage.tabs).length;
+
+    await documentPage.clickTab('Dashboard');
+    await documentPage.openDocument();
+
+    await documentPage.waitForTabCount(tabsBefore + 1);
+
+    const src = await browser.getPageSource();
+    expect(src).toContain(DOC_NAME);
   });
 });
