@@ -9,9 +9,12 @@ import type { CreateDocumentRequest } from '@agentic-client-server-base/shared-t
 export async function listDocuments(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const effectiveGroupIds = await getEffectiveGroupIds(req.userId!);
+    const groupFilter = effectiveGroupIds.length > 0
+      ? [{ 'permissions.groupId': { $in: effectiveGroupIds } }]
+      : [];
     const docs = await ArtifactModel.find({
       type: 'configged-chat',
-      'permissions.groupId': { $in: effectiveGroupIds },
+      $or: [{ userId: req.userId }, ...groupFilter],
     }).sort({ createdAt: -1 });
     res.json(docs);
   } catch (err) {
@@ -26,30 +29,28 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
       res.status(400).json({ message: 'name is required' });
       return;
     }
-    if (!groupId) {
-      res.status(400).json({ message: 'groupId is required' });
-      return;
-    }
 
-    const owningGroup = await Group.findById(groupId, { ancestors: 1 });
-    if (!owningGroup) {
-      res.status(400).json({ message: 'group not found' });
-      return;
-    }
+    let permissions: { groupId: Types.ObjectId; access: 'admin' | 'read' }[] = [];
+    let groupObjectId: Types.ObjectId | undefined;
 
-    const permissions = [
-      { groupId: new Types.ObjectId(groupId), access: 'admin' as const },
-      ...owningGroup.ancestors.map((ancId) => ({
-        groupId: ancId as Types.ObjectId,
-        access: 'read' as const,
-      })),
-    ];
+    if (groupId) {
+      const owningGroup = await Group.findById(groupId, { ancestors: 1 });
+      if (!owningGroup) {
+        res.status(400).json({ message: 'group not found' });
+        return;
+      }
+      groupObjectId = new Types.ObjectId(groupId);
+      permissions = [
+        { groupId: groupObjectId, access: 'admin' },
+        ...owningGroup.ancestors.map((ancId) => ({ groupId: ancId as Types.ObjectId, access: 'read' as const })),
+      ];
+    }
 
     const doc = await ArtifactModel.create({
       name: name.trim(),
       type: 'configged-chat',
       userId: req.userId,
-      groupId: new Types.ObjectId(groupId),
+      groupId: groupObjectId,
       permissions,
     });
     res.status(201).json(doc);

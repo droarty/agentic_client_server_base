@@ -90,28 +90,34 @@ async function getEffectiveGroupIds(userId: string): Promise<ObjectId[]> {
 }
 
 async function checkWriteAccess(userId: string, channel: string): Promise<boolean> {
-  const effectiveIds = await getEffectiveGroupIds(userId);
-  if (effectiveIds.length === 0) return false;
+  await dbReady;
   const db = mongoClient.db();
   const artifact = await db.collection('artifacts').findOne(
-    {
-      currentChannelId: channel,
-      permissions: { $elemMatch: { groupId: { $in: effectiveIds }, access: { $in: ['write', 'admin'] } } },
-    },
-    { projection: { _id: 1 } }
+    { currentChannelId: channel },
+    { projection: { userId: 1, permissions: 1 } }
   );
-  return artifact !== null;
+  if (!artifact) return false;
+  if (artifact['userId'] === userId) return true;
+
+  const effectiveIds = await getEffectiveGroupIds(userId);
+  if (effectiveIds.length === 0) return false;
+  const match = (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? [];
+  const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
+  return match.some((p) => effectiveSet.has(p.groupId.toString()) && (p.access === 'write' || p.access === 'admin'));
 }
 
 async function checkHandlerAccess(userId: string, channel: string, requiredAccess: string): Promise<boolean> {
-  const effectiveIds = await getEffectiveGroupIds(userId);
-  if (effectiveIds.length === 0) return false;
+  await dbReady;
   const db = mongoClient.db();
   const artifact = await db.collection('artifacts').findOne(
-    { currentChannelId: channel, 'permissions.groupId': { $in: effectiveIds } },
-    { projection: { permissions: 1 } }
+    { currentChannelId: channel },
+    { projection: { userId: 1, permissions: 1 } }
   );
   if (!artifact) return false;
+  if (artifact['userId'] === userId) return true;
+
+  const effectiveIds = await getEffectiveGroupIds(userId);
+  if (effectiveIds.length === 0) return false;
   const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
   let best = 0;
   for (const perm of (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []) {

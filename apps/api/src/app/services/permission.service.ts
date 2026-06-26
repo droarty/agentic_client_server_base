@@ -29,22 +29,19 @@ export async function getEffectiveGroupIds(userId: string): Promise<Types.Object
 }
 
 export async function getUserAccessLevel(userId: string, artifactId: string): Promise<AccessLevel> {
+  const doc = await ArtifactModel.findById(artifactId, { userId: 1, permissions: 1 });
+  if (!doc) return 'none';
+
+  if (doc.userId === userId) return 'admin';
+
   const effectiveIds = await getEffectiveGroupIds(userId);
   if (effectiveIds.length === 0) return 'none';
-
-  const doc = await ArtifactModel.findOne(
-    { _id: artifactId, 'permissions.groupId': { $in: effectiveIds } },
-    { permissions: 1 }
-  );
-  if (!doc) return 'none';
 
   let best: AccessLevel = 'none';
   const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
   for (const perm of doc.permissions) {
     if (effectiveSet.has((perm.groupId as Types.ObjectId).toString())) {
-      if (ACCESS_RANK[perm.access] > ACCESS_RANK[best]) {
-        best = perm.access;
-      }
+      if (ACCESS_RANK[perm.access] > ACCESS_RANK[best]) best = perm.access;
     }
   }
   return best;
