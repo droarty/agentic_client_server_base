@@ -1,9 +1,14 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import { randomUUID } from 'crypto';
-import type { ArtifactAccess } from '@agentic-client-server-base/shared-types';
+import type { ArtifactAccess, ArtifactPermissionMode } from '@agentic-client-server-base/shared-types';
 
 export interface IArtifactPermission {
   groupId: Types.ObjectId;
+  access: ArtifactAccess;
+}
+
+export interface IUserArtifactPermission {
+  userId: string;
   access: ArtifactAccess;
 }
 
@@ -13,6 +18,8 @@ export interface IArtifact extends Document {
   userId?: string;
   groupId?: Types.ObjectId;
   permissions: IArtifactPermission[];
+  userPermissions: IUserArtifactPermission[];
+  permissionManagerMode: ArtifactPermissionMode;
   currentChannelId: string;
   state?: Record<string, unknown>;
   createdAt: Date;
@@ -27,6 +34,14 @@ const artifactPermissionSchema = new Schema<IArtifactPermission>(
   { _id: false }
 );
 
+const userArtifactPermissionSchema = new Schema<IUserArtifactPermission>(
+  {
+    userId: { type: String, required: true },
+    access: { type: String, enum: ['read', 'write', 'admin'], required: true },
+  },
+  { _id: false }
+);
+
 const artifactSchema = new Schema<IArtifact>(
   {
     name: { type: String, required: true, trim: true },
@@ -34,6 +49,8 @@ const artifactSchema = new Schema<IArtifact>(
     userId: { type: String },
     groupId: { type: Schema.Types.ObjectId, ref: 'Group' },
     permissions: { type: [artifactPermissionSchema], default: [] },
+    userPermissions: { type: [userArtifactPermissionSchema], default: [] },
+    permissionManagerMode: { type: String, enum: ['owner', 'group_admin'], default: 'owner' },
     currentChannelId: { type: String, default: () => randomUUID() },
     state: { type: Schema.Types.Mixed, default: undefined },
   },
@@ -41,6 +58,7 @@ const artifactSchema = new Schema<IArtifact>(
 );
 
 artifactSchema.index({ 'permissions.groupId': 1 });
+artifactSchema.index({ 'userPermissions.userId': 1 });
 artifactSchema.index({ groupId: 1 });
 
 export const ArtifactModel = mongoose.model<IArtifact>('Artifact', artifactSchema);

@@ -32,6 +32,7 @@ beforeAll(async () => {
     mongoClient: client,
     dbReady: Promise.resolve(client),
     logWorkflowStep: jest.fn(),
+    checkWriteAccess: jest.fn().mockResolvedValue(true),
   });
 
   publishToClient = jest.fn().mockResolvedValue(undefined);
