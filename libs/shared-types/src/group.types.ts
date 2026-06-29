@@ -1,5 +1,11 @@
 export type GroupRole = 'owner' | 'admin' | 'member';
 export type ArtifactAccess = 'read' | 'write' | 'admin';
+export type ArtifactPermissionMode = 'owner' | 'group_admin';
+
+export interface UserArtifactPermission {
+  userId: string;
+  access: ArtifactAccess;
+}
 
 export interface Group {
   _id: string;
