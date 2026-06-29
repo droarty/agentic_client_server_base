@@ -88,35 +88,40 @@ async function getEffectiveGroupIds(userId: string): Promise<ObjectId[]> {
   return [...allIds].map((id) => new ObjectId(id));
 }
 
+async function computeGroupAccessLevel(
+  userId: string,
+  permissions: Array<{ groupId: ObjectId; access: string }>
+): Promise<AccessLevel> {
+  const effectiveIds = await getEffectiveGroupIds(userId);
+  if (effectiveIds.length === 0) return 'none';
+  const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
+  let best: AccessLevel = 'none';
+  for (const perm of permissions) {
+    if (effectiveSet.has(perm.groupId.toString())) {
+      const rank = ACCESS_RANK[perm.access as AccessLevel] ?? 0;
+      if (rank > ACCESS_RANK[best]) best = perm.access as AccessLevel;
+    }
+  }
+  return best;
+}
+
 async function computeChannelAccessLevel(userId: string, channel: string): Promise<AccessLevel> {
   await dbReady;
-  const db = mongoClient.db();
-  const artifact = await db.collection('artifacts').findOne(
+  const artifact = await mongoClient.db().collection('artifacts').findOne(
     { currentChannelId: channel },
     { projection: { userId: 1, permissions: 1, userPermissions: 1, permissionManagerMode: 1 } }
   );
   if (!artifact) return 'none';
 
-  // In 'owner' mode the document owner is always admin
   if (artifact['permissionManagerMode'] !== 'group_admin' && artifact['userId'] === userId) return 'admin';
 
-  // Explicit user-level ACL
   const userPerms = (artifact['userPermissions'] as Array<{ userId: string; access: string }> | undefined) ?? [];
-  const userPerm = userPerms.find((p) => p.userId === userId);
-  const userLevel: AccessLevel = (userPerm?.access as AccessLevel) ?? 'none';
+  const userLevel: AccessLevel = (userPerms.find((p) => p.userId === userId)?.access as AccessLevel) ?? 'none';
 
-  // Group-based permissions
-  const effectiveIds = await getEffectiveGroupIds(userId);
-  let groupLevel: AccessLevel = 'none';
-  if (effectiveIds.length > 0) {
-    const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
-    for (const perm of (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []) {
-      if (effectiveSet.has(perm.groupId.toString())) {
-        const rank = ACCESS_RANK[perm.access as AccessLevel] ?? 0;
-        if (rank > ACCESS_RANK[groupLevel]) groupLevel = perm.access as AccessLevel;
-      }
-    }
-  }
+  const groupLevel = await computeGroupAccessLevel(
+    userId,
+    (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []
+  );
 
   return ACCESS_RANK[userLevel] >= ACCESS_RANK[groupLevel] ? userLevel : groupLevel;
 }
