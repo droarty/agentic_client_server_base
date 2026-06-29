@@ -10,6 +10,7 @@ import { AIEventManager } from './AIEventManager';
 import { WorkflowEngine, AiStepConfig, WorkflowLogEntry } from './WorkflowEngine';
 import { createQueryExecutor } from './QueryExecutor';
 import { createDatabasePersistor } from './DatabasePersistor';
+import { AccessLevel, ACCESS_RANK } from './access-level';
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -67,8 +68,6 @@ async function fetchCustomWorkflowConfig(docType: string) {
   }
 }
 
-const ACCESS_RANK: Record<string, number> = { none: 0, read: 1, write: 2, admin: 3 };
-
 async function getEffectiveGroupIds(userId: string): Promise<ObjectId[]> {
   await dbReady;
   const db = mongoClient.db();
@@ -89,48 +88,41 @@ async function getEffectiveGroupIds(userId: string): Promise<ObjectId[]> {
   return [...allIds].map((id) => new ObjectId(id));
 }
 
-async function checkWriteAccess(userId: string, channel: string): Promise<boolean> {
+async function computeChannelAccessLevel(userId: string, channel: string): Promise<AccessLevel> {
   await dbReady;
   const db = mongoClient.db();
   const artifact = await db.collection('artifacts').findOne(
     { currentChannelId: channel },
-    { projection: { userId: 1, permissions: 1 } }
+    { projection: { userId: 1, permissions: 1, userPermissions: 1, permissionManagerMode: 1 } }
   );
-  if (!artifact) return false;
-  if (artifact['userId'] === userId) return true;
+  if (!artifact) return 'none';
 
+  // In 'owner' mode the document owner is always admin
+  if (artifact['permissionManagerMode'] !== 'group_admin' && artifact['userId'] === userId) return 'admin';
+
+  // Explicit user-level ACL
+  const userPerms = (artifact['userPermissions'] as Array<{ userId: string; access: string }> | undefined) ?? [];
+  const userPerm = userPerms.find((p) => p.userId === userId);
+  const userLevel: AccessLevel = (userPerm?.access as AccessLevel) ?? 'none';
+
+  // Group-based permissions
   const effectiveIds = await getEffectiveGroupIds(userId);
-  if (effectiveIds.length === 0) return false;
-  const match = (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? [];
-  const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
-  return match.some((p) => effectiveSet.has(p.groupId.toString()) && (p.access === 'write' || p.access === 'admin'));
-}
-
-async function checkHandlerAccess(userId: string, channel: string, requiredAccess: string): Promise<boolean> {
-  await dbReady;
-  const db = mongoClient.db();
-  const artifact = await db.collection('artifacts').findOne(
-    { currentChannelId: channel },
-    { projection: { userId: 1, permissions: 1 } }
-  );
-  if (!artifact) return false;
-  if (artifact['userId'] === userId) return true;
-
-  const effectiveIds = await getEffectiveGroupIds(userId);
-  if (effectiveIds.length === 0) return false;
-  const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
-  let best = 0;
-  for (const perm of (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []) {
-    if (effectiveSet.has(perm.groupId.toString())) {
-      const rank = ACCESS_RANK[perm.access] ?? 0;
-      if (rank > best) best = rank;
+  let groupLevel: AccessLevel = 'none';
+  if (effectiveIds.length > 0) {
+    const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
+    for (const perm of (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []) {
+      if (effectiveSet.has(perm.groupId.toString())) {
+        const rank = ACCESS_RANK[perm.access as AccessLevel] ?? 0;
+        if (rank > ACCESS_RANK[groupLevel]) groupLevel = perm.access as AccessLevel;
+      }
     }
   }
-  return best >= (ACCESS_RANK[requiredAccess] ?? 0);
+
+  return ACCESS_RANK[userLevel] >= ACCESS_RANK[groupLevel] ? userLevel : groupLevel;
 }
 
 const executeQuery = createQueryExecutor({ mongoClient, dbReady, configDir, logWorkflowStep });
-const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep, checkWriteAccess });
+const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
 
 const engine = new WorkflowEngine(
   {
@@ -153,7 +145,6 @@ const engine = new WorkflowEngine(
     getDocumentType,
     executeQuery,
     fetchCustomWorkflowConfig,
-    checkHandlerAccess,
   },
   configDir
 );
@@ -169,7 +160,12 @@ parentPort!.on('message', async (input: WorkerInput) => {
     parentStepIndex = sidx !== undefined ? parseInt(sidx, 10) : undefined;
   }
   try {
-    await engine.execute({ message, user }, parentExecutionId, parentStepIndex);
+    const userId = (user as Record<string, unknown> | undefined)?.['id'] as string | undefined;
+    const channel = message['channel'] as string | undefined;
+    const permissionLevel: AccessLevel = userId && channel
+      ? await computeChannelAccessLevel(userId, channel)
+      : 'none';
+    await engine.execute({ message, user, permissionLevel }, parentExecutionId, parentStepIndex);
   } catch (err) {
     logWorkflowStep({ createdAt: new Date(), channel: (message['channel'] as string) || '', docType: '', handlerName: (message['type'] as string) || '', logType: 'error', errorMessage: 'WorkflowEngine execution error', errorDetail: String(err) });
   }

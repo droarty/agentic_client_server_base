@@ -32,7 +32,6 @@ beforeAll(async () => {
     mongoClient: client,
     dbReady: Promise.resolve(client),
     logWorkflowStep: jest.fn(),
-    checkWriteAccess: jest.fn().mockResolvedValue(true),
   });
 
   publishToClient = jest.fn().mockResolvedValue(undefined);
@@ -65,6 +64,7 @@ beforeEach(async () => {
 const ctx = (type: string, extra: Record<string, unknown> = {}) => ({
   message: { type, channel: CHANNEL, ...extra },
   user: { id: USER_ID, email: 'test@example.com' },
+  permissionLevel: 'admin' as const,
 });
 
 // ─── save-documents-accordion ─────────────────────────────────────────────────

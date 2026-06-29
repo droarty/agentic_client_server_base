@@ -1,12 +1,10 @@
 import { Types } from 'mongoose';
-import type { ArtifactAccess } from '@agentic-client-server-base/shared-types';
 import { Group } from '../models/group.model';
 import { Membership } from '../models/membership.model';
 import { ArtifactModel, IArtifact } from '../models/document.model';
+import { AccessLevel, ACCESS_RANK } from '../websocket/access-level';
 
-export type AccessLevel = 'none' | ArtifactAccess;
-
-const ACCESS_RANK: Record<AccessLevel, number> = { none: 0, read: 1, write: 2, admin: 3 };
+export type { AccessLevel };
 
 function maxAccess(a: AccessLevel, b: AccessLevel): AccessLevel {
   return ACCESS_RANK[a] >= ACCESS_RANK[b] ? a : b;
