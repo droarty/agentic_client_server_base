@@ -9,19 +9,20 @@ This document is a complete reference for writing workflow JSON configuration fi
 1. [Overview](#overview)
 2. [Top-Level Fields](#top-level-fields)
 3. [Handler Definition](#handler-definition)
-4. [Steps and Routes](#steps-and-routes)
-5. [Transform Syntax and Path Substitution](#transform-syntax-and-path-substitution)
-6. [Action Types (update-state)](#action-types-update-state)
-7. [Named Queries (database-query)](#named-queries-database-query)
-8. [AI Step Configuration](#ai-step-configuration)
-9. [initialize-state and initialize-view Messages](#initialize-state-and-initialize-view-messages)
-10. [Layout Node Structure](#layout-node-structure)
-11. [Registered Component Types](#registered-component-types)
-12. [Emit System](#emit-system)
-13. [State Path Namespaces](#state-path-namespaces)
-14. [Standard Handler Patterns](#standard-handler-patterns)
-15. [ChatMessage Object Format](#chatmessage-object-format)
-16. [Complete Annotated Example](#complete-annotated-example)
+4. [Access Control](#access-control)
+5. [Steps and Routes](#steps-and-routes)
+6. [Transform Syntax and Path Substitution](#transform-syntax-and-path-substitution)
+7. [Action Types (update-state)](#action-types-update-state)
+8. [Named Queries (database-query)](#named-queries-database-query)
+9. [AI Step Configuration](#ai-step-configuration)
+10. [initialize-state and initialize-view Messages](#initialize-state-and-initialize-view-messages)
+11. [Layout Node Structure](#layout-node-structure)
+12. [Registered Component Types](#registered-component-types)
+13. [Emit System](#emit-system)
+14. [State Path Namespaces](#state-path-namespaces)
+15. [Standard Handler Patterns](#standard-handler-patterns)
+16. [ChatMessage Object Format](#chatmessage-object-format)
+17. [Complete Annotated Example](#complete-annotated-example)
 
 ---
 
@@ -82,6 +83,7 @@ Each artifact document in MongoDB has a `currentChannelId` (UUID). When a browse
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `condition` | string | no | Evaluated before any steps run. If falsy, the entire handler is skipped. Supports all value syntaxes (`$`, `@`, `~{}`). |
+| `requiredAccess` | `"read" \| "write" \| "admin"` | no | Minimum access level the caller must hold. If the caller's effective level is lower, the handler is skipped and an error is logged. Omit to allow any authenticated user. See [Access Control](#access-control). |
 | `steps` | array | yes | Ordered list of step definitions executed sequentially. |
 
 ### Condition examples
@@ -91,6 +93,73 @@ Each artifact document in MongoDB has a `currentChannelId` (UUID). When a browse
 "condition": "$message.documentId"                 // truthy if message.documentId exists
 "condition": "~{ $count(message.items) > 0 }"     // JSONata: truthy if items array is non-empty
 ```
+
+### requiredAccess example
+
+```json
+"save-note": {
+  "requiredAccess": "write",
+  "steps": [
+    {
+      "route": ["client", "database"],
+      "transform": {
+        "clientMessageType": "update-state",
+        "actions": [
+          { "actionType": "update", "path": "$state.note", "value": "$message.text" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Access Control
+
+Every WebSocket message is evaluated against the caller's effective access level for the artifact. The engine computes the level once per message (cached in-process for 10 minutes) and passes it through `WorkflowContext`. Handlers can declare a `requiredAccess` floor; the engine enforces it before running any steps.
+
+### Access levels
+
+Four levels in ascending order:
+
+| Level | Rank | Meaning |
+|-------|------|---------|
+| `none` | 0 | No access — message is not processed |
+| `read` | 1 | Can read state and receive view layouts |
+| `write` | 2 | Can mutate state and persist to the database |
+| `admin` | 3 | Full access, including permission management |
+
+### How effective access is computed
+
+For each message the engine resolves the caller's access level in this order — the **first match wins** for the owner shortcut, then the **maximum** of user ACL and group permissions:
+
+1. **Owner shortcut** — if `permissionManagerMode` is `'owner'` and the caller is the artifact's `userId`, effective access is `admin` immediately.
+2. **User-level ACL** (`userPermissions[]`) — explicit per-user grants stored on the artifact. Each entry is `{ userId, access }`.
+3. **Group-based permissions** (`permissions[]`) — grants tied to groups. The engine resolves all groups the caller belongs to (including ancestor groups via the group hierarchy) and takes the highest matching access level.
+4. **Effective access** = `max(userACLLevel, groupLevel)`.
+
+### permissionManagerMode
+
+Every artifact has a `permissionManagerMode` that determines who can call the permission management endpoints:
+
+| Mode | Set when | Who can manage permissions |
+|------|----------|---------------------------|
+| `'owner'` | User creates a document for themselves (no `targetUserId`) | Only the artifact's `userId` (the creator) |
+| `'group_admin'` | Group admin creates a document for a target user (requires `groupId` + `targetUserId`) | Any member with `admin` or `owner` role in the artifact's owning group |
+
+The mode is set at creation time and cannot be changed. In `'owner'` mode the creator is always implicitly `admin`; in `'group_admin'` mode the creator is not automatically an admin — access flows through group membership.
+
+### REST endpoints for managing user-level ACL
+
+These endpoints let an authorized caller grant or revoke per-user access on a specific artifact. All require that `canManagePermissions` passes for the caller (i.e. the caller satisfies the `permissionManagerMode` rules above).
+
+| Method | Path | Body | Effect |
+|--------|------|------|--------|
+| `PATCH` | `/api/documents/:id/user-permissions` | `{ userId, access: "read" \| "write" \| "admin" }` | Create or update the named user's access on this artifact |
+| `DELETE` | `/api/documents/:id/user-permissions/:userId` | — | Remove the named user's explicit ACL entry |
+
+**Escalation guard:** a caller cannot grant a level higher than their own effective access. For example, a `write`-level caller cannot grant `admin` to another user.
 
 ---
 
