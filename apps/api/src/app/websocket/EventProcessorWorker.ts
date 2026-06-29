@@ -11,9 +11,9 @@ import { WorkflowEngine, AiStepConfig, WorkflowLogEntry } from './WorkflowEngine
 import { createQueryExecutor } from './QueryExecutor';
 import { createDatabasePersistor } from './DatabasePersistor';
 import { AccessLevel, ACCESS_RANK } from './access-level';
+import { createAccessLevelCache } from './access-level-cache';
 
-const ACCESS_LEVEL_CACHE = new Map<string, { level: AccessLevel; expiresAt: number }>();
-const ACCESS_CACHE_TTL_MS = 10 * 60 * 1000;
+const accessLevelCache = createAccessLevelCache(10 * 60 * 1000);
 
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
@@ -172,14 +172,7 @@ parentPort!.on('message', async (input: WorkerInput) => {
     const channel = message['channel'] as string | undefined;
     let permissionLevel: AccessLevel = 'none';
     if (userId && channel) {
-      const cacheKey = `${userId}:${channel}`;
-      const cached = ACCESS_LEVEL_CACHE.get(cacheKey);
-      if (cached && cached.expiresAt > Date.now()) {
-        permissionLevel = cached.level;
-      } else {
-        permissionLevel = await computeChannelAccessLevel(userId, channel);
-        ACCESS_LEVEL_CACHE.set(cacheKey, { level: permissionLevel, expiresAt: Date.now() + ACCESS_CACHE_TTL_MS });
-      }
+      permissionLevel = await accessLevelCache.get(userId, channel, () => computeChannelAccessLevel(userId, channel));
     }
     await engine.execute({ message, user, permissionLevel }, parentExecutionId, parentStepIndex);
   } catch (err) {

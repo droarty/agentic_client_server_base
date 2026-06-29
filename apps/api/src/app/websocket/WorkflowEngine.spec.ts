@@ -71,6 +71,17 @@ const WORKFLOW_CONFIG = {
         ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Hello {{$message.name}}, missing: {{$message.missing}}' },
       }],
     },
+    'write-required-message': {
+      requiredAccess: 'write',
+      steps: [{ route: 'client', transform: { type: 'response' } }],
+    },
+    'admin-required-message': {
+      requiredAccess: 'admin',
+      steps: [{ route: 'client', transform: { type: 'response' } }],
+    },
+    'unrestricted-message': {
+      steps: [{ route: 'client', transform: { type: 'response' } }],
+    },
   },
 };
 
@@ -86,10 +97,11 @@ function makeDeps(overrides: Partial<WorkflowEngineDeps> = {}): WorkflowEngineDe
   };
 }
 
-function makeContext(type: string, extra: Record<string, unknown> = {}): WorkflowContext {
+function makeContext(type: string, extra: Record<string, unknown> = {}, permissionLevel?: WorkflowContext['permissionLevel']): WorkflowContext {
   return {
     message: { type, channel: 'ch-1', ...extra },
     user: { id: 'u-1', email: 'test@example.com' },
+    permissionLevel,
   };
 }
 
@@ -363,5 +375,48 @@ describe('logWorkflowStep', () => {
     // second handler log (query-result) should have a parentExecutionId set
     expect(handlerLogs.length).toBeGreaterThanOrEqual(2);
     expect(handlerLogs[1].parentExecutionId).toBeTruthy();
+  });
+});
+
+// ─── requiredAccess guard ─────────────────────────────────────────────────────
+
+describe('requiredAccess guard', () => {
+  test('read level denied when handler requires write', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('write-required-message', {}, 'read'));
+    expect(deps.publishToClient).not.toHaveBeenCalled();
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+
+  test('write level allowed when handler requires write', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('write-required-message', {}, 'write'));
+    expect(deps.publishToClient).toHaveBeenCalled();
+  });
+
+  test('admin level allowed when handler requires write', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('write-required-message', {}, 'admin'));
+    expect(deps.publishToClient).toHaveBeenCalled();
+  });
+
+  test('write level denied when handler requires admin', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('admin-required-message', {}, 'write'));
+    expect(deps.publishToClient).not.toHaveBeenCalled();
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+
+  test('absent permissionLevel defaults to none and is denied when write is required', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('write-required-message'));
+    expect(deps.publishToClient).not.toHaveBeenCalled();
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+
+  test('unrestricted handler executes regardless of permissionLevel', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('unrestricted-message', {}, 'none'));
+    expect(deps.publishToClient).toHaveBeenCalled();
   });
 });
