@@ -12,6 +12,9 @@ import { createQueryExecutor } from './QueryExecutor';
 import { createDatabasePersistor } from './DatabasePersistor';
 import { AccessLevel, ACCESS_RANK } from './access-level';
 
+const ACCESS_LEVEL_CACHE = new Map<string, { level: AccessLevel; expiresAt: number }>();
+const ACCESS_CACHE_TTL_MS = 10 * 60 * 1000;
+
 const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
   enableReadyCheck: false,
 });
@@ -167,9 +170,17 @@ parentPort!.on('message', async (input: WorkerInput) => {
   try {
     const userId = (user as Record<string, unknown> | undefined)?.['id'] as string | undefined;
     const channel = message['channel'] as string | undefined;
-    const permissionLevel: AccessLevel = userId && channel
-      ? await computeChannelAccessLevel(userId, channel)
-      : 'none';
+    let permissionLevel: AccessLevel = 'none';
+    if (userId && channel) {
+      const cacheKey = `${userId}:${channel}`;
+      const cached = ACCESS_LEVEL_CACHE.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        permissionLevel = cached.level;
+      } else {
+        permissionLevel = await computeChannelAccessLevel(userId, channel);
+        ACCESS_LEVEL_CACHE.set(cacheKey, { level: permissionLevel, expiresAt: Date.now() + ACCESS_CACHE_TTL_MS });
+      }
+    }
     await engine.execute({ message, user, permissionLevel }, parentExecutionId, parentStepIndex);
   } catch (err) {
     logWorkflowStep({ createdAt: new Date(), channel: (message['channel'] as string) || '', docType: '', handlerName: (message['type'] as string) || '', logType: 'error', errorMessage: 'WorkflowEngine execution error', errorDetail: String(err) });
