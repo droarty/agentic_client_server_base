@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import jsonata from 'jsonata';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
+import { AccessLevel, ACCESS_RANK } from './access-level';
 
 export interface AiStepConfig {
   model: string;
@@ -34,6 +35,7 @@ export interface WorkflowContext {
   message: Record<string, unknown>;
   user?: Record<string, unknown>;
   state?: Record<string, unknown>;
+  permissionLevel?: AccessLevel;
 }
 
 export interface WorkflowLogEntry {
@@ -69,7 +71,6 @@ export interface WorkflowEngineDeps {
   getDocumentType: (channel: string) => Promise<string | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
   fetchCustomWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
-  checkHandlerAccess?: (userId: string, channel: string, requiredAccess: string) => Promise<boolean>;
 }
 
 function resolveDotPath(obj: Record<string, unknown>, dotPath: string): unknown {
@@ -181,15 +182,11 @@ export class WorkflowEngine {
       if (!passes) return;
     }
 
-    if (handler.requiredAccess && this.deps.checkHandlerAccess) {
-      const userId = context.user?.['id'] as string | undefined;
-      if (!userId) {
-        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `handler "${type}" requires access "${handler.requiredAccess}" but no userId in context` });
-        return;
-      }
-      const allowed = await this.deps.checkHandlerAccess(userId, channel, handler.requiredAccess);
-      if (!allowed) {
-        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `handler "${type}" requires access "${handler.requiredAccess}" — denied for user ${userId}` });
+    if (handler.requiredAccess) {
+      const level = context.permissionLevel ?? 'none';
+      if (ACCESS_RANK[level] < ACCESS_RANK[handler.requiredAccess]) {
+        const userId = context.user?.['id'] as string | undefined;
+        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `handler "${type}" requires access "${handler.requiredAccess}" — denied for user ${userId ?? '(unknown)'}` });
         return;
       }
     }
@@ -279,6 +276,7 @@ export class WorkflowEngine {
         },
         user: context.user,
         state: context.state,
+        permissionLevel: context.permissionLevel,
       }, executionId, stepIndex);
       return;
     }

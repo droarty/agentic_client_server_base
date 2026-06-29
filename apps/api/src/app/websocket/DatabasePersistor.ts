@@ -1,16 +1,16 @@
 import { MongoClient } from 'mongodb';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
+import { ACCESS_RANK } from './access-level';
 
 interface DatabasePersistorDeps {
   mongoClient: MongoClient;
   dbReady: Promise<MongoClient>;
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
-  checkWriteAccess: (userId: string, channel: string) => Promise<boolean>;
 }
 
 export function createDatabasePersistor(deps: DatabasePersistorDeps) {
-  const { mongoClient, dbReady, logWorkflowStep, checkWriteAccess } = deps;
+  const { mongoClient, dbReady, logWorkflowStep } = deps;
 
   return async function persistToDatabase(outbound: OutboundMessage, context: WorkflowContext): Promise<void> {
     await dbReady;
@@ -22,8 +22,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
     const userId = context.user?.['id'] as string | undefined;
     if (!userId) return;
 
-    const hasAccess = await checkWriteAccess(userId, outbound.channel);
-    if (!hasAccess) {
+    if (ACCESS_RANK[context.permissionLevel ?? 'none'] < ACCESS_RANK['write']) {
       logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: `persistToDatabase: write access denied for user ${userId}` });
       return;
     }
