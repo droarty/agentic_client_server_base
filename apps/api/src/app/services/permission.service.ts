@@ -75,6 +75,15 @@ export async function canManagePermissions(userId: string, doc: IArtifact): Prom
     });
     return !!membership && (membership.roles.includes('admin') || membership.roles.includes('owner'));
   }
-  // 'owner' mode
-  return doc.userId === userId;
+  // 'owner' mode — document owner always allowed
+  if (doc.userId === userId) return true;
+  // If the document belongs to a group, its admins can also manage permissions
+  if (doc.groupId) {
+    const membership = await Membership.findOne({
+      groupId: doc.groupId,
+      userId: new Types.ObjectId(userId),
+    });
+    return !!membership && (membership.roles.includes('admin') || membership.roles.includes('owner'));
+  }
+  return false;
 }
