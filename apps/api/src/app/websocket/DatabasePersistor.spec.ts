@@ -21,10 +21,11 @@ function makeOutbound(actions: unknown[], type = 'update-state'): OutboundMessag
   return { type, channel: CHANNEL, actions } as unknown as OutboundMessage;
 }
 
-function makeContext(userId: string | undefined): WorkflowContext {
+function makeContext(userId: string | undefined, permissionLevel: WorkflowContext['permissionLevel'] = 'admin'): WorkflowContext {
   return {
     message: { channel: CHANNEL, type: 'update-state' },
     user: userId !== undefined ? { id: userId, email: 'test@example.com' } : undefined,
+    permissionLevel,
   };
 }
 
@@ -241,13 +242,36 @@ describe('multiple actions in one call', () => {
   });
 });
 
-// ─── Ownership ────────────────────────────────────────────────────────────────
+// ─── Permission level guard ───────────────────────────────────────────────────
 
-describe('ownership', () => {
-  test('userId mismatch leaves document unchanged', async () => {
+describe('permission level guard', () => {
+  test('permissionLevel none leaves document unchanged', async () => {
     const persist = makePersist();
-    await persist(makeOutbound([{ actionType: 'update', path: '$state.title', value: 'Hacked' }]), makeContext('other-user'));
+    await persist(makeOutbound([{ actionType: 'update', path: '$state.title', value: 'X' }]), makeContext(USER_ID, 'none'));
     const doc = await getArtifact();
     expect(doc!.state.title).toBe('');
+    expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+
+  test('permissionLevel read leaves document unchanged', async () => {
+    const persist = makePersist();
+    await persist(makeOutbound([{ actionType: 'update', path: '$state.title', value: 'X' }]), makeContext(USER_ID, 'read'));
+    const doc = await getArtifact();
+    expect(doc!.state.title).toBe('');
+    expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+
+  test('permissionLevel write allows the write', async () => {
+    const persist = makePersist();
+    await persist(makeOutbound([{ actionType: 'update', path: '$state.title', value: 'Written' }]), makeContext(USER_ID, 'write'));
+    const doc = await getArtifact();
+    expect(doc!.state.title).toBe('Written');
+  });
+
+  test('permissionLevel admin allows the write', async () => {
+    const persist = makePersist();
+    await persist(makeOutbound([{ actionType: 'update', path: '$state.title', value: 'Admin' }]), makeContext(USER_ID, 'admin'));
+    const doc = await getArtifact();
+    expect(doc!.state.title).toBe('Admin');
   });
 });
