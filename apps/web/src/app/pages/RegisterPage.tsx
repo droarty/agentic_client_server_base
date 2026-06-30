@@ -24,7 +24,7 @@ export function RegisterPage() {
 
     try {
       await register(email, password, confirmPassword);
-      navigate('/dashboard');
+      navigate('/user');
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||

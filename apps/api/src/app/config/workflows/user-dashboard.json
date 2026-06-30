@@ -1,55 +1,26 @@
 {
-  "name": "user-dashboard-workflow",
+  "name": "user-dash",
   "version": "1.0.0",
-  "initialState": {
-    "openDocs": [],
-    "activeDocId": "",
-    "openAccordions": {
-      "documents": "documents",
-      "groups": "groups"
-    },
-    "config": {
-      "userManagementViewHandler": "userManagementView",
-      "sectionIdField": "id",
-      "sectionTriggerFields": ["label"],
-      "documentSection": [{ "id": "documents", "label": "Documents" }],
-      "groupSection":   [{ "id": "groups",    "label": "Groups"    }]
-    }
-  },
+  "initialState": { "groups": [], "noGroupsMessage": "" },
   "handlers": {
     "initializeState": {
       "steps": [
         {
           "route": "database-query",
-          "query": { "name": "get-document", "responseType": "initialize-state-document" }
+          "query": { "name": "get-user-groups", "responseType": "user-groups-result" }
         }
       ]
     },
-    "initialize-state-document": {
+    "user-groups-result": {
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-state",
-            "initialState": "$message.document.state"
-          }
-        },
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$temp._channelId", "value": "$message.document.currentChannelId" }
-            ]
-          }
-        },
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "slice", "path": "$state.openDocs", "start": -5 }
-            ]
+            "initialState": {
+              "groups": "$message.groups",
+              "noGroupsMessage": "~{ $count($message.groups) = 0 ? 'You are not a member of any groups. Contact a group administrator to be added.' : '' }"
+            }
           }
         }
       ]
@@ -63,254 +34,31 @@
             "viewHandler": "defaultView",
             "layoutConfig": [
               {
-                "componentType": "smartTabs",
-                "props": { "selectedId": "@state.activeDocId" },
-                "children": [
-                  {
-                    "componentType": "smartTab",
-                    "props": { "title": "Dashboard" },
-                    "children": [
-                      {
-                        "componentType": "layoutDocumentView",
-                        "props": {
-                          "channelId": "@temp._channelId",
-                          "viewHandler": "@state.config.userManagementViewHandler"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "componentType": "forEach",
-                    "props": { "source": "@state.openDocs" },
-                    "children": [
-                      {
-                        "componentType": "smartTab",
-                        "props": { "id": "@item._id", "title": "@item.name" },
-                        "emits": { "close": "close-tab" },
-                        "children": [
-                          {
-                            "componentType": "layoutDocumentView",
-                            "props": { "channelId": "@item.currentChannelId" }
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "userManagementView": {
-      "steps": [
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "initialize-view",
-            "viewHandler": "userManagementView",
-            "layoutConfig": [
-              {
                 "componentType": "fullPanel",
                 "children": [
                   {
-                    "componentType": "smartAccordion",
-                    "props": {
-                      "items":         "@state.config.documentSection",
-                      "idField":       "@state.config.sectionIdField",
-                      "triggerFields": "@state.config.sectionTriggerFields",
-                      "selectedId":    "@state.openAccordions.documents"
-                    },
-                    "emits": { "select": "save-documents-accordion" },
-                    "children": [
-                      {
-                        "componentType": "documentList",
-                        "props": { "items": "@temp.documentList" },
-                        "emits": { "select": "select-document" }
-                      },
-                      {
-                        "componentType": "newDocument",
-                        "props": { "availableTypes": "@temp.availableTypes" },
-                        "emits": { "create": "create-document" }
-                      }
-                    ]
+                    "componentType": "textDisplay",
+                    "props": { "text": "Welcome to your dashboard." }
                   },
                   {
-                    "componentType": "smartAccordion",
+                    "componentType": "textDisplay",
                     "props": {
-                      "items":         "@state.config.groupSection",
-                      "idField":       "@state.config.sectionIdField",
-                      "triggerFields": "@state.config.sectionTriggerFields",
-                      "selectedId":    "@state.openAccordions.groups"
-                    },
-                    "emits": { "select": "save-groups-accordion" }
+                      "text": "@state.noGroupsMessage",
+                      "placeholder": ""
+                    }
+                  },
+                  {
+                    "componentType": "forEach",
+                    "props": { "source": "@state.groups" },
+                    "children": [
+                      {
+                        "componentType": "textDisplay",
+                        "props": { "text": "@item.name" }
+                      }
+                    ]
                   }
                 ]
               }
-            ]
-          }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "get-available-types", "responseType": "available-types-result" }
-        }
-      ]
-    },
-    "available-types-result": {
-      "steps": [
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$temp.availableTypes", "value": "$message.availableTypes" }
-            ]
-          }
-        }
-      ]
-    },
-    "get-document-list": {
-      "steps": [
-        {
-          "route": "database-query",
-          "query": { "name": "get-user-documents", "responseType": "document-list-result" }
-        }
-      ]
-    },
-    "document-list-result": {
-      "steps": [
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$temp.documentList", "value": "$message.documents" }
-            ]
-          }
-        }
-      ]
-    },
-    "select-document": {
-      "steps": [
-        {
-          "route": "database-query",
-          "query": { "name": "get-document-summary", "responseType": "display-document-result" }
-        }
-      ]
-    },
-    "display-document-result": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "upsert",
-                "path": "$state.openDocs",
-                "value": "$message.document",
-                "keys": ["_id"]
-              },
-              {
-                "actionType": "update",
-                "path": "$state.activeDocId",
-                "value": "$message.document._id"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "create-document": {
-      "condition": "$message.name",
-      "steps": [
-        {
-          "route": "database-query",
-          "query": { "name": "create-document", "responseType": "document-created-result" }
-        }
-      ]
-    },
-    "document-created-result": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "upsert",
-                "path": "$state.openDocs",
-                "value": "$message.document",
-                "keys": ["_id"]
-              },
-              {
-                "actionType": "update",
-                "path": "$state.activeDocId",
-                "value": "$message.document._id"
-              }
-            ]
-          }
-        },
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "upsert",
-                "path": "$temp.documentList",
-                "value": "$message.document",
-                "keys": ["_id"]
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "save-documents-accordion": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$state.openAccordions.documents", "value": "$message.id" }
-            ]
-          }
-        }
-      ]
-    },
-    "close-tab": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "remove",
-                "path": "$state.openDocs",
-                "value": "$message",
-                "keys": ["_id"]
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "save-groups-accordion": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$state.openAccordions.groups", "value": "$message.id" }
             ]
           }
         }

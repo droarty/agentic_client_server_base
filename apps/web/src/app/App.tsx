@@ -20,14 +20,15 @@ export function App() {
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
           <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+          <Route path="/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/author" element={<PrivateRoute><AuthorDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
 
           <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/user" replace />} />
+          <Route path="*" element={<Navigate to="/user" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
