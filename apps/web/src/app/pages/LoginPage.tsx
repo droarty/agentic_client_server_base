@@ -17,7 +17,7 @@ export function LoginPage() {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate('/user');
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||

@@ -258,6 +258,22 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         return { treeData };
       }
 
+      if (queryName === 'get-user-groups') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { groups: [] };
+        const { ObjectId } = await import('mongodb');
+        const memberships = await db
+          .collection('memberships')
+          .find({ userId: new ObjectId(userId) }, { projection: { groupId: 1 } })
+          .toArray();
+        const groupIds = memberships.map((m) => m['groupId'] as ObjectId);
+        if (groupIds.length === 0) return { groups: [] };
+        const groups = await db
+          .collection('groups')
+          .find({ _id: { $in: groupIds }, parentGroupId: null })
+          .toArray();
+        return { groups: groups.map(stringifyId) };
+      }
       return {};
     } catch (err) {
       logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail: String(err) });

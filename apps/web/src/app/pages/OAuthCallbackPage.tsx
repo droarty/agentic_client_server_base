@@ -21,7 +21,7 @@ export function OAuthCallbackPage() {
     apiExchangeOAuthCode(code)
       .then((token) => {
         localStorage.setItem('token', token);
-        window.location.replace('/dashboard');
+        window.location.replace('/user');
       })
       .catch(() => {
         window.location.replace('/login?error=oauth_failed');

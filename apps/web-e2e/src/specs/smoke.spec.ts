@@ -20,14 +20,14 @@ describe('agentic-client-server-base smoke', () => {
     await $('#confirmPassword').setValue(PASSWORD);
     await $('button[type="submit"]').click();
     await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('/dashboard'),
-      { timeout: 10000, timeoutMsg: 'expected redirect to /dashboard after register' }
+      async () => (await browser.getUrl()).includes('/user'),
+      { timeout: 10000, timeoutMsg: 'expected redirect to /user after register' }
     );
   });
 
-  it('lands on dashboard after register', async () => {
-    expect(await browser.getUrl()).toContain('/dashboard');
-    await screenshot('01-dashboard-after-register');
+  it('lands on /user after register', async () => {
+    expect(await browser.getUrl()).toContain('/user');
+    await screenshot('01-user-dash-after-register');
   });
 
   it('can logout and log back in', async () => {
@@ -38,20 +38,20 @@ describe('agentic-client-server-base smoke', () => {
     await $('#password').setValue(PASSWORD);
     await $('button[type="submit"]').click();
     await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('/dashboard'),
-      { timeout: 10000, timeoutMsg: 'expected redirect to /dashboard after login' }
+      async () => (await browser.getUrl()).includes('/user'),
+      { timeout: 10000, timeoutMsg: 'expected redirect to /user after login' }
     );
-    await screenshot('02-dashboard-after-login');
+    await screenshot('02-user-dash-after-login');
   });
 
-  it('user dashboard loads with tabs', async () => {
-    await browser.url('/dashboard/user');
+  it('user dashboard loads welcome text', async () => {
+    await browser.url('/user');
     await browser.waitUntil(
       async () => {
-        const tabs = await $$('[role="tab"]');
-        return tabs.length > 0;
+        const text = await browser.execute(() => document.body.innerText);
+        return text.includes('Welcome to your dashboard.');
       },
-      { timeout: 8000, timeoutMsg: 'expected user dashboard tabs to load' }
+      { timeout: 8000, timeoutMsg: 'expected user dashboard welcome text to load' }
     );
     await screenshot('03-user-dashboard');
   });
