@@ -284,6 +284,8 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       if (queryName === 'get-recent-user-documents') {
         const userId = context.user?.['id'] as string | undefined;
         if (!userId) return { documents: [] };
+        const config = context.state?.['config'] as Record<string, unknown> | undefined;
+        const limit = typeof config?.['recentDocumentLimit'] === 'number' ? config['recentDocumentLimit'] : 10;
         const rawDocs = await db
           .collection('artifacts')
           .find(
@@ -291,7 +293,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .sort({ createdAt: -1 })
-          .limit(10)
+          .limit(limit)
           .toArray();
         return { documents: rawDocs.map(stringifyId) };
       }

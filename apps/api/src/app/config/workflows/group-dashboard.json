@@ -2,6 +2,9 @@
   "name": "group-dashboard",
   "version": "1.0.0",
   "initialState": {
+    "config": {
+      "recentDocumentLimit": 10
+    },
     "openBranches": {
       "myDocuments": "my-documents",
       "myGroups": "my-groups"
