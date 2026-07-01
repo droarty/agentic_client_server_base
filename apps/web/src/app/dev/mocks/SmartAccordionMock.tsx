@@ -20,7 +20,13 @@ export const smartAccordionMocks: MockEntry[] = [
           idField="id"
           triggerFields={['name', 'date']}
           onSelect={(p) => console.log('SmartAccordion selected:', p)}
-        />
+        >
+          <div className="p-3 space-y-2 text-sm">
+            <p className="text-muted-foreground">Status: <span className="text-foreground font-medium">Completed</span></p>
+            <p className="text-muted-foreground">Duration: <span className="text-foreground font-medium">2m 34s</span></p>
+            <p className="text-muted-foreground">Output: <span className="text-foreground font-medium">12 records processed</span></p>
+          </div>
+        </SmartAccordion>
       </div>
     ),
   },
