@@ -1,4 +1,4 @@
-import { Suspense, ReactNode } from 'react';
+import { Suspense, Fragment, ReactNode } from 'react';
 import { LayoutNode } from '@agentic-client-server-base/shared-types';
 import { getLayoutComponent } from '@/app/registry/layoutRegistry';
 
@@ -56,26 +56,22 @@ function buildChildren(
       const items = (resolveDotPath(state, sourcePath) as Record<string, unknown>[]) ?? [];
       items.forEach((item, j) => {
         const itemState = { ...state, item };
-        (child.children ?? []).forEach((template, k) => {
-          result.push(
-            <Suspense key={`${i}-${j}-${k}`} fallback={null}>
-              {renderNode(template, itemState, emit)}
-            </Suspense>
-          );
-        });
+        result.push(
+          <Fragment key={`${i}-${j}`}>
+            {buildChildren(child, itemState, emit)}
+          </Fragment>
+        );
       });
     } else if (child.componentType === 'showIfItems' || child.componentType === 'showIfEmpty') {
       const sourcePath = ((child.props?.source as string) ?? '').replace(/^@/, '');
       const items = (resolveDotPath(state, sourcePath) as unknown[]) ?? [];
       const show = child.componentType === 'showIfItems' ? items.length > 0 : items.length === 0;
       if (show) {
-        (child.children ?? []).forEach((template, k) => {
-          result.push(
-            <Suspense key={`${i}-${k}`} fallback={null}>
-              {renderNode(template, state, emit)}
-            </Suspense>
-          );
-        });
+        result.push(
+          <Fragment key={i}>
+            {buildChildren(child, state, emit)}
+          </Fragment>
+        );
       }
     } else {
       result.push(
