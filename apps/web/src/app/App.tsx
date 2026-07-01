@@ -10,6 +10,7 @@ import { AuthorDashboardPage } from './pages/AuthorDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+import { DevPage } from './pages/DevPage';
 
 export function App() {
   return (
@@ -19,6 +20,7 @@ export function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+          <Route path="/dev" element={<DevPage />} />
 
           <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
           <Route path="/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
