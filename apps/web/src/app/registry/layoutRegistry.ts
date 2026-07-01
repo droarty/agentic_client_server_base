@@ -52,6 +52,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   groupNavItem: lazy(() =>
     import('@/components/layout/GroupNavItem').then((m) => ({ default: m.GroupNavItem as ComponentType<LayoutComponentProps> }))
   ),
+  sidebarMenu: lazy(() =>
+    import('@/components/layout/SidebarMenu').then((m) => ({ default: m.SidebarMenu as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
