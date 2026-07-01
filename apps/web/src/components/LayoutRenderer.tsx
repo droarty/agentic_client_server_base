@@ -64,6 +64,19 @@ function buildChildren(
           );
         });
       });
+    } else if (child.componentType === 'showIfItems' || child.componentType === 'showIfEmpty') {
+      const sourcePath = ((child.props?.source as string) ?? '').replace(/^@/, '');
+      const items = (resolveDotPath(state, sourcePath) as unknown[]) ?? [];
+      const show = child.componentType === 'showIfItems' ? items.length > 0 : items.length === 0;
+      if (show) {
+        (child.children ?? []).forEach((template, k) => {
+          result.push(
+            <Suspense key={`${i}-${k}`} fallback={null}>
+              {renderNode(template, state, emit)}
+            </Suspense>
+          );
+        });
+      }
     } else {
       result.push(
         <Suspense key={i} fallback={null}>
