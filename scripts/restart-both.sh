@@ -4,7 +4,20 @@ WEB_PORT=4200
 API_TIMEOUT=30
 WEB_TIMEOUT=20
 
-echo "Restarting both servers..."
+echo "Restarting both servers from: $(pwd)"
+
+# In a worktree node_modules won't exist — create symlink to main repo's copy
+if [ ! -e node_modules ]; then
+  MAIN_REPO=$(git worktree list 2>/dev/null | head -1 | awk '{print $1}')
+  if [ -n "$MAIN_REPO" ] && [ -d "$MAIN_REPO/node_modules" ]; then
+    ln -sfn "$MAIN_REPO/node_modules" node_modules
+    echo "✓ node_modules → $MAIN_REPO/node_modules"
+  else
+    echo "✗ node_modules not found — run 'pnpm install' first"
+    exit 1
+  fi
+fi
+
 lsof -ti :$API_PORT | xargs kill -9 2>/dev/null || true
 lsof -ti :$WEB_PORT | xargs kill -9 2>/dev/null || true
 sleep 0.5

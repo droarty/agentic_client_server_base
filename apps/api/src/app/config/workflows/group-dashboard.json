@@ -236,7 +236,7 @@
               {
                 "actionType": "update",
                 "path": "$temp.rightPanelText",
-                "value": "~{ $message.id = 'manage-documents' ? 'Manage Documents — coming soon.' : $message.id = 'manage-groups' ? 'Manage Groups — coming soon.' : 'Manage Users — coming soon.' }"
+                "value": "~{ message.id = 'manage-documents' ? 'Manage Documents — coming soon.' : message.id = 'manage-groups' ? 'Manage Groups — coming soon.' : 'Manage Users — coming soon.' }"
               }
             ]
           }

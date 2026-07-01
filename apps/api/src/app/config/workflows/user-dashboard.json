@@ -30,7 +30,7 @@
               {
                 "actionType": "update",
                 "path": "$temp.noGroupsMessage",
-                "value": "~{ $count($message.groups) = 0 ? 'You are not a member of any groups. Contact a group administrator to be added.' : '' }"
+                "value": "~{ $count(message.groups) = 0 ? 'You are not a member of any groups. Contact a group administrator to be added.' : '' }"
               }
             ]
           }
