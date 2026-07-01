@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UserDashboardPage } from './pages/UserDashboardPage';
+import { GroupDashboardPage } from './pages/GroupDashboardPage';
 import { AuthorDashboardPage } from './pages/AuthorDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -21,6 +22,7 @@ export function App() {
 
           <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
           <Route path="/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
+          <Route path="/group/:groupId" element={<PrivateRoute><GroupDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/author" element={<PrivateRoute><AuthorDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
