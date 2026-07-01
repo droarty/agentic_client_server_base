@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { MongoClient } from 'mongodb';
+import type { ObjectId } from 'mongodb';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 
 interface QueryExecutorDeps {
@@ -21,7 +22,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -273,6 +274,28 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .find({ _id: { $in: groupIds }, parentGroupId: null })
           .toArray();
         return { groups: groups.map(stringifyId) };
+      }
+      if (queryName === 'get-channel-document') {
+        const channel = context.message['channel'] as string | undefined;
+        if (!channel) return { document: null };
+        const rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel });
+        return { document: rawDoc ? stringifyId(rawDoc) : null };
+      }
+      if (queryName === 'get-recent-user-documents') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { documents: [] };
+        const config = context.state?.['config'] as Record<string, unknown> | undefined;
+        const limit = typeof config?.['recentDocumentLimit'] === 'number' ? config['recentDocumentLimit'] : 10;
+        const rawDocs = await db
+          .collection('artifacts')
+          .find(
+            { userId, type: { $nin: ['user-dashboard', 'group-dashboard', 'log-review'] } },
+            { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+          )
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .toArray();
+        return { documents: rawDocs.map(stringifyId) };
       }
       return {};
     } catch (err) {

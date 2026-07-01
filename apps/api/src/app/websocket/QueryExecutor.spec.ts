@@ -92,8 +92,9 @@ describe('get-available-types', () => {
   test('returns json filenames from configDir excluding user-dashboard', async () => {
     const execute = makeExecutor();
     const result = await execute('get-available-types', makeContext(USER_ID));
-    expect(result['availableTypes']).toEqual(expect.arrayContaining(['configged-chat', 'log-review']));
+    expect(result['availableTypes']).toEqual(expect.arrayContaining(['configged-chat']));
     expect((result['availableTypes'] as string[]).includes('user-dashboard')).toBe(false);
+    expect((result['availableTypes'] as string[]).includes('log-review')).toBe(false);
   });
 });
 

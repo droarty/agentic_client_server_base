@@ -1,0 +1,247 @@
+{
+  "name": "group-dashboard",
+  "version": "1.0.0",
+  "initialState": {
+    "config": {
+      "recentDocumentLimit": 10
+    },
+    "openBranches": {
+      "myDocuments": "my-documents",
+      "myGroups": "my-groups"
+    }
+  },
+  "handlers": {
+    "initializeState": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-channel-document", "responseType": "initialize-state-document" }
+        }
+      ]
+    },
+    "initialize-state-document": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": "$message.document.state"
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" },
+              { "actionType": "update", "path": "$temp.permissionLevel", "value": "$permissionLevel" },
+              {
+                "actionType": "update",
+                "path": "$temp.adminItems",
+                "value": "~{ permissionLevel = 'admin' ? [{'id': 'manage-documents', 'label': 'Manage Documents'}, {'id': 'manage-groups', 'label': 'Manage Groups'}, {'id': 'manage-users', 'label': 'Manage Users'}] : [] }"
+              },
+              {
+                "actionType": "update",
+                "path": "$temp.adminSectionLabel",
+                "value": "~{ permissionLevel = 'admin' ? 'Admin' : '' }"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "twoColumnLayout",
+                "props": { "leftWidth": "280px" },
+                "children": [
+                  {
+                    "componentType": "fullPanel",
+                    "children": [
+                      {
+                        "componentType": "textDisplay",
+                        "props": { "text": "Members", "placeholder": "" }
+                      },
+                      {
+                        "componentType": "smartAccordion",
+                        "props": {
+                          "items": [{ "id": "my-documents", "label": "My Documents" }],
+                          "idField": "id",
+                          "triggerFields": ["label"],
+                          "selectedId": "@state.openBranches.myDocuments"
+                        },
+                        "emits": { "select": "save-docs-branch" },
+                        "children": [
+                          {
+                            "componentType": "documentList",
+                            "props": { "items": "@temp.myDocuments" },
+                            "emits": { "select": "select-group-document" }
+                          },
+                          {
+                            "componentType": "smartAccordion",
+                            "props": {
+                              "items": [{ "id": "browse-all", "label": "Browse All Documents" }],
+                              "idField": "id",
+                              "triggerFields": ["label"]
+                            },
+                            "emits": { "select": "open-artifact-browser" }
+                          }
+                        ]
+                      },
+                      {
+                        "componentType": "smartAccordion",
+                        "props": {
+                          "items": [{ "id": "my-groups", "label": "My Groups" }],
+                          "idField": "id",
+                          "triggerFields": ["label"],
+                          "selectedId": "@state.openBranches.myGroups"
+                        },
+                        "emits": { "select": "save-groups-branch" },
+                        "children": [
+                          {
+                            "componentType": "forEach",
+                            "props": { "source": "@temp.myGroups" },
+                            "children": [
+                              {
+                                "componentType": "textDisplay",
+                                "props": { "text": "@item.name", "placeholder": "" }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "componentType": "textDisplay",
+                        "props": { "text": "@temp.adminSectionLabel", "placeholder": "" }
+                      },
+                      {
+                        "componentType": "smartAccordion",
+                        "props": {
+                          "items": "@temp.adminItems",
+                          "idField": "id",
+                          "triggerFields": ["label"]
+                        },
+                        "emits": { "select": "open-admin-panel" }
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "textDisplay",
+                    "props": {
+                      "text": "@temp.rightPanelText",
+                      "placeholder": "Select an item from the sidebar."
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-recent-user-documents", "responseType": "user-documents-result" }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-user-groups", "responseType": "user-groups-result" }
+        }
+      ]
+    },
+    "user-documents-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [{ "actionType": "update", "path": "$temp.myDocuments", "value": "$message.documents" }]
+          }
+        }
+      ]
+    },
+    "user-groups-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [{ "actionType": "update", "path": "$temp.myGroups", "value": "$message.groups" }]
+          }
+        }
+      ]
+    },
+    "save-docs-branch": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [{ "actionType": "update", "path": "$state.openBranches.myDocuments", "value": "$message.id" }]
+          }
+        }
+      ]
+    },
+    "save-groups-branch": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [{ "actionType": "update", "path": "$state.openBranches.myGroups", "value": "$message.id" }]
+          }
+        }
+      ]
+    },
+    "open-artifact-browser": {
+      "condition": "$message.id",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [{ "actionType": "update", "path": "$temp.rightPanelText", "value": "Artifact Browser — coming soon." }]
+          }
+        }
+      ]
+    },
+    "select-group-document": {
+      "condition": "$message.documentId",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [{ "actionType": "update", "path": "$temp.rightPanelText", "value": "Document View — coming soon." }]
+          }
+        }
+      ]
+    },
+    "open-admin-panel": {
+      "requiredAccess": "admin",
+      "condition": "$message.id",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "update",
+                "path": "$temp.rightPanelText",
+                "value": "~{ $message.id = 'manage-documents' ? 'Manage Documents — coming soon.' : $message.id = 'manage-groups' ? 'Manage Groups — coming soon.' : 'Manage Users — coming soon.' }"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -24,8 +24,7 @@ const WORKFLOW_CONFIG = {
       steps: [{ route: 'client', transform: { type: 'response' } }],
     },
     'jsonata-cond-message': {
-      transformer: 'jsonata',
-      condition: '$message.count > 5',
+      condition: '~{ message.count > 5 }',
       steps: [{ route: 'client', transform: { type: 'response' } }],
     },
     'query-message': {
