@@ -65,3 +65,8 @@ export async function apiGetDocument(id: string): Promise<Artifact> {
   const { data } = await client.get<Artifact>(`/api/documents/${id}`);
   return data;
 }
+
+export async function apiGetGroupDashboardChannel(groupId: string): Promise<{ channelId: string }> {
+  const { data } = await client.get<{ channelId: string }>(`/api/groups/${groupId}/dashboard`);
+  return data;
+}

@@ -1,7 +1,7 @@
 {
   "name": "user-dash",
   "version": "1.0.0",
-  "initialState": { "groups": [], "noGroupsMessage": "" },
+  "initialState": { "groups": [] },
   "handlers": {
     "initializeState": {
       "steps": [
@@ -18,9 +18,21 @@
           "transform": {
             "clientMessageType": "initialize-state",
             "initialState": {
-              "groups": "$message.groups",
-              "noGroupsMessage": "~{ $count($message.groups) = 0 ? 'You are not a member of any groups. Contact a group administrator to be added.' : '' }"
+              "groups": "$message.groups"
             }
+          }
+        },
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "update",
+                "path": "$temp.noGroupsMessage",
+                "value": "~{ $count($message.groups) = 0 ? 'You are not a member of any groups. Contact a group administrator to be added.' : '' }"
+              }
+            ]
           }
         }
       ]
@@ -43,7 +55,7 @@
                   {
                     "componentType": "textDisplay",
                     "props": {
-                      "text": "@state.noGroupsMessage",
+                      "text": "@temp.noGroupsMessage",
                       "placeholder": ""
                     }
                   },
@@ -52,8 +64,8 @@
                     "props": { "source": "@state.groups" },
                     "children": [
                       {
-                        "componentType": "textDisplay",
-                        "props": { "text": "@item.name" }
+                        "componentType": "groupNavItem",
+                        "props": { "name": "@item.name", "id": "@item._id" }
                       }
                     ]
                   }

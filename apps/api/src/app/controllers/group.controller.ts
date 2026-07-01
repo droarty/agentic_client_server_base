@@ -1,7 +1,10 @@
+import * as path from 'path';
+import * as fs from 'fs';
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { GroupRole } from '../models/membership.model';
 import * as groupService from '../services/group.service';
+import { ArtifactModel } from '../models/document.model';
 
 const VALID_ROLES: GroupRole[] = ['owner', 'admin', 'member'];
 
@@ -99,6 +102,27 @@ export async function removeMember(req: AuthRequest, res: Response, next: NextFu
   try {
     await groupService.removeMember(req.params['id'], req.params['userId']);
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getGroupDashboard(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const groupId = req.params['id'];
+    let doc = await ArtifactModel.findOne({ type: 'group-dashboard', userId: req.userId, groupId });
+    if (!doc) {
+      const configPath = path.join(__dirname, '..', 'config', 'workflows', 'group-dashboard.json');
+      const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+      doc = await ArtifactModel.create({
+        name: 'Group Dashboard',
+        type: 'group-dashboard',
+        userId: req.userId,
+        groupId,
+        state: wfConfig.initialState ?? {},
+      });
+    }
+    res.json({ channelId: doc.currentChannelId });
   } catch (err) {
     next(err);
   }

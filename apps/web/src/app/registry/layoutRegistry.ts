@@ -49,6 +49,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   youtubePlayer: lazy(() =>
     import('@/components/layout/YouTubePlayer').then((m) => ({ default: m.YouTubePlayer as ComponentType<LayoutComponentProps> }))
   ),
+  groupNavItem: lazy(() =>
+    import('@/components/layout/GroupNavItem').then((m) => ({ default: m.GroupNavItem as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
