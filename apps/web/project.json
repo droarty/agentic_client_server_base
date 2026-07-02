@@ -8,7 +8,7 @@
       "executor": "nx:run-commands",
       "outputs": ["{workspaceRoot}/dist/apps/web/styles.css"],
       "options": {
-        "command": "pnpm tailwindcss -i apps/web/src/app/styles/global.css -o dist/apps/web/styles.css --config apps/web/tailwind.config.js"
+        "command": "pnpm postcss apps/web/src/app/styles/global.css -o dist/apps/web/styles.css --config apps/web/postcss.config.js"
       }
     },
     "build": {

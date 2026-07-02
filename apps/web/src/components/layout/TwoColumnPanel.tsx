@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
 
 interface Props {
   left: ReactNode;
@@ -10,11 +9,11 @@ interface Props {
 
 export function TwoColumnPanel({ left, right, leftClassName, rightClassName }: Props) {
   return (
-    <div className="flex h-full w-full overflow-hidden">
-      <div className={cn('overflow-y-auto border-r border-border', leftClassName ?? 'w-1/3')}>
+    <div className="two-col-panel">
+      <div className={['two-col-panel-left', leftClassName].filter(Boolean).join(' ')}>
         {left}
       </div>
-      <div className={cn('flex-1 overflow-y-auto', rightClassName)}>
+      <div className={['two-col-panel-right', rightClassName].filter(Boolean).join(' ')}>
         {right}
       </div>
     </div>

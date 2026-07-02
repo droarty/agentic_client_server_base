@@ -1,0 +1,33 @@
+/* SmartTabs (smart-tabs) and SmartTab (smart-tab-content) */
+.smart-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.smart-tabs-tab-wrapper {
+  display: inline-flex;
+  align-items: stretch;
+  border-right: 1px solid hsl(var(--foreground) / 60%);
+}
+.smart-tabs-close {
+  padding-right: 0.5rem;
+  opacity: 0.4;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  transition: opacity 0.15s ease;
+}
+.smart-tabs-close:hover { opacity: 1; }
+.smart-tabs-close--active  { border-bottom-color: hsl(var(--primary)); }
+.smart-tabs-close--inactive { border-bottom-color: transparent; }
+
+.smart-tab-content {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+}

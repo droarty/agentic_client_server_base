@@ -8,10 +8,7 @@ interface Props {
 export function GroupNavItem({ name, id }: Props) {
   if (!name || !id) return null;
   return (
-    <Link
-      to={`/group/${id}`}
-      className="block px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
-    >
+    <Link to={`/group/${id}`} className="group-nav">
       {name}
     </Link>
   );

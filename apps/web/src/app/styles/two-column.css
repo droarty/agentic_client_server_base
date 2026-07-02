@@ -1,0 +1,33 @@
+/* TwoColumnLayout (two-col) and TwoColumnPanel (two-col-panel) */
+.two-col {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.two-col-left {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid hsl(var(--border));
+}
+.two-col-right {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.two-col-panel {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+.two-col-panel-left {
+  width: 33.333%;
+  overflow-y: auto;
+  border-right: 1px solid hsl(var(--border));
+}
+.two-col-panel-right {
+  flex: 1;
+  overflow-y: auto;
+}

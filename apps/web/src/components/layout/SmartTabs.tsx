@@ -50,13 +50,13 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
 
   return (
     <SmartTabsContext.Provider value={ctx}>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="smart-tabs">
         <TabsList variant="line">
           {tabs.map(tab => {
             const isActive = tab.id === activeTab;
             return (
-              <div key={tab.id} className="inline-flex items-stretch border-r border-foreground/60">
-                <TabsTrigger variant="line" value={tab.id} className={tab.onClose ? 'pr-1' : ''}>
+              <div key={tab.id} className="smart-tabs-tab-wrapper">
+                <TabsTrigger variant="line" value={tab.id}>
                   {tab.title}
                 </TabsTrigger>
                 {tab.onClose && (
@@ -65,7 +65,7 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
                     aria-label={`Close ${tab.title}`}
                     tabIndex={-1}
                     onClick={() => tab.onClose!()}
-                    className={`pr-2 opacity-40 hover:opacity-100 border-b-2 ${isActive ? 'border-primary' : 'border-transparent'}`}
+                    className={`smart-tabs-close ${isActive ? 'smart-tabs-close--active' : 'smart-tabs-close--inactive'}`}
                   >
                     ×
                   </button>
