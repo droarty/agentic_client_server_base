@@ -1,8 +1,9 @@
 import { useSyncExternalStore, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Artifact, InboundMessage } from '@agentic-client-server-base/shared-types';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
-import { subscribeToModel, getModelSnapshot, mountChannel } from '../services/documentModelStore';
+import { subscribeToModel, getModelSnapshot, mountChannel, onRedirect } from '../services/documentModelStore';
 
 interface Props {
   doc?: Artifact;
@@ -12,6 +13,12 @@ interface Props {
 
 export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler = 'defaultView' }: Props) {
   const resolvedChannelId = channelIdProp ?? doc?.currentChannelId ?? '';
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    return onRedirect(resolvedChannelId, (url) => navigate(url));
+  }, [resolvedChannelId, navigate]);
 
   const emit = useCallback((type: string, payload: Record<string, unknown> = {}) => {
     eventManager.publish(resolvedChannelId, {

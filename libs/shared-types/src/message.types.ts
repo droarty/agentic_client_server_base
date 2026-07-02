@@ -26,7 +26,16 @@ export interface AddColorfulTextMessage extends Message {
   color: string;
 }
 
-export type InboundMessage = AddTextMessage | AddColorfulTextMessage | AiResponse;
+export interface OpenGroupMessage extends Message {
+  type: 'open-group';
+  from: 'client';
+  to: 'server';
+  senderEmail?: string;
+  _id: string;
+  name?: string;
+}
+
+export type InboundMessage = AddTextMessage | AddColorfulTextMessage | OpenGroupMessage | AiResponse;
 
 // ── Outbound (server → client) ────────────────────────────────────────────
 
@@ -141,7 +150,14 @@ export interface InitializeViewMessage extends Message {
   layoutConfig: LayoutNode[];
 }
 
-export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeStateMessage | InitializeViewMessage;
+export interface RedirectMessage extends Message {
+  type: 'redirect';
+  from: 'server';
+  to: 'client';
+  url: string;
+}
+
+export type OutboundMessage = DisplayTextMessage | DisplayColorfulTextMessage | SimpleTabMessage | HorizontalWorkspaceMessage | VerticalWorkspaceMessage | DisplayJsonMessage | UpdateStateMessage | InitializeStateMessage | InitializeViewMessage | RedirectMessage;
 
 export type AnyMessage = InboundMessage | OutboundMessage;
 

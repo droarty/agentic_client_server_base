@@ -24,11 +24,18 @@ const EMPTY_MODEL: DocModel = {
   docState: { state: {}, temp: {} },
 };
 
-const channelData    = new Map<string, ChannelData>();
-const listeners      = new Map<string, Set<() => void>>();  // key: "channelId:viewHandler"
-const chSubscribed   = new Set<string>();
-const vhEmitted      = new Set<string>();                   // key: "channelId:viewHandler"
-const pendingUpdates = new Map<string, UpdateStateMessage[]>();
+const channelData      = new Map<string, ChannelData>();
+const listeners        = new Map<string, Set<() => void>>();  // key: "channelId:viewHandler"
+const chSubscribed     = new Set<string>();
+const vhEmitted        = new Set<string>();                   // key: "channelId:viewHandler"
+const pendingUpdates   = new Map<string, UpdateStateMessage[]>();
+const redirectCallbacks = new Map<string, Set<(url: string) => void>>();
+
+export function onRedirect(channelId: string, cb: (url: string) => void): () => void {
+  if (!redirectCallbacks.has(channelId)) redirectCallbacks.set(channelId, new Set());
+  redirectCallbacks.get(channelId)!.add(cb);
+  return () => redirectCallbacks.get(channelId)?.delete(cb);
+}
 
 function getOrCreateChannelData(channelId: string): ChannelData {
   if (!channelData.has(channelId)) {
@@ -202,6 +209,9 @@ function handleMessage(channelId: string, msg: OutboundMessage): void {
     data.docState = applyActions(data.docState, um);
     rebuildAllSnapshots(data);
     notifyAll(channelId);
+  } else if (m['type'] === 'redirect') {
+    const url = m['url'] as string;
+    redirectCallbacks.get(channelId)?.forEach((cb) => cb(url));
   }
 }
 
