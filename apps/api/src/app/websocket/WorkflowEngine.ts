@@ -17,6 +17,8 @@ interface StepDefinition {
   transform?: Record<string, unknown>;
   ai?: AiStepConfig;
   query?: { name: string; responseType: string };
+  queries?: Array<{ name: string; key: string }>;
+  responseType?: string;
 }
 
 interface HandlerDefinition {
@@ -278,6 +280,42 @@ export class WorkflowEngine {
         state: context.state,
         permissionLevel: context.permissionLevel,
       }, executionId, stepIndex);
+      return;
+    }
+
+    if (routes.includes('parallel-queries') && step.queries && step.responseType && this.deps.executeQuery) {
+      this.deps.logWorkflowStep?.({
+        createdAt: new Date(),
+        channel,
+        docType,
+        handlerName,
+        logType: 'route',
+        executionId,
+        stepIndex,
+        route: 'parallel-queries',
+        resolvedMessage: { queries: step.queries, responseType: step.responseType },
+      });
+      const results = await Promise.all(
+        step.queries.map(q => this.deps.executeQuery!(q.name, context))
+      );
+      const merged = Object.fromEntries(
+        step.queries.map((q, i) => [q.key, results[i][q.key] ?? results[i]])
+      );
+      await this.execute(
+        {
+          message: {
+            type: step.responseType,
+            channel: context.message['channel'],
+            timestamp: new Date().toISOString(),
+            ...merged,
+          },
+          user: context.user,
+          state: context.state,
+          permissionLevel: context.permissionLevel,
+        },
+        executionId,
+        stepIndex,
+      );
       return;
     }
 
