@@ -25,7 +25,12 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "$temp.groups", "value": "$message.groups" }
+              { "actionType": "update", "path": "$temp.groups", "value": "$message.groups" },
+              {
+                "actionType": "update",
+                "path": "$temp.sidebarItems",
+                "value": "~{ [{ 'name': 'Groups', 'collapsible': true, 'children': [$message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }] }] }"
+              }
             ]
           }
         }
@@ -40,41 +45,31 @@
             "viewHandler": "defaultView",
             "layoutConfig": [
               {
-                "componentType": "fullPanel",
+                "componentType": "twoColumnLayout",
+                "props": { "leftWidth": "220px" },
                 "children": [
                   {
+                    "componentType": "sidebarMenu",
+                    "props": { "items": "@temp.sidebarItems" }
+                  },
+                  {
                     "componentType": "textDisplay",
-                    "props": { "text": "Welcome to your dashboard." }
-                  },
-                  {
-                    "componentType": "showIfItems",
-                    "props": { "source": "@temp.groups" },
-                    "children": [
-                      {
-                        "componentType": "forEach",
-                        "props": { "source": "@temp.groups" },
-                        "children": [
-                          {
-                            "componentType": "groupNavItem",
-                            "props": { "name": "@item.name", "id": "@item._id" }
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "componentType": "showIfEmpty",
-                    "props": { "source": "@temp.groups" },
-                    "children": [
-                      {
-                        "componentType": "textDisplay",
-                        "props": { "text": "You are not a member of any groups. Contact a group administrator to be added." }
-                      }
-                    ]
+                    "props": { "text": "Select a group from the menu." }
                   }
                 ]
               }
             ]
+          }
+        }
+      ]
+    },
+    "open-group": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "redirect",
+            "url": "~{ '/group/' & $message._id }"
           }
         }
       ]
