@@ -36,7 +36,7 @@ export function SmartAccordion({
   };
 
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-xs">No entries found.</p>;
+    return <p className="log-tree-empty">No entries found.</p>;
   }
 
   return (
@@ -45,7 +45,6 @@ export function SmartAccordion({
       collapsible
       value={openValue}
       onValueChange={handleValueChange}
-      className="w-full"
     >
       {items.map((item) => {
         const id = String(item[idField] ?? '');
@@ -60,7 +59,7 @@ export function SmartAccordion({
             <AccordionContent>
               {isSelected
                 ? children
-                : <p className="text-muted-foreground text-xs">Loading…</p>}
+                : <p className="log-tree-empty">Loading…</p>}
             </AccordionContent>
           </AccordionItem>
         );

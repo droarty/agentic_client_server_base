@@ -55,8 +55,8 @@ export function YouTubePlayer({ videoId = '', onVideoEnd }: Props) {
   }, [videoId]);
 
   return (
-    <div className="w-full h-full flex items-start justify-center p-4">
-      <div className="w-full aspect-video" ref={playerRef} />
+    <div className="yt-player">
+      <div className="yt-player-video" ref={playerRef} />
     </div>
   );
 }

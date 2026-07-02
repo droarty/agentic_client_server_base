@@ -1,6 +1,5 @@
 import * as React from 'react';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
-import { cn } from '@/lib/utils';
 
 const Accordion = AccordionPrimitive.Root;
 
@@ -8,7 +7,7 @@ function AccordionItem({ ref, className, ...props }: React.ComponentPropsWithRef
   return (
     <AccordionPrimitive.Item
       ref={ref}
-      className={cn('border-b', className)}
+      className={['accord-item', className].filter(Boolean).join(' ')}
       {...props}
     />
   );
@@ -17,13 +16,10 @@ AccordionItem.displayName = 'AccordionItem';
 
 function AccordionTrigger({ ref, className, children, ...props }: React.ComponentPropsWithRef<typeof AccordionPrimitive.Trigger>) {
   return (
-    <AccordionPrimitive.Header className="flex">
+    <AccordionPrimitive.Header className="accord-header">
       <AccordionPrimitive.Trigger
         ref={ref}
-        className={cn(
-          'flex flex-1 items-center justify-between py-4 text-sm font-medium transition-all hover:underline text-left [&[data-state=open]>svg]:rotate-180',
-          className
-        )}
+        className={['accord-trigger', className].filter(Boolean).join(' ')}
         {...props}
       >
         {children}
@@ -37,7 +33,7 @@ function AccordionTrigger({ ref, className, children, ...props }: React.Componen
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="ml-2 shrink-0 transition-transform duration-200"
+          className="accord-trigger-icon"
         >
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -51,10 +47,10 @@ function AccordionContent({ ref, className, children, ...props }: React.Componen
   return (
     <AccordionPrimitive.Content
       ref={ref}
-      className="overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+      className="accord-content"
       {...props}
     >
-      <div className={cn('pb-4 pt-0', className)}>{children}</div>
+      <div className={['accord-content-inner', className].filter(Boolean).join(' ')}>{children}</div>
     </AccordionPrimitive.Content>
   );
 }

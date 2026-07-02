@@ -33,11 +33,11 @@ export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = 
 
   if (inputs) {
     return (
-      <div className="border-t border-border p-3 flex flex-col gap-2">
+      <div className="multi-input">
         {fields.map((field) => (
-          <div key={field.name} className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
-            <span className="px-2 py-1 text-sm text-foreground">{inputs[field.name]}</span>
+          <div key={field.name} className="multi-input-field">
+            <span className="multi-input-label">{field.label}</span>
+            <span className="multi-input-value">{inputs[field.name]}</span>
           </div>
         ))}
       </div>
@@ -45,12 +45,12 @@ export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = 
   }
 
   return (
-    <div className="border-t border-border p-3 flex flex-col gap-2">
+    <div className="multi-input">
       {fields.map((field) => (
-        <div key={field.name} className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">{field.label}</label>
+        <div key={field.name} className="multi-input-field">
+          <label className="multi-input-label">{field.label}</label>
           <input
-            className="border border-border rounded px-2 py-1 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            className="multi-input-control"
             type="text"
             value={fieldValues[field.name] ?? ''}
             placeholder={field.placeholder}
@@ -58,13 +58,14 @@ export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = 
           />
         </div>
       ))}
-      <Button
-        className="mt-1 self-end"
-        onClick={handleSubmit}
-        disabled={!fields.every((f) => fieldValues[f.name]?.trim())}
-      >
-        {submitLabel}
-      </Button>
+      <div className="multi-input-submit">
+        <Button
+          onClick={handleSubmit}
+          disabled={!fields.every((f) => fieldValues[f.name]?.trim())}
+        >
+          {submitLabel}
+        </Button>
+      </div>
     </div>
   );
 }

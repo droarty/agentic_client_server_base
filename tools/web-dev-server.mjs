@@ -9,19 +9,19 @@ const outdir = 'dist/apps/web';
 mkdirSync(outdir, { recursive: true });
 copyFileSync('apps/web/index.html', join(outdir, 'index.html'));
 
-// Run Tailwind CSS in watch mode alongside esbuild
-const tailwind = spawn(
+// Run PostCSS in watch mode alongside esbuild
+const cssProc = spawn(
   'pnpm',
   [
-    'tailwindcss',
-    '-i', 'apps/web/src/app/styles/global.css',
+    'postcss',
+    'apps/web/src/app/styles/global.css',
     '-o', `${outdir}/styles.css`,
     '--watch',
-    '--config', 'apps/web/tailwind.config.js',
+    '--config', 'apps/web/postcss.config.js',
   ],
   { stdio: 'inherit' }
 );
-tailwind.on('error', (err) => console.error('Tailwind error:', err));
+cssProc.on('error', (err) => console.error('PostCSS error:', err));
 
 const ctx = await esbuild.context({
   entryPoints: ['apps/web/src/main.tsx'],

@@ -21,5 +21,5 @@ export function SmartTab({ id: externalId, title = '', onClose, children }: Smar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, title, !!onClose, ctx]);
 
-  return <TabsContent value={id} className="flex-1 min-h-0 mt-0">{children}</TabsContent>;
+  return <TabsContent value={id} className="smart-tab-content">{children}</TabsContent>;
 }

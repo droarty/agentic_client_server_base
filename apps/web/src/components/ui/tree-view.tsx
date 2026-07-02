@@ -1,14 +1,6 @@
 import React from 'react';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ChevronRight } from 'lucide-react';
-import { cva } from 'class-variance-authority';
-import { cn } from '@/lib/utils';
-
-const treeVariants = cva(
-  'group hover:before:opacity-100 before:absolute before:rounded-lg before:left-0 px-2 before:w-full before:opacity-0 before:bg-accent/70 before:h-[2rem] before:-z-10'
-);
-
-const selectedTreeVariants = cva('before:opacity-100 before:bg-accent/70 text-accent-foreground');
 
 export interface TreeDataItem {
   id: string;
@@ -64,7 +56,7 @@ function TreeView({ ref, data, initialSelectedItemId, onSelectChange, expandAll,
   }, [data, expandAll, initialSelectedItemId]);
 
   return (
-    <div className={cn('overflow-hidden relative p-2', className)}>
+    <div className={['tree', className].filter(Boolean).join(' ')}>
       <TreeItem
         data={data}
         ref={ref}
@@ -142,14 +134,14 @@ const TreeNode = ({
     <AccordionPrimitive.Root type="multiple" value={value} onValueChange={setValue}>
       <AccordionPrimitive.Item value={item.id}>
         <TreeAccordionTrigger
-          className={cn(treeVariants(), isSelected && selectedTreeVariants())}
+          className={['tree-node', isSelected ? 'tree-node--selected' : ''].filter(Boolean).join(' ')}
           onClick={() => { handleSelectChange(item); item.onClick?.(); }}
         >
           <TreeIcon item={item} isSelected={isSelected} isOpen={value.includes(item.id)} default={defaultNodeIcon} />
-          <span className="text-sm truncate">{item.name}</span>
+          <span className="tree-label">{item.name}</span>
         </TreeAccordionTrigger>
-        <AccordionPrimitive.Content className="overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-          <div className="ml-4 pl-1 border-l pb-1 pt-0">
+        <AccordionPrimitive.Content className="tree-accord-content">
+          <div className="tree-children">
             <TreeItem
               data={item.children ?? []}
               selectedItemId={selectedItemId}
@@ -176,17 +168,12 @@ function TreeLeaf({ ref, className, item, selectedItemId, handleSelectChange, de
   return (
     <div
       ref={ref}
-      className={cn(
-        'ml-5 flex text-left items-center py-2 cursor-pointer before:right-1',
-        treeVariants(),
-        className,
-        isSelected && selectedTreeVariants()
-      )}
+      className={['tree-leaf', isSelected ? 'tree-leaf--selected' : '', className].filter(Boolean).join(' ')}
       onClick={() => { handleSelectChange(item); item.onClick?.(); }}
       {...props}
     >
       <TreeIcon item={item} isSelected={isSelected} default={defaultLeafIcon} />
-      <span className="flex-grow text-sm truncate">{item.name}</span>
+      <span className="tree-leaf-name">{item.name}</span>
     </div>
   );
 }
@@ -197,13 +184,10 @@ function TreeAccordionTrigger({ ref, className, children, ...props }: React.Comp
     <AccordionPrimitive.Header>
       <AccordionPrimitive.Trigger
         ref={ref}
-        className={cn(
-          'flex flex-1 w-full items-center py-2 transition-all first:[&[data-state=open]>svg]:first-of-type:rotate-90',
-          className
-        )}
+        className={['tree-trigger', className].filter(Boolean).join(' ')}
         {...props}
       >
-        <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200 text-accent-foreground/50 mr-1" />
+        <ChevronRight className="tree-chevron" />
         {children}
       </AccordionPrimitive.Trigger>
     </AccordionPrimitive.Header>
@@ -226,7 +210,7 @@ const TreeIcon = ({
   if (isSelected && item.selectedIcon) Icon = item.selectedIcon;
   else if (isOpen && item.openIcon) Icon = item.openIcon;
   else if (item.icon) Icon = item.icon;
-  return Icon ? <Icon className="h-4 w-4 shrink-0 mr-2" /> : <></>;
+  return Icon ? <Icon className="tree-icon" /> : <></>;
 };
 
 export { TreeView };

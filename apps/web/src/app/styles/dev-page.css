@@ -1,0 +1,82 @@
+/* DevPage (/dev component library) */
+.dev-page {
+  display: flex;
+  height: 100vh;
+  background-color: hsl(var(--background));
+}
+.dev-page-nav {
+  width: 14rem;
+  flex-shrink: 0;
+  border-right: 1px solid hsl(var(--border));
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background-color: hsl(var(--muted) / 30%);
+}
+.dev-page-nav-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.dev-page-nav-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dev-page-nav-group-label {
+  padding: 1rem 1rem 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dev-page-nav-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.375rem 1rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--foreground));
+  transition: background-color 0.15s ease;
+}
+.dev-page-nav-btn:hover { background-color: hsl(var(--accent) / 50%); }
+.dev-page-nav-btn--active {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  font-weight: 500;
+}
+.dev-page-main {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
+}
+.dev-page-breadcrumb {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+.dev-page-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 1rem;
+}
+.dev-page-preview {
+  display: inline-block;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.dev-page-empty {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}

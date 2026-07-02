@@ -47,13 +47,11 @@ function formatValue(val: unknown): string {
 function NodeDetails({ node }: { node: LogTreeNode }) {
   const entries = Object.entries(node.rawData).filter(([k]) => !OMIT_KEYS.has(k));
   return (
-    <div className="p-3 space-y-1">
+    <div className="log-tree-details">
       {entries.map(([key, val]) => (
-        <div key={key} className="text-xs">
-          <span className="font-medium text-foreground">{key}: </span>
-          <span className="text-muted-foreground font-mono whitespace-pre-wrap break-all">
-            {formatValue(val)}
-          </span>
+        <div key={key} className="log-tree-entry">
+          <span className="log-tree-key">{key}: </span>
+          <span className="log-tree-value">{formatValue(val)}</span>
         </div>
       ))}
     </div>
@@ -76,7 +74,7 @@ export function LogTreePanel({ treeData }: Props) {
     <TwoColumnPanel
       left={
         items.length === 0 ? (
-          <p className="text-xs text-muted-foreground p-3">No tree data.</p>
+          <p className="log-tree-empty">No tree data.</p>
         ) : (
           <TreeView data={items} onSelectChange={handleSelect} />
         )
@@ -85,7 +83,7 @@ export function LogTreePanel({ treeData }: Props) {
         selectedNode ? (
           <NodeDetails node={selectedNode} />
         ) : (
-          <p className="text-xs text-muted-foreground p-3">Select a node to view details.</p>
+          <p className="log-tree-empty">Select a node to view details.</p>
         )
       }
     />
