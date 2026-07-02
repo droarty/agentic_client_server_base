@@ -36,7 +36,7 @@ export const sidebarMenuMocks: MockEntry[] = [
               name: 'Projects',
               icon: '📁',
               _id: 'projects',
-              collapsible: true,
+              collapsed: true,
               children: [
                 { name: 'Alpha', _id: 'project-alpha' },
                 { name: 'Beta', _id: 'project-beta' },
@@ -47,7 +47,7 @@ export const sidebarMenuMocks: MockEntry[] = [
               name: 'Settings',
               icon: '⚙️',
               _id: 'settings',
-              collapsible: true,
+              collapsed: true,
               children: [
                 { name: 'Profile', _id: 'settings-profile' },
                 { name: 'Security', _id: 'settings-security' },

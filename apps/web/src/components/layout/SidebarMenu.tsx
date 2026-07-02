@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useState, useRef, useEffect, ReactNode } from 'react';
 
 interface SidebarMenuItem {
   type?: 'separator';
@@ -8,7 +8,7 @@ interface SidebarMenuItem {
   emits_msg?: string;
   children?: SidebarMenuItem[];
   classes?: string;
-  collapsible?: boolean;
+  collapsed?: boolean;
 }
 
 interface Props {
@@ -22,13 +22,30 @@ function itemKey(item: SidebarMenuItem): string {
   return item._id ?? item.name ?? '';
 }
 
+function collectInitialOpenKeys(items: SidebarMenuItem[]): Set<string> {
+  const keys = new Set<string>();
+  for (const item of items) {
+    if (item.collapsed === false && item.children?.length) keys.add(itemKey(item));
+    if (item.children?.length) collectInitialOpenKeys(item.children).forEach((k) => keys.add(k));
+  }
+  return keys;
+}
+
 export function SidebarMenu({ items = [], emit, onSelect }: Props) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const seeded = useRef(false);
+
+  useEffect(() => {
+    if (seeded.current || !items.length) return;
+    seeded.current = true;
+    const initial = collectInitialOpenKeys(items);
+    if (initial.size > 0) setOpenKeys(initial);
+  }, [items]);
 
   function handleClick(item: SidebarMenuItem) {
     const key = itemKey(item);
 
-    if (item.collapsible && item.children?.length) {
+    if (item.collapsed !== undefined && item.children?.length) {
       setOpenKeys((prev) => {
         const next = new Set(prev);
         next.has(key) ? next.delete(key) : next.add(key);
@@ -51,7 +68,7 @@ export function SidebarMenu({ items = [], emit, onSelect }: Props) {
 
       const key = itemKey(item);
       const hasChildren = !!item.children?.length;
-      const isCollapsible = item.collapsible && hasChildren;
+      const isCollapsible = item.collapsed !== undefined && hasChildren;
       const isOpen = !isCollapsible || openKeys.has(key);
 
       const itemClasses = [

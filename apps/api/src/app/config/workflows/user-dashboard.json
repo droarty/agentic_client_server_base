@@ -29,7 +29,7 @@
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
-                "value": "~{ [{ 'name': 'Groups', 'collapsible': true, 'children': [message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }] }] }"
+                "value": "~{ [{ 'name': 'Groups', 'collapsed': false, 'children': [message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }] }] }"
               }
             ]
           }
