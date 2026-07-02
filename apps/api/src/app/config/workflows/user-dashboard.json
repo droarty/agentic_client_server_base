@@ -29,7 +29,7 @@
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
-                "value": "~{ [{ 'name': 'Groups', 'collapsible': true, 'children': [$message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }] }] }"
+                "value": "~{ [{ 'name': 'Groups', 'collapsible': true, 'children': [message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }] }] }"
               }
             ]
           }
@@ -69,7 +69,7 @@
           "route": "client",
           "transform": {
             "clientMessageType": "redirect",
-            "url": "~{ '/group/' & $message._id }"
+            "url": "~{ '/group/' & message._id }"
           }
         }
       ]

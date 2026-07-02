@@ -292,6 +292,16 @@ Wrap a [JSONata](https://jsonata.org) expression in `~{` and `}` to evaluate it 
 "value": "~{ $uppercase(message.text) }"
 ```
 
+> **Pitfall:** Do not use `$message`, `$state`, or `$user` inside `~{}` expressions. Inside JSONata, `$` refers to the entire context root — `$message` resolves to `undefined`. Use bare `message`, `state`, and `user` instead.
+>
+> ```json
+> // WRONG — $message is undefined inside ~{}
+> "value": "~{ $message.groups.{ 'id': _id } }"
+>
+> // CORRECT
+> "value": "~{ message.groups.{ 'id': _id } }"
+> ```
+
 ### Arrays and objects in transforms
 
 Arrays are resolved element-by-element. Objects are resolved key-by-key recursively. Nested structures are fully traversed:
@@ -1074,7 +1084,7 @@ The handler for the emitted message type receives this payload as `context.messa
 | `$message.*` | `transform` values, `condition` | N/A | Server-resolved. Substituted with inbound message field at step execution time. |
 | `$user.*` | `transform` values, `condition` | N/A | Server-resolved. Substituted with authenticated user field at step execution time. |
 | `$uuid` | `transform` values | N/A | Server-resolved. Generates a new UUID v4 at step execution time. |
-| `~{ expr }` | `transform` values, `condition` | N/A | Server-resolved JSONata expression evaluated against `{ message, user, state }`. |
+| `~{ expr }` | `transform` values, `condition` | N/A | Server-resolved JSONata expression evaluated against `{ message, user, state }`. Inside the expression use bare `message`, `user`, `state` — no `$` prefix. |
 
 **Rule of thumb:**
 - Use `$state.*` in `action.path` for anything that must survive a page reload.
