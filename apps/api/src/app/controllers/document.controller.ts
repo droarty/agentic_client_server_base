@@ -20,7 +20,6 @@ export async function listDocuments(req: AuthRequest, res: Response, next: NextF
       ? [{ 'permissions.groupId': { $in: effectiveGroupIds } }]
       : [];
     const docs = await ArtifactModel.find({
-      type: 'configged-chat',
       $or: [
         { userId: req.userId },
         { 'userPermissions.userId': req.userId },
@@ -35,9 +34,13 @@ export async function listDocuments(req: AuthRequest, res: Response, next: NextF
 
 export async function createDocument(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { name, groupId, targetUserId } = req.body as Partial<CreateDocumentRequest>;
+    const { name, workflowType, groupId, targetUserId } = req.body as Partial<CreateDocumentRequest>;
     if (!name?.trim()) {
       res.status(400).json({ message: 'name is required' });
+      return;
+    }
+    if (!workflowType?.trim()) {
+      res.status(400).json({ message: 'workflowType is required' });
       return;
     }
 
@@ -74,7 +77,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
 
       const doc = await ArtifactModel.create({
         name: name.trim(),
-        type: 'configged-chat',
+        type: workflowType.trim(),
         userId: targetUserId,
         groupId: groupObjectId,
         permissions,
@@ -88,7 +91,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
     // Flow 1: user creates their own artifact
     const doc = await ArtifactModel.create({
       name: name.trim(),
-      type: 'configged-chat',
+      type: workflowType.trim(),
       userId: req.userId,
       groupId: groupObjectId,
       permissions,
