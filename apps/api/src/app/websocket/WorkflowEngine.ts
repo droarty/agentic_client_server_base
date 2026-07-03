@@ -121,7 +121,24 @@ async function resolveValue(value: unknown, context: WorkflowContext): Promise<u
     return Promise.all((value as unknown[]).map((item) => resolveValue(item, context)));
   }
   if (typeof value === 'object' && value !== null) {
-    return resolveTransform(value as Record<string, unknown>, context);
+    const obj = value as Record<string, unknown>;
+    if ('$map' in obj) {
+      const sourceArray = await resolveValue(obj['$map'], context);
+      const items = Array.isArray(sourceArray) ? sourceArray : [];
+      const mapped = await Promise.all(
+        items.map((item) =>
+          resolveValue(obj['$using'], { ...context, item } as unknown as WorkflowContext)
+        )
+      );
+      const head = Array.isArray(obj['$prepend'])
+        ? await Promise.all(obj['$prepend'].map((entry) => resolveValue(entry, context)))
+        : [];
+      const tail = Array.isArray(obj['$append'])
+        ? await Promise.all(obj['$append'].map((entry) => resolveValue(entry, context)))
+        : [];
+      return [...head, ...mapped, ...tail];
+    }
+    return resolveTransform(obj, context);
   }
   return value;
 }

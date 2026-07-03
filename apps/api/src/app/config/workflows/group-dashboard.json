@@ -86,7 +86,31 @@
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
-                "value": "~{ [ { 'name': 'My Documents', 'collapsible': true, 'children': $append(message.documents.{ '_id': _id, 'name': name, 'emits_msg': 'select-group-document' }, [{ 'name': 'Browse All Documents', '_id': 'browse-all', 'emits_msg': 'open-artifact-browser' }, { 'name': 'Create New Document', '_id': 'create-document', 'emits_msg': 'create-new-document' }]) }, { 'name': 'My Groups', 'collapsible': true, 'children': $append(message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }, [{ 'name': 'Create New Group', '_id': 'create-group', 'emits_msg': 'create-new-group' }]) } ] }"
+                "value": [
+                  {
+                    "name": "My Documents",
+                    "collapsed": false,
+                    "children": {
+                      "$map": "$message.documents",
+                      "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "select-group-document" },
+                      "$append": [
+                        { "name": "Browse All Documents", "_id": "browse-all", "emits_msg": "open-artifact-browser" },
+                        { "name": "Create New Document", "_id": "create-document", "emits_msg": "create-new-document" }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "My Groups",
+                    "collapsed": false,
+                    "children": {
+                      "$map": "$message.groups",
+                      "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "open-group" },
+                      "$append": [
+                        { "name": "Create New Group", "_id": "create-group", "emits_msg": "create-new-group" }
+                      ]
+                    }
+                  }
+                ]
               }
             ]
           }

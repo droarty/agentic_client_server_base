@@ -29,7 +29,16 @@
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
-                "value": "~{ [{ 'name': 'Groups', 'collapsed': false, 'children': [message.groups.{ '_id': _id, 'name': name, 'emits_msg': 'open-group' }] }] }"
+                "value": [
+                  {
+                    "name": "Groups",
+                    "collapsed": false,
+                    "children": {
+                      "$map": "$message.groups",
+                      "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "open-group" }
+                    }
+                  }
+                ]
               }
             ]
           }
