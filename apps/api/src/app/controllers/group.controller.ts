@@ -111,13 +111,18 @@ export async function removeMember(req: AuthRequest, res: Response, next: NextFu
 export async function getGroupDashboard(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const groupId = req.params['id'];
-    let doc = await ArtifactModel.findOne({ type: 'group-dashboard', userId: req.userId, groupId });
+    const workflowType = (req.query['workflowType'] as string | undefined)?.trim();
+    if (!workflowType) {
+      res.status(400).json({ message: 'workflowType query parameter is required' });
+      return;
+    }
+    let doc = await ArtifactModel.findOne({ type: workflowType, userId: req.userId, groupId });
     if (!doc) {
-      const configPath = path.join(__dirname, '..', 'config', 'workflows', 'group-dashboard.json');
+      const configPath = path.join(__dirname, '..', 'config', 'workflows', `${workflowType}.json`);
       const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
       doc = await ArtifactModel.create({
-        name: 'Group Dashboard',
-        type: 'group-dashboard',
+        name: workflowType,
+        type: workflowType,
         userId: req.userId,
         groupId,
         state: wfConfig.initialState ?? {},
@@ -126,7 +131,7 @@ export async function getGroupDashboard(req: AuthRequest, res: Response, next: N
     let channel = await ChannelModel.findOne({ artifactId: doc._id });
     if (!channel) {
       channel = await ChannelModel.create({
-        workflowType: 'group-dashboard',
+        workflowType,
         userId: req.userId,
         artifactId: doc._id,
         groupId: doc.groupId,

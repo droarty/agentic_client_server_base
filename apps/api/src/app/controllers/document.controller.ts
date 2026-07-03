@@ -90,7 +90,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
         permissionManagerMode: 'group_admin',
       });
       const channel = await ChannelModel.create({
-        workflowType: 'configged-chat',
+        workflowType: workflowType.trim(),
         userId: targetUserId,
         artifactId: doc._id,
         groupId: groupObjectId,
@@ -109,7 +109,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
       permissionManagerMode: 'owner',
     });
     const channel = await ChannelModel.create({
-      workflowType: 'configged-chat',
+      workflowType: workflowType.trim(),
       userId: req.userId,
       artifactId: doc._id,
       groupId: groupObjectId,

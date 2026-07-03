@@ -10,7 +10,7 @@ export function GroupDashboardPage() {
 
   useEffect(() => {
     if (groupId) {
-      apiGetGroupDashboardChannel(groupId).then(({ channelId }) => setChannelId(channelId));
+      apiGetGroupDashboardChannel(groupId, 'group-dashboard').then(({ channelId }) => setChannelId(channelId));
     }
   }, [groupId]);
 
