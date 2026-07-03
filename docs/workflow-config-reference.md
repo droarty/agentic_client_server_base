@@ -278,6 +278,8 @@ The `transform` object is a template that the engine resolves before dispatching
 | `@state.x` | `"@state.chatMessages"` | Client (LayoutRenderer) | At render time — use only in `layoutConfig` props |
 | `@temp.x` | `"@temp.documentList"` | Client (LayoutRenderer) | At render time — use only in `layoutConfig` props |
 | `@item.x` | `"@item.name"` | Client (LayoutRenderer, forEach) | At render time — current forEach iteration element |
+| `$item.x` | `"$item._id"` | Server (WorkflowEngine, inside `$map`) | Current element's field while iterating a `$map` directive |
+| `$map` object | `{ "$map": "...", "$using": {...} }` | Server (WorkflowEngine) | Maps a source array through a template; supports `$prepend`/`$append` |
 | Any other string | `"hello"` | Not resolved | Literal value passed through unchanged |
 
 **Rule:** `$` and `~{}` are for server-side resolution in `transform` values, `condition`, and `action.value` fields. `@` is for client-side prop bindings in `layoutConfig` nodes. Never use `@state.*` or `@temp.*` in action `value` fields — they will be stored as literal strings.
@@ -313,6 +315,62 @@ Arrays are resolved element-by-element. Objects are resolved key-by-key recursiv
   "authorEmail": "$message.senderEmail"
 }
 ```
+
+### `$map` — array mapping directive
+
+When a plain object in a transform value has a `$map` key, the engine treats it as an array mapping operation rather than a plain object. All keys are resolved recursively, so any value expression (`$message.*`, `$state.*`, `~{}`, literals) works inside them.
+
+```json
+{
+  "$map": "$message.documents",
+  "$using": {
+    "_id": "$item._id",
+    "name": "$item.name",
+    "emits_msg": "select-group-document"
+  },
+  "$prepend": [
+    { "name": "Pinned Item", "_id": "pinned", "emits_msg": "open-pinned" }
+  ],
+  "$append": [
+    { "name": "Browse All", "_id": "browse-all", "emits_msg": "open-browser" },
+    { "name": "Create New", "_id": "create",     "emits_msg": "create-new" }
+  ]
+}
+```
+
+| Key | Required | Description |
+|---|---|---|
+| `$map` | yes | Source array. Resolved like any other value (`$message.x`, `$state.x`, etc.). |
+| `$using` | yes | Template object applied to each element. Use `$item.*` to reference the current element's fields (same dot-path resolution as `$message.*`). |
+| `$prepend` | no | Array of items inserted **before** the mapped results. Each item is recursively resolved. |
+| `$append` | no | Array of items inserted **after** the mapped results. Each item is recursively resolved. |
+
+**Result order:** `[ ...$prepend, ...mapped, ...$append ]`
+
+**Example — building sidebar sections from query results:**
+
+```json
+{
+  "actionType": "update",
+  "path": "$temp.sidebarItems",
+  "value": [
+    {
+      "name": "My Documents",
+      "collapsed": false,
+      "children": {
+        "$map": "$message.documents",
+        "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "select-document" },
+        "$append": [
+          { "name": "Browse All", "_id": "browse-all", "emits_msg": "open-browser" },
+          { "name": "Create New", "_id": "create-new", "emits_msg": "create-document" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Use `$map` instead of a `~{ ... }` JSONata expression whenever the transformation is array mapping with optional head/tail items. Reserve `~{}` for scalar operations like string concatenation (`"~{ '/group/' & message._id }"`).
 
 ### `clientMessageType` special key
 
