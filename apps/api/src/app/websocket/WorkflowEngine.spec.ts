@@ -90,7 +90,7 @@ function makeDeps(overrides: Partial<WorkflowEngineDeps> = {}): WorkflowEngineDe
     persistToDatabase: jest.fn().mockResolvedValue(undefined),
     logWorkflowStep: jest.fn(),
     sendToAi: jest.fn(),
-    getDocumentType: jest.fn().mockResolvedValue('test-workflow'),
+    getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow' }),
     executeQuery: jest.fn().mockResolvedValue({ documents: [] }),
     ...overrides,
   };
@@ -120,15 +120,15 @@ afterAll(() => {
 // ─── execute() guards ─────────────────────────────────────────────────────────
 
 describe('execute() — guards', () => {
-  test('logs error and does nothing when getDocumentType returns null', async () => {
-    const deps = makeDeps({ getDocumentType: jest.fn().mockResolvedValue(null) });
+  test('logs error and does nothing when getChannelContext returns null', async () => {
+    const deps = makeDeps({ getChannelContext: jest.fn().mockResolvedValue(null) });
     await makeEngine(deps).execute(makeContext('client-message'));
     expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
     expect(deps.publishToClient).not.toHaveBeenCalled();
   });
 
   test('logs error when config file does not exist for the document type', async () => {
-    const deps = makeDeps({ getDocumentType: jest.fn().mockResolvedValue('unknown-type') });
+    const deps = makeDeps({ getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'unknown-type' }) });
     await makeEngine(deps).execute(makeContext('client-message'));
     expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
     expect(deps.publishToClient).not.toHaveBeenCalled();

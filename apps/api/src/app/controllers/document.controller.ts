@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { ArtifactModel } from '../models/document.model';
+import { ChannelModel } from '../models/channel.model';
 import { Group } from '../models/group.model';
 import { Membership } from '../models/membership.model';
 import { AuthRequest } from '../middleware/auth.middleware';
@@ -26,8 +27,12 @@ export async function listDocuments(req: AuthRequest, res: Response, next: NextF
         { 'userPermissions.userId': req.userId },
         ...groupFilter,
       ],
-    }).sort({ createdAt: -1 });
-    res.json(docs);
+    }).sort({ createdAt: -1 }).lean();
+    const channels = docs.length > 0
+      ? await ChannelModel.find({ artifactId: { $in: docs.map((d) => d._id) } }, { artifactId: 1, channelId: 1 }).lean()
+      : [];
+    const channelMap = new Map(channels.map((c) => [String(c.artifactId), c.channelId]));
+    res.json(docs.map((d) => ({ ...d, _id: String(d._id), currentChannelId: channelMap.get(String(d._id)) ?? '' })));
   } catch (err) {
     next(err);
   }
@@ -81,7 +86,13 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
         userPermissions: [{ userId: targetUserId, access: 'write' }],
         permissionManagerMode: 'group_admin',
       });
-      res.status(201).json(doc);
+      const channel = await ChannelModel.create({
+        workflowType: 'configged-chat',
+        userId: targetUserId,
+        artifactId: doc._id,
+        groupId: groupObjectId,
+      });
+      res.status(201).json({ ...doc.toObject(), currentChannelId: channel.channelId });
       return;
     }
 
@@ -94,7 +105,13 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
       permissions,
       permissionManagerMode: 'owner',
     });
-    res.status(201).json(doc);
+    const channel = await ChannelModel.create({
+      workflowType: 'configged-chat',
+      userId: req.userId,
+      artifactId: doc._id,
+      groupId: groupObjectId,
+    });
+    res.status(201).json({ ...doc.toObject(), currentChannelId: channel.channelId });
   } catch (err) {
     next(err);
   }
@@ -107,12 +124,13 @@ export async function getDocument(req: AuthRequest, res: Response, next: NextFun
       res.status(403).json({ message: 'Forbidden' });
       return;
     }
-    const doc = await ArtifactModel.findById(req.params['id']);
+    const doc = await ArtifactModel.findById(req.params['id']).lean();
     if (!doc) {
       res.status(404).json({ message: 'Document not found' });
       return;
     }
-    res.json(doc);
+    const channel = await ChannelModel.findOne({ artifactId: doc._id }, { channelId: 1 }).lean();
+    res.json({ ...doc, _id: String(doc._id), currentChannelId: channel?.channelId ?? '' });
   } catch (err) {
     next(err);
   }

@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 import { ACCESS_RANK } from './access-level';
@@ -11,6 +11,12 @@ interface DatabasePersistorDeps {
 
 export function createDatabasePersistor(deps: DatabasePersistorDeps) {
   const { mongoClient, dbReady, logWorkflowStep } = deps;
+
+  async function getArtifactId(channel: string): Promise<ObjectId | null> {
+    const channelDoc = await mongoClient.db().collection('channels')
+      .findOne({ channelId: channel }, { projection: { artifactId: 1 } });
+    return (channelDoc?.['artifactId'] as ObjectId | undefined) ?? null;
+  }
 
   return async function persistToDatabase(outbound: OutboundMessage, context: WorkflowContext): Promise<void> {
     await dbReady;
@@ -29,6 +35,9 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
 
     const actions = rec['actions'] as Array<Record<string, unknown>> | undefined;
     if (!actions?.length) return;
+
+    const artifactId = await getArtifactId(outbound.channel);
+    if (!artifactId) return;
 
     const setOps: Record<string, unknown> = {};
     const pushOps: Record<string, unknown> = {};
@@ -76,7 +85,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
             ? { $in: [item[keys[0]], { $map: { input: { $ifNull: [fieldRef, []] }, as: 'el', in: `$$el.${keys[0]}` } }] }
             : { $gt: [{ $size: { $filter: { input: { $ifNull: [fieldRef, []] }, as: 'el', cond: matchCond } } }, 0] };
           await db.collection('artifacts').updateOne(
-            { currentChannelId: outbound.channel },
+            { _id: artifactId },
             [{
               $set: {
                 [mongoPath]: {
@@ -105,7 +114,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
           const subPath = action['subPath'] as string | undefined;
           if (!findKey || !subPath) { logWorkflowStep({ createdAt: new Date(), channel: outbound.channel, docType: '', handlerName: '', logType: 'error', errorMessage: 'persistToDatabase: update-in action missing findKey or subPath', errorDetail: action }); break; }
           await db.collection('artifacts').updateOne(
-            { currentChannelId: outbound.channel },
+            { _id: artifactId },
             { $set: { [`${mongoPath}.$[elem].${subPath}`]: value } } as any,
             { arrayFilters: [{ [`elem.${findKey}`]: findValue }] }
           );
@@ -120,7 +129,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
             ? { $slice: [fieldRef, start ?? 0, end] }
             : { $slice: [fieldRef, start] };
           await db.collection('artifacts').updateOne(
-            { currentChannelId: outbound.channel },
+            { _id: artifactId },
             [{ $set: { [mongoPath]: sliceExpr } }] as any
           );
           break;
@@ -135,7 +144,7 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
 
     if (Object.keys(mongoUpdate).length) {
       await db.collection('artifacts').updateOne(
-        { currentChannelId: outbound.channel }, mongoUpdate as any
+        { _id: artifactId }, mongoUpdate as any
       );
     }
   };

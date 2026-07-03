@@ -7,7 +7,7 @@ import { MongoClient, ObjectId } from 'mongodb';
 import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
 import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
 import { AIEventManager } from './AIEventManager';
-import { WorkflowEngine, AiStepConfig, WorkflowLogEntry } from './WorkflowEngine';
+import { WorkflowEngine, AiStepConfig, WorkflowLogEntry, ChannelContext } from './WorkflowEngine';
 import { createQueryExecutor } from './QueryExecutor';
 import { createDatabasePersistor } from './DatabasePersistor';
 import { AccessLevel, ACCESS_RANK } from './access-level';
@@ -47,14 +47,21 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
   await redis.publish(PUBSUB_CHANNEL, pack({ frame, socketIds } satisfies DeliveryInstruction));
 }
 
-async function getDocumentType(channel: string): Promise<string | null> {
+async function getChannelContext(channel: string): Promise<ChannelContext | null> {
   try {
     await dbReady;
     const doc = await mongoClient
       .db()
-      .collection('artifacts')
-      .findOne({ currentChannelId: channel }, { projection: { type: 1 } });
-    return doc?.type ?? null;
+      .collection('channels')
+      .findOne({ channelId: channel });
+    if (!doc) return null;
+    return {
+      workflowType: doc['workflowType'] as string,
+      artifactId: doc['artifactId'] ? String(doc['artifactId']) : undefined,
+      groupId: doc['groupId'] ? String(doc['groupId']) : undefined,
+      userId: doc['userId'] as string | undefined,
+      parentChannelId: doc['parentChannelId'] as string | undefined,
+    };
   } catch {
     return null;
   }
@@ -110,8 +117,18 @@ async function computeGroupAccessLevel(
 
 async function computeChannelAccessLevel(userId: string, channel: string): Promise<AccessLevel> {
   await dbReady;
-  const artifact = await mongoClient.db().collection('artifacts').findOne(
-    { currentChannelId: channel },
+  const db = mongoClient.db();
+
+  const channelDoc = await db.collection('channels').findOne({ channelId: channel });
+  if (!channelDoc) return 'none';
+
+  // Stateless channel (no artifact): only the channel owner has access
+  if (!channelDoc['artifactId']) {
+    return channelDoc['userId'] === userId ? 'read' : 'none';
+  }
+
+  const artifact = await db.collection('artifacts').findOne(
+    { _id: channelDoc['artifactId'] },
     { projection: { userId: 1, permissions: 1, userPermissions: 1, permissionManagerMode: 1 } }
   );
   if (!artifact) return 'none';
@@ -150,7 +167,7 @@ const engine = new WorkflowEngine(
       };
       aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
     },
-    getDocumentType,
+    getChannelContext,
     executeQuery,
     fetchCustomWorkflowConfig,
   },

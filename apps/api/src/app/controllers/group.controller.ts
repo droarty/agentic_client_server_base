@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { GroupRole } from '../models/membership.model';
 import * as groupService from '../services/group.service';
 import { ArtifactModel } from '../models/document.model';
+import { ChannelModel } from '../models/channel.model';
 
 const VALID_ROLES: GroupRole[] = ['owner', 'admin', 'member'];
 
@@ -122,7 +123,16 @@ export async function getGroupDashboard(req: AuthRequest, res: Response, next: N
         state: wfConfig.initialState ?? {},
       });
     }
-    res.json({ channelId: doc.currentChannelId });
+    let channel = await ChannelModel.findOne({ artifactId: doc._id });
+    if (!channel) {
+      channel = await ChannelModel.create({
+        workflowType: 'group-dashboard',
+        userId: req.userId,
+        artifactId: doc._id,
+        groupId: doc.groupId,
+      });
+    }
+    res.json({ channelId: channel.channelId });
   } catch (err) {
     next(err);
   }
