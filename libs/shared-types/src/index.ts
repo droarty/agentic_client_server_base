@@ -38,6 +38,7 @@ export interface Artifact {
 
 export interface CreateDocumentRequest {
   name: string;
+  workflowType: string;
   groupId?: string;
   targetUserId?: string;
 }
