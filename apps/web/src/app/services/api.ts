@@ -66,7 +66,7 @@ export async function apiGetDocument(id: string): Promise<Artifact> {
   return data;
 }
 
-export async function apiGetGroupDashboardChannel(groupId: string): Promise<{ channelId: string }> {
-  const { data } = await client.get<{ channelId: string }>(`/api/groups/${groupId}/dashboard`);
+export async function apiGetGroupDashboardChannel(groupId: string, workflowType: string): Promise<{ channelId: string }> {
+  const { data } = await client.get<{ channelId: string }>(`/api/groups/${groupId}/dashboard`, { params: { workflowType } });
   return data;
 }

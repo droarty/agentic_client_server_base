@@ -1,5 +1,5 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { MongoClient, Document } from 'mongodb';
+import { MongoClient, Document, ObjectId } from 'mongodb';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 import { createDatabasePersistor } from './DatabasePersistor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
@@ -7,12 +7,12 @@ import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 let mongod: MongoMemoryServer;
 let client: MongoClient;
 let logWorkflowStep: jest.Mock;
+let artifactId: ObjectId;
 
 const CHANNEL = 'ch-1';
 const USER_ID = 'u-1';
 
-const SEED = {
-  currentChannelId: CHANNEL,
+const ARTIFACT_SEED = {
   userId: USER_ID,
   state: { items: [] as unknown[], title: '', meta: {} as Record<string, unknown> },
 };
@@ -30,7 +30,7 @@ function makeContext(userId: string | undefined, permissionLevel: WorkflowContex
 }
 
 async function getArtifact(): Promise<Document | null> {
-  return client.db().collection('artifacts').findOne({ currentChannelId: CHANNEL });
+  return client.db().collection('artifacts').findOne({ _id: artifactId });
 }
 
 beforeAll(async () => {
@@ -46,7 +46,10 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await client.db().collection('artifacts').deleteMany({});
-  await client.db().collection('artifacts').insertOne({ ...SEED, state: { items: [], title: '', meta: {} } });
+  await client.db().collection('channels').deleteMany({});
+  const result = await client.db().collection('artifacts').insertOne({ ...ARTIFACT_SEED, state: { items: [], title: '', meta: {} } });
+  artifactId = result.insertedId;
+  await client.db().collection('channels').insertOne({ channelId: CHANNEL, workflowType: 'test', userId: USER_ID, artifactId });
   logWorkflowStep = jest.fn();
 });
 
@@ -144,7 +147,7 @@ describe('append action', () => {
 describe('prepend action', () => {
   test('inserts item at index 0', async () => {
     await client.db().collection('artifacts').updateOne(
-      { currentChannelId: CHANNEL },
+      { _id: artifactId },
       { $set: { 'state.items': [{ id: 2 }] } }
     );
     const persist = makePersist();
@@ -165,7 +168,7 @@ describe('upsert action', () => {
 
   test('updates item in place when single key matches', async () => {
     await client.db().collection('artifacts').updateOne(
-      { currentChannelId: CHANNEL },
+      { _id: artifactId },
       { $set: { 'state.items': [{ id: 'a', name: 'Old' }, { id: 'b', name: 'Beta' }] } }
     );
     const persist = makePersist();
@@ -178,7 +181,7 @@ describe('upsert action', () => {
 
   test('uses multi-key matching correctly', async () => {
     await client.db().collection('artifacts').updateOne(
-      { currentChannelId: CHANNEL },
+      { _id: artifactId },
       { $set: { 'state.items': [{ type: 'x', key: '1', val: 'old' }, { type: 'x', key: '2', val: 'keep' }] } }
     );
     const persist = makePersist();
@@ -190,7 +193,7 @@ describe('upsert action', () => {
 
   test('logs error and leaves array unchanged when keys is missing', async () => {
     await client.db().collection('artifacts').updateOne(
-      { currentChannelId: CHANNEL },
+      { _id: artifactId },
       { $set: { 'state.items': [{ id: 'a' }] } }
     );
     const persist = makePersist();
@@ -204,7 +207,7 @@ describe('upsert action', () => {
 describe('remove action', () => {
   test('removes item matching the key', async () => {
     await client.db().collection('artifacts').updateOne(
-      { currentChannelId: CHANNEL },
+      { _id: artifactId },
       { $set: { 'state.items': [{ id: 'a' }, { id: 'b' }] } }
     );
     const persist = makePersist();
@@ -215,7 +218,7 @@ describe('remove action', () => {
 
   test('logs error and leaves array unchanged when keys is missing', async () => {
     await client.db().collection('artifacts').updateOne(
-      { currentChannelId: CHANNEL },
+      { _id: artifactId },
       { $set: { 'state.items': [{ id: 'a' }] } }
     );
     const persist = makePersist();

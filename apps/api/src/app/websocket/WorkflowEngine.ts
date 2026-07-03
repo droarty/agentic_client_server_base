@@ -58,6 +58,14 @@ export interface WorkflowLogEntry {
   errorDetail?: unknown;
 }
 
+export interface ChannelContext {
+  workflowType: string;
+  artifactId?: string;
+  groupId?: string;
+  userId?: string;
+  parentChannelId?: string;
+}
+
 export interface WorkflowEngineDeps {
   publishToClient: (msg: OutboundMessage) => Promise<void>;
   persistToDatabase: (msg: OutboundMessage, context: WorkflowContext) => Promise<void>;
@@ -70,7 +78,7 @@ export interface WorkflowEngineDeps {
     user?: Record<string, unknown>,
     correlationId?: string
   ) => void;
-  getDocumentType: (channel: string) => Promise<string | null>;
+  getChannelContext: (channel: string) => Promise<ChannelContext | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
   fetchCustomWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
 }
@@ -166,7 +174,7 @@ function substitutePromptTemplate(template: string, context: WorkflowContext): s
 
 export class WorkflowEngine {
   private configCache = new Map<string, WorkflowConfig>();
-  private docTypeCache = new Map<string, string>();
+  private channelContextCache = new Map<string, ChannelContext>();
 
   constructor(
     private deps: WorkflowEngineDeps,
@@ -178,11 +186,12 @@ export class WorkflowEngine {
     const channel = context.message['channel'] as string;
     const type = context.message['type'] as string;
 
-    const docType = await this.resolveDocumentType(channel);
-    if (!docType) {
-      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType: '', handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no document type found for channel "${channel}"` });
+    const channelCtx = await this.resolveChannelContext(channel);
+    if (!channelCtx) {
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType: '', handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no channel context found for channel "${channel}"` });
       return;
     }
+    const docType = channelCtx.workflowType;
 
     const config = await this.loadConfig(docType);
     if (!config) {
@@ -229,11 +238,11 @@ export class WorkflowEngine {
     }
   }
 
-  private async resolveDocumentType(channel: string): Promise<string | null> {
-    if (this.docTypeCache.has(channel)) return this.docTypeCache.get(channel)!;
-    const docType = await this.deps.getDocumentType(channel);
-    if (docType) this.docTypeCache.set(channel, docType);
-    return docType;
+  private async resolveChannelContext(channel: string): Promise<ChannelContext | null> {
+    if (this.channelContextCache.has(channel)) return this.channelContextCache.get(channel)!;
+    const ctx = await this.deps.getChannelContext(channel);
+    if (ctx) this.channelContextCache.set(channel, ctx);
+    return ctx;
   }
 
   private async loadConfig(docType: string): Promise<WorkflowConfig | null> {

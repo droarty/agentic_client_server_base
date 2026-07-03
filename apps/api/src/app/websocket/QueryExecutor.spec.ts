@@ -22,18 +22,26 @@ function makeContext(userId: string | undefined, message: Record<string, unknown
   };
 }
 
-async function insertArtifact(overrides: Record<string, unknown> = {}) {
+async function insertArtifact(overrides: Record<string, unknown> = {}, channelId = CHANNEL) {
+  const { currentChannelId: _ignored, ...rest } = overrides as { currentChannelId?: string; [k: string]: unknown };
   const doc = {
     name: 'Test Doc',
     type: 'configged-chat',
     userId: USER_ID,
-    currentChannelId: CHANNEL,
     state: { title: 'hello' },
     createdAt: new Date(),
     updatedAt: new Date(),
-    ...overrides,
+    ...rest,
   };
   const result = await client.db().collection('artifacts').insertOne(doc as any);
+  await client.db().collection('channels').insertOne({
+    channelId,
+    workflowType: (doc.type as string) ?? 'configged-chat',
+    userId: doc.userId,
+    artifactId: result.insertedId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
   return { ...doc, _id: result.insertedId };
 }
 
@@ -81,6 +89,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await client.db().collection('artifacts').deleteMany({});
+  await client.db().collection('channels').deleteMany({});
   await client.db().collection('workflowlogs').deleteMany({});
   await client.db().collection('users').deleteMany({});
   logWorkflowStep = jest.fn();
@@ -167,7 +176,7 @@ describe('get-document', () => {
   });
 
   test('finds document by channel', async () => {
-    await insertArtifact({ name: 'ByChannel', currentChannelId: 'ch-special' });
+    await insertArtifact({ name: 'ByChannel' }, 'ch-special');
     const execute = makeExecutor();
     const result = await execute('get-document', makeContext(USER_ID, { channel: 'ch-special' }));
     expect((result['document'] as Record<string, unknown>)['name']).toBe('ByChannel');
@@ -207,7 +216,7 @@ describe('get-document-summary', () => {
   });
 
   test('finds by channel', async () => {
-    await insertArtifact({ name: 'SumByChannel', currentChannelId: 'ch-sum' });
+    await insertArtifact({ name: 'SumByChannel' }, 'ch-sum');
     const execute = makeExecutor();
     const result = await execute('get-document-summary', makeContext(USER_ID, { channel: 'ch-sum' }));
     expect((result['document'] as Record<string, unknown>)['name']).toBe('SumByChannel');

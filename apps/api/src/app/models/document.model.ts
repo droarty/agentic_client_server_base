@@ -1,5 +1,4 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import { randomUUID } from 'crypto';
 import type { ArtifactAccess, ArtifactPermissionMode } from '@agentic-client-server-base/shared-types';
 
 export interface IArtifactPermission {
@@ -20,7 +19,6 @@ export interface IArtifact extends Document {
   permissions: IArtifactPermission[];
   userPermissions: IUserArtifactPermission[];
   permissionManagerMode: ArtifactPermissionMode;
-  currentChannelId: string;
   state?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -51,7 +49,6 @@ const artifactSchema = new Schema<IArtifact>(
     permissions: { type: [artifactPermissionSchema], default: [] },
     userPermissions: { type: [userArtifactPermissionSchema], default: [] },
     permissionManagerMode: { type: String, enum: ['owner', 'group_admin'], default: 'owner' },
-    currentChannelId: { type: String, default: () => randomUUID() },
     state: { type: Schema.Types.Mixed, default: undefined },
   },
   { timestamps: true }

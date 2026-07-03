@@ -13,6 +13,7 @@ import { addSocketToChannel, removeSocketFromChannel } from '../redis/channel.re
 import { EventProcessor } from './EventProcessor';
 import { PUBSUB_CHANNEL, DeliveryInstruction } from './EventProcessorTypes';
 import { ArtifactModel } from '../models/document.model';
+import { ChannelModel } from '../models/channel.model';
 
 const serverId = randomUUID();
 
@@ -133,7 +134,16 @@ export class UserEventManager {
       });
     }
 
-    return doc.currentChannelId;
+    let channel = await ChannelModel.findOne({ artifactId: doc._id });
+    if (!channel) {
+      channel = await ChannelModel.create({
+        workflowType: 'user-dashboard',
+        userId,
+        artifactId: doc._id,
+      });
+    }
+
+    return channel.channelId;
   }
 
   shutdown(): void {

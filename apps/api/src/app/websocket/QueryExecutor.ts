@@ -17,6 +17,18 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
   const stringifyId = <T extends { _id: unknown }>(doc: T): Omit<T, '_id'> & { _id: string } =>
     ({ ...doc, _id: String(doc._id) });
 
+  async function getChannelIdForArtifact(artifactId: ObjectId): Promise<string | null> {
+    const channelDoc = await mongoClient.db().collection('channels')
+      .findOne({ artifactId }, { projection: { channelId: 1 } });
+    return (channelDoc?.['channelId'] as string | undefined) ?? null;
+  }
+
+  async function getArtifactIdForChannel(channelId: string): Promise<ObjectId | null> {
+    const channelDoc = await mongoClient.db().collection('channels')
+      .findOne({ channelId }, { projection: { artifactId: 1 } });
+    return (channelDoc?.['artifactId'] as ObjectId | undefined) ?? null;
+  }
+
   return async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
     try {
       await dbReady;
@@ -40,10 +52,16 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .collection('artifacts')
           .find(
             { userId, type: { $ne: 'user-dashboard' } },
-            { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+            { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: rawDocs.map(stringifyId) };
+        const { ObjectId: ObjId } = await import('mongodb');
+        const artifactIds = rawDocs.map((d) => d._id as ObjectId);
+        const channels = artifactIds.length > 0
+          ? await db.collection('channels').find({ artifactId: { $in: artifactIds } }, { projection: { artifactId: 1, channelId: 1 } }).toArray()
+          : [];
+        const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
+        return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
       }
       if (queryName === 'get-reviewable-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -52,10 +70,15 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .collection('artifacts')
           .find(
             { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
-            { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+            { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
-        return { documents: rawDocs.map(stringifyId) };
+        const artifactIds = rawDocs.map((d) => d._id as ObjectId);
+        const channels = artifactIds.length > 0
+          ? await db.collection('channels').find({ artifactId: { $in: artifactIds } }, { projection: { artifactId: 1, channelId: 1 } }).toArray()
+          : [];
+        const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
+        return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
       }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
@@ -67,9 +90,12 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         if (documentId) {
           rawDoc = await db.collection('artifacts').findOne({ _id: new ObjectId(documentId), userId });
         } else if (channel) {
-          rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId });
+          const artifactId = await getArtifactIdForChannel(channel);
+          if (artifactId) rawDoc = await db.collection('artifacts').findOne({ _id: artifactId, userId });
         }
-        return { document: rawDoc ? stringifyId(rawDoc) : null };
+        if (!rawDoc) return { document: null };
+        const channelId = await getChannelIdForArtifact(rawDoc._id as ObjectId);
+        return { document: { ...stringifyId(rawDoc), currentChannelId: channelId ?? '' } };
       }
       if (queryName === 'get-document-summary') {
         const userId = context.user?.['id'] as string | undefined;
@@ -77,14 +103,17 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const documentId = context.message['documentId'] as string | undefined;
         const channel = context.message['channel'] as string | undefined;
         const { ObjectId } = await import('mongodb');
-        const projection = { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } };
+        const projection = { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } };
         let rawDoc;
         if (documentId) {
           rawDoc = await db.collection('artifacts').findOne({ _id: new ObjectId(documentId), userId }, projection);
         } else if (channel) {
-          rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel, userId }, projection);
+          const artifactId = await getArtifactIdForChannel(channel);
+          if (artifactId) rawDoc = await db.collection('artifacts').findOne({ _id: artifactId, userId }, projection);
         }
-        return { document: rawDoc ? stringifyId(rawDoc) : null };
+        if (!rawDoc) return { document: null };
+        const channelId = await getChannelIdForArtifact(rawDoc._id as ObjectId);
+        return { document: { ...stringifyId(rawDoc), currentChannelId: channelId ?? '' } };
       }
       if (queryName === 'get-users') {
         const users = await db
@@ -99,6 +128,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         if (!name) return { document: null, documents: [] };
         const userId = context.user?.['id'] as string | undefined;
         const { randomUUID } = await import('crypto');
+        const { ObjectId } = await import('mongodb');
         const now = new Date();
         const configPath = path.join(configDir, `${type}.json`);
         let initialState: Record<string, unknown> | undefined;
@@ -115,7 +145,6 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           name,
           type,
           userId,
-          currentChannelId: randomUUID(),
           createdAt: now,
           updatedAt: now,
         };
@@ -123,25 +152,39 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           docFields['state'] = initialState;
         }
         const result = await db.collection('artifacts').insertOne(docFields as any);
+        const newChannelId = randomUUID();
+        await db.collection('channels').insertOne({
+          channelId: newChannelId,
+          workflowType: type,
+          userId,
+          artifactId: result.insertedId,
+          createdAt: now,
+          updatedAt: now,
+        });
         const newDoc = await db.collection('artifacts').findOne({ _id: result.insertedId });
         const rawDocs = await db
           .collection('artifacts')
           .find(
             { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
-            { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+            { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .toArray();
+        const artifactIds = rawDocs.map((d) => d._id as ObjectId);
+        const channels = artifactIds.length > 0
+          ? await db.collection('channels').find({ artifactId: { $in: artifactIds } }, { projection: { artifactId: 1, channelId: 1 } }).toArray()
+          : [];
+        const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
         return {
-          document: stringifyId({
-            _id: newDoc!._id,
-            name: newDoc!.name,
-            type: newDoc!.type,
-            userId: newDoc!.userId,
-            currentChannelId: newDoc!.currentChannelId,
-            createdAt: newDoc!.createdAt,
-            updatedAt: newDoc!.updatedAt,
-          }),
-          documents: rawDocs.map(stringifyId),
+          document: {
+            _id: String(newDoc!._id),
+            name: newDoc!['name'],
+            type: newDoc!['type'],
+            userId: newDoc!['userId'],
+            currentChannelId: newChannelId,
+            createdAt: newDoc!['createdAt'],
+            updatedAt: newDoc!['updatedAt'],
+          },
+          documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })),
         };
       }
       if (queryName === 'get-workflow-logs') {
@@ -149,13 +192,15 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const id = context.message['id'] as string | undefined;
         if (!id) return { id: null, workflowLogs: [] };
         const { ObjectId } = await import('mongodb');
-        const doc = await db.collection('artifacts').findOne(
+        const artifact = await db.collection('artifacts').findOne(
           { _id: new ObjectId(id), userId },
-          { projection: { currentChannelId: 1 } }
+          { projection: { _id: 1 } }
         );
-        if (!doc) return { id, workflowLogs: [] };
+        if (!artifact) return { id, workflowLogs: [] };
+        const channelId = await getChannelIdForArtifact(artifact._id as ObjectId);
+        if (!channelId) return { id, workflowLogs: [] };
         const logs = await db.collection('workflowlogs')
-          .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
+          .find({ channel: channelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
         return { id, workflowLogs: logs.map(stringifyId) };
@@ -203,11 +248,16 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const { ObjectId } = await import('mongodb');
         const root = await db.collection('workflowlogs').findOne({ _id: new ObjectId(id) });
         if (!root) return { id, treeData: [] };
-        const artifact = await db.collection('artifacts').findOne(
-          { currentChannelId: root.channel, userId },
-          { projection: { _id: 1 } }
+        const channelDoc = await db.collection('channels').findOne(
+          { channelId: root.channel },
+          { projection: { artifactId: 1, userId: 1 } }
         );
-        if (!artifact) return { id, treeData: [] };
+        if (!channelDoc) return { id, treeData: [] };
+        const artifact = channelDoc['artifactId']
+          ? await db.collection('artifacts').findOne({ _id: channelDoc['artifactId'], userId }, { projection: { _id: 1 } })
+          : null;
+        if (channelDoc['artifactId'] && !artifact) return { id, treeData: [] };
+        if (!channelDoc['artifactId'] && channelDoc['userId'] !== userId) return { id, treeData: [] };
         const rootChildren = await buildTree(root.executionId, root.channel);
         const treeData = [{
           id: String(root._id),
@@ -224,13 +274,15 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const id = docState?.['selectedDocumentId'] as string | undefined;
         if (!id) return { workflowLogs: [] };
         const { ObjectId } = await import('mongodb');
-        const doc = await db.collection('artifacts').findOne(
+        const artifact = await db.collection('artifacts').findOne(
           { _id: new ObjectId(id), userId },
-          { projection: { currentChannelId: 1 } }
+          { projection: { _id: 1 } }
         );
-        if (!doc) return { workflowLogs: [] };
+        if (!artifact) return { workflowLogs: [] };
+        const channelId = await getChannelIdForArtifact(artifact._id as ObjectId);
+        if (!channelId) return { workflowLogs: [] };
         const logs = await db.collection('workflowlogs')
-          .find({ channel: doc.currentChannelId, parentExecutionId: null, logType: 'handler' })
+          .find({ channel: channelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
         return { workflowLogs: logs.map(stringifyId) };
@@ -244,11 +296,16 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const { ObjectId } = await import('mongodb');
         const root = await db.collection('workflowlogs').findOne({ _id: new ObjectId(id) });
         if (!root) return { treeData: [] };
-        const artifact = await db.collection('artifacts').findOne(
-          { currentChannelId: root.channel, userId },
-          { projection: { _id: 1 } }
+        const channelDoc = await db.collection('channels').findOne(
+          { channelId: root.channel },
+          { projection: { artifactId: 1, userId: 1 } }
         );
-        if (!artifact) return { treeData: [] };
+        if (!channelDoc) return { treeData: [] };
+        const artifact = channelDoc['artifactId']
+          ? await db.collection('artifacts').findOne({ _id: channelDoc['artifactId'], userId }, { projection: { _id: 1 } })
+          : null;
+        if (channelDoc['artifactId'] && !artifact) return { treeData: [] };
+        if (!channelDoc['artifactId'] && channelDoc['userId'] !== userId) return { treeData: [] };
         const rootChildren = await buildTree(root.executionId, root.channel);
         const treeData = [{
           id: String(root._id),
@@ -278,8 +335,10 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       if (queryName === 'get-channel-document') {
         const channel = context.message['channel'] as string | undefined;
         if (!channel) return { document: null };
-        const rawDoc = await db.collection('artifacts').findOne({ currentChannelId: channel });
-        return { document: rawDoc ? stringifyId(rawDoc) : null };
+        const artifactId = await getArtifactIdForChannel(channel);
+        if (!artifactId) return { document: null };
+        const rawDoc = await db.collection('artifacts').findOne({ _id: artifactId });
+        return { document: rawDoc ? { ...stringifyId(rawDoc), currentChannelId: channel } : null };
       }
       if (queryName === 'get-recent-user-documents') {
         const userId = context.user?.['id'] as string | undefined;
@@ -290,12 +349,17 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .collection('artifacts')
           .find(
             { userId, type: { $nin: ['user-dashboard', 'group-dashboard', 'log-review'] } },
-            { projection: { _id: 1, name: 1, type: 1, userId: 1, currentChannelId: 1, createdAt: 1, updatedAt: 1 } }
+            { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
           )
           .sort({ createdAt: -1 })
           .limit(limit)
           .toArray();
-        return { documents: rawDocs.map(stringifyId) };
+        const artifactIds = rawDocs.map((d) => d._id as ObjectId);
+        const channels = artifactIds.length > 0
+          ? await db.collection('channels').find({ artifactId: { $in: artifactIds } }, { projection: { artifactId: 1, channelId: 1 } }).toArray()
+          : [];
+        const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
+        return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
       }
       return {};
     } catch (err) {
