@@ -42,6 +42,12 @@ const WORKFLOW_CONFIG = {
     'unknown-route-message': {
       steps: [{ route: 'bad-route' }],
     },
+    'parent-route-message': {
+      steps: [{ route: 'parent', transform: { clientMessageType: 'parent-notification', text: '$message.text' } }],
+    },
+    'groupid-message': {
+      steps: [{ route: 'client', transform: { type: 'response', gid: '$groupId' } }],
+    },
     'jsonata-message': {
       transformer: 'jsonata',
       steps: [{ route: 'client', transform: { type: 'jsonata-response', text: '$message.text' } }],
@@ -90,7 +96,7 @@ function makeDeps(overrides: Partial<WorkflowEngineDeps> = {}): WorkflowEngineDe
     persistToDatabase: jest.fn().mockResolvedValue(undefined),
     logWorkflowStep: jest.fn(),
     sendToAi: jest.fn(),
-    getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow' }),
+    getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow', artifactId: 'art-1' }),
     executeQuery: jest.fn().mockResolvedValue({ documents: [] }),
     ...overrides,
   };
@@ -417,5 +423,67 @@ describe('requiredAccess guard', () => {
     const deps = makeDeps();
     await makeEngine(deps).execute(makeContext('unrestricted-message', {}, 'none'));
     expect(deps.publishToClient).toHaveBeenCalled();
+  });
+});
+
+// ─── composable context ───────────────────────────────────────────────────────
+
+describe('composable context — groupId and parentChannel', () => {
+  test('$groupId resolves from channelCtx.groupId when not set on context', async () => {
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow', artifactId: 'art-1', groupId: 'grp-42' }),
+    });
+    await makeEngine(deps).execute(makeContext('groupid-message'));
+    const out = (deps.publishToClient as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    expect(out['gid']).toBe('grp-42');
+  });
+
+  test('$groupId from caller context takes precedence over channelCtx', async () => {
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow', artifactId: 'art-1', groupId: 'grp-from-channel' }),
+    });
+    const ctx: WorkflowContext = { ...makeContext('groupid-message'), groupId: 'grp-from-caller' };
+    await makeEngine(deps).execute(ctx);
+    const out = (deps.publishToClient as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    expect(out['gid']).toBe('grp-from-caller');
+  });
+});
+
+describe('"parent" route', () => {
+  test('publishes to parentChannel instead of current channel', async () => {
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow', artifactId: 'art-1', parentChannelId: 'parent-ch' }),
+    });
+    await makeEngine(deps).execute(makeContext('parent-route-message', { text: 'hello-up' }));
+    const out = (deps.publishToClient as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    expect(out['channel']).toBe('parent-ch');
+    expect(out['type']).toBe('parent-notification');
+    expect(out['text']).toBe('hello-up');
+  });
+
+  test('logs error and skips when no parentChannel in context', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('parent-route-message', { text: 'hi' }));
+    expect(deps.publishToClient).not.toHaveBeenCalled();
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+});
+
+describe('stateless channel — database route skipped when no artifactId', () => {
+  test('database route skipped for stateless channel', async () => {
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow' }),
+    });
+    await makeEngine(deps).execute(makeContext('db-message'));
+    expect(deps.persistToDatabase).not.toHaveBeenCalled();
+  });
+
+  test('client route still fires for stateless channel', async () => {
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow' }),
+    });
+    await makeEngine(deps).execute(makeContext('combined-message'));
+    expect(deps.publishToClient).toHaveBeenCalled();
+    expect(deps.persistToDatabase).not.toHaveBeenCalled();
   });
 });

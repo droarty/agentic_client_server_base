@@ -38,6 +38,8 @@ export interface WorkflowContext {
   user?: Record<string, unknown>;
   state?: Record<string, unknown>;
   permissionLevel?: AccessLevel;
+  groupId?: string;
+  parentChannel?: string;
 }
 
 export interface WorkflowLogEntry {
@@ -193,6 +195,14 @@ export class WorkflowEngine {
     }
     const docType = channelCtx.workflowType;
 
+    // Enrich context with channel-derived fields (caller's values take precedence)
+    const enrichedContext: WorkflowContext = {
+      ...context,
+      groupId: context.groupId ?? channelCtx.groupId,
+      parentChannel: context.parentChannel ?? channelCtx.parentChannelId,
+    };
+    const hasArtifact = !!channelCtx.artifactId;
+
     const config = await this.loadConfig(docType);
     if (!config) {
       this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `no config found for document type "${docType}"` });
@@ -206,14 +216,14 @@ export class WorkflowEngine {
     }
 
     if (handler.condition) {
-      const passes = await evaluateCondition(handler.condition, context);
+      const passes = await evaluateCondition(handler.condition, enrichedContext);
       if (!passes) return;
     }
 
     if (handler.requiredAccess) {
-      const level = context.permissionLevel ?? 'none';
+      const level = enrichedContext.permissionLevel ?? 'none';
       if (ACCESS_RANK[level] < ACCESS_RANK[handler.requiredAccess]) {
-        const userId = context.user?.['id'] as string | undefined;
+        const userId = enrichedContext.user?.['id'] as string | undefined;
         this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName: type, logType: 'error', executionId, parentExecutionId, stepIndex: parentStepIndex, errorMessage: `handler "${type}" requires access "${handler.requiredAccess}" — denied for user ${userId ?? '(unknown)'}` });
         return;
       }
@@ -228,13 +238,13 @@ export class WorkflowEngine {
       executionId,
       parentExecutionId,
       stepIndex: parentStepIndex,
-      message: context.message,
-      user: context.user,
+      message: enrichedContext.message,
+      user: enrichedContext.user,
       handlerConfig: handler,
     });
 
     for (let i = 0; i < handler.steps.length; i++) {
-      await this.executeStep(handler.steps[i], context, docType, type, executionId, i);
+      await this.executeStep(handler.steps[i], enrichedContext, docType, type, executionId, i, hasArtifact);
     }
   }
 
@@ -277,7 +287,8 @@ export class WorkflowEngine {
     docType = '',
     handlerName = '',
     executionId = '',
-    stepIndex = 0
+    stepIndex = 0,
+    hasArtifact = true
   ): Promise<void> {
     const routes = Array.isArray(step.route) ? step.route : [step.route];
     const channel = context.message['channel'] as string;
@@ -305,6 +316,8 @@ export class WorkflowEngine {
         user: context.user,
         state: context.state,
         permissionLevel: context.permissionLevel,
+        groupId: context.groupId,
+        parentChannel: context.parentChannel,
       }, executionId, stepIndex);
       return;
     }
@@ -338,6 +351,8 @@ export class WorkflowEngine {
           user: context.user,
           state: context.state,
           permissionLevel: context.permissionLevel,
+          groupId: context.groupId,
+          parentChannel: context.parentChannel,
         },
         executionId,
         stepIndex,
@@ -361,6 +376,29 @@ export class WorkflowEngine {
       });
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
       this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user, `${executionId}:${stepIndex}`);
+      return;
+    }
+
+    if (routes.includes('parent')) {
+      if (!context.parentChannel) {
+        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'error', executionId, stepIndex, errorMessage: 'parent route: no parentChannel in context, skipping' });
+        return;
+      }
+      const base: Record<string, unknown> = {
+        id: randomUUID(),
+        from: 'server',
+        to: 'client',
+        channel: context.parentChannel,
+        timestamp: new Date().toISOString(),
+      };
+      const resolved = step.transform ? await resolveTransform(step.transform, context) : {};
+      if ('clientMessageType' in resolved) {
+        resolved['type'] = resolved['clientMessageType'];
+        delete resolved['clientMessageType'];
+      }
+      this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'route', executionId, stepIndex, route: 'parent', resolvedMessage: resolved });
+      const outbound = { ...base, ...resolved } as unknown as OutboundMessage;
+      await this.deps.publishToClient(outbound);
       return;
     }
 
@@ -396,7 +434,7 @@ export class WorkflowEngine {
 
       const ops: Promise<void>[] = [];
       if (routes.includes('client')) ops.push(this.deps.publishToClient(outbound));
-      if (routes.includes('database')) ops.push(this.deps.persistToDatabase(outbound, context));
+      if (routes.includes('database') && hasArtifact) ops.push(this.deps.persistToDatabase(outbound, context));
       await Promise.all(ops);
       return;
     }

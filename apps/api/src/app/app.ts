@@ -5,6 +5,7 @@ import { authRoutes } from './routes/auth.routes';
 import { userRoutes } from './routes/user.routes';
 import { documentRoutes } from './routes/document.routes';
 import { groupRoutes } from './routes/group.routes';
+import { workflowRoutes } from './routes/workflow.routes';
 import { errorMiddleware } from './middleware/error.middleware';
 import { configurePassport } from './config/passport';
 import { env } from './config/env';
@@ -27,6 +28,7 @@ export function createApp(): Application {
   app.use('/api/users', userRoutes);
   app.use('/api/documents', documentRoutes);
   app.use('/api/groups', groupRoutes);
+  app.use('/api/workflow', workflowRoutes);
 
   app.use(errorMiddleware);
 
