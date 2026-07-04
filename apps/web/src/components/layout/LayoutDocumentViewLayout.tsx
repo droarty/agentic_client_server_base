@@ -1,15 +1,32 @@
+import { useState, useEffect } from 'react';
 import { LayoutDocumentView } from '@/app/components/LayoutDocumentView';
+import { apiGetOrCreateWorkflowSession } from '@/app/services/api';
 
 interface Props {
   channelId?: string;
+  workflowType?: string;
+  groupId?: string;
   viewHandler?: string;
   [key: string]: unknown;
 }
 
-export function LayoutDocumentViewLayout({ channelId, viewHandler }: Props) {
+export function LayoutDocumentViewLayout({ channelId: channelIdProp, workflowType, groupId, viewHandler }: Props) {
+  const [fetchedChannelId, setFetchedChannelId] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!channelIdProp && workflowType) {
+      apiGetOrCreateWorkflowSession({ workflowType, groupId }).then(({ channelId }) => setFetchedChannelId(channelId));
+    }
+  }, [channelIdProp, workflowType, groupId]);
+
+  const resolvedChannelId = channelIdProp ?? fetchedChannelId;
+
+  if (!resolvedChannelId) return null;
+
   return (
     <LayoutDocumentView
-      channelId={channelId as string | undefined}
+      channelId={resolvedChannelId}
+      groupId={groupId}
       viewHandler={viewHandler as string | undefined}
     />
   );

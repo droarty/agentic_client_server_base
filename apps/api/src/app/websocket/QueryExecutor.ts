@@ -340,6 +340,27 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const rawDoc = await db.collection('artifacts').findOne({ _id: artifactId });
         return { document: rawDoc ? { ...stringifyId(rawDoc), currentChannelId: channel } : null };
       }
+      if (queryName === 'get-or-create-workflow-channel') {
+        const workflowType = (context.message['workflowType'] as string | undefined)?.trim();
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId ?? (context.message['groupId'] as string | undefined);
+        const callingChannel = context.message['channel'] as string | undefined;
+        if (!workflowType || !userId) return { channelId: null };
+        const { randomUUID } = await import('crypto');
+        const { ObjectId } = await import('mongodb');
+        const query: Record<string, unknown> = { workflowType, userId };
+        if (groupId) query['groupId'] = new ObjectId(groupId);
+        let channelDoc = await db.collection('channels').findOne(query);
+        if (!channelDoc) {
+          const now = new Date();
+          const newChannelId = randomUUID();
+          const doc: Record<string, unknown> = { channelId: newChannelId, workflowType, userId, parentChannelId: callingChannel, createdAt: now, updatedAt: now };
+          if (groupId) doc['groupId'] = new ObjectId(groupId);
+          await db.collection('channels').insertOne(doc);
+          channelDoc = await db.collection('channels').findOne({ channelId: newChannelId });
+        }
+        return { channelId: channelDoc?.['channelId'] ?? null };
+      }
       if (queryName === 'get-recent-user-documents') {
         const userId = context.user?.['id'] as string | undefined;
         if (!userId) return { documents: [] };

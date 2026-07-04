@@ -9,9 +9,10 @@ interface Props {
   doc?: Artifact;
   channelId?: string;
   viewHandler?: string;
+  groupId?: string;
 }
 
-export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler = 'defaultView' }: Props) {
+export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler = 'defaultView', groupId }: Props) {
   const resolvedChannelId = channelIdProp ?? doc?.currentChannelId ?? '';
 
   const navigate = useNavigate();
@@ -27,9 +28,10 @@ export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler 
       to: 'server' as const,
       channel: resolvedChannelId,
       timestamp: new Date().toISOString(),
+      ...(groupId ? { groupId } : {}),
       ...payload,
     } as unknown as InboundMessage);
-  }, [resolvedChannelId]);
+  }, [resolvedChannelId, groupId]);
 
   useEffect(() => {
     mountChannel(resolvedChannelId, emit, viewHandler);

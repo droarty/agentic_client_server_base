@@ -31,7 +31,8 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" },
-              { "actionType": "update", "path": "$temp.permissionLevel", "value": "$permissionLevel" }
+              { "actionType": "update", "path": "$temp.permissionLevel", "value": "$permissionLevel" },
+              { "actionType": "update", "path": "$temp.groupId", "value": "$groupId" }
             ]
           }
         }
@@ -55,11 +56,8 @@
                     "props": { "items": "@temp.sidebarItems" }
                   },
                   {
-                    "componentType": "textDisplay",
-                    "props": {
-                      "text": "@temp.rightPanelText",
-                      "placeholder": "Select an item from the sidebar."
-                    }
+                    "componentType": "layoutDocumentView",
+                    "props": { "channelId": "@temp.nestedChannelId" }
                   }
                 ]
               }
@@ -118,13 +116,12 @@
       ]
     },
     "open-artifact-browser": {
-      "condition": "$message._id",
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.rightPanelText", "value": "Artifact Browser — coming soon." }]
+            "actions": [{ "actionType": "update", "path": "$temp.nestedChannelId", "value": null }]
           }
         }
       ]
@@ -133,10 +130,20 @@
       "condition": "$message._id",
       "steps": [
         {
+          "route": "database-query",
+          "query": { "name": "get-document-summary", "responseType": "document-channel-ready" }
+        }
+      ]
+    },
+    "document-channel-ready": {
+      "steps": [
+        {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.rightPanelText", "value": "Document View — coming soon." }]
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.document.currentChannelId" }
+            ]
           }
         }
       ]
@@ -158,7 +165,7 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.rightPanelText", "value": "Create New Document — coming soon." }]
+            "actions": [{ "actionType": "update", "path": "$temp.nestedChannelId", "value": null }]
           }
         }
       ]
@@ -169,7 +176,7 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.rightPanelText", "value": "Create New Group — coming soon." }]
+            "actions": [{ "actionType": "update", "path": "$temp.nestedChannelId", "value": null }]
           }
         }
       ]

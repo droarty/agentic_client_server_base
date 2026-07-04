@@ -66,6 +66,11 @@ export async function apiGetDocument(id: string): Promise<Artifact> {
   return data;
 }
 
+export async function apiGetOrCreateWorkflowSession(params: { workflowType: string; groupId?: string; parentChannelId?: string }): Promise<{ channelId: string }> {
+  const { data } = await client.post<{ channelId: string }>('/api/workflow/session', params);
+  return data;
+}
+
 export async function apiGetGroupDashboardChannel(groupId: string, workflowType: string): Promise<{ channelId: string }> {
   const { data } = await client.get<{ channelId: string }>(`/api/groups/${groupId}/dashboard`, { params: { workflowType } });
   return data;
