@@ -332,6 +332,16 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .toArray();
         return { groups: groups.map(stringifyId) };
       }
+      if (queryName === 'get-subgroups') {
+        const groupId = context.groupId;
+        if (!groupId) return { groups: [] };
+        const { ObjectId } = await import('mongodb');
+        const groups = await db
+          .collection('groups')
+          .find({ parentGroupId: new ObjectId(groupId) })
+          .toArray();
+        return { groups: groups.map(stringifyId) };
+      }
       if (queryName === 'get-channel-document') {
         const channel = context.message['channel'] as string | undefined;
         if (!channel) return { document: null };

@@ -18,6 +18,8 @@ export function LayoutDocumentViewLayout({ channelId: channelIdProp, workflowTyp
   useEffect(() => {
     if (!channelIdProp && workflowType) {
       apiGetOrCreateWorkflowSession({ workflowType, groupId, parentChannelId, responseHandler }).then(({ channelId }) => setFetchedChannelId(channelId));
+    } else if (!workflowType) {
+      setFetchedChannelId(undefined);
     }
   }, [channelIdProp, workflowType, groupId, parentChannelId, responseHandler]);
 
