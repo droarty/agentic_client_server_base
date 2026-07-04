@@ -34,7 +34,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -360,6 +360,27 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           channelDoc = await db.collection('channels').findOne({ channelId: newChannelId });
         }
         return { channelId: channelDoc?.['channelId'] ?? null };
+      }
+      if (queryName === 'create-subgroup-with-permission') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId;
+        const groupName = (context.message['groupName'] as string | undefined)?.trim();
+        if (!userId || !groupId || !groupName) return { newGroup: null, result: 'Missing required fields' };
+        const { ObjectId } = await import('mongodb');
+        const parentGroupObjId = new ObjectId(groupId);
+        const userObjId = new ObjectId(userId);
+        const membership = await db.collection('memberships').findOne({ userId: userObjId, groupId: parentGroupObjId });
+        const roles = (membership?.['roles'] as string[] | undefined) ?? [];
+        if (!roles.some((r) => r === 'admin' || r === 'owner')) {
+          return { newGroup: null, result: 'Insufficient permissions to create sub-groups in this group' };
+        }
+        const parentGroup = await db.collection('groups').findOne({ _id: parentGroupObjId });
+        if (!parentGroup) return { newGroup: null, result: 'Parent group not found' };
+        const ancestors = [...((parentGroup['ancestors'] as unknown[]) ?? []), parentGroupObjId];
+        const now = new Date();
+        const insertResult = await db.collection('groups').insertOne({ name: groupName, parentGroupId: parentGroupObjId, ancestors, createdAt: now, updatedAt: now });
+        await db.collection('memberships').insertOne({ userId: userObjId, groupId: insertResult.insertedId, roles: ['owner'], joinedAt: now, createdAt: now, updatedAt: now });
+        return { newGroup: { _id: String(insertResult.insertedId), name: groupName }, result: `Group '${groupName}' created!` };
       }
       if (queryName === 'get-recent-user-documents') {
         const userId = context.user?.['id'] as string | undefined;

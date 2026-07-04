@@ -66,6 +66,7 @@ export interface ChannelContext {
   groupId?: string;
   userId?: string;
   parentChannelId?: string;
+  responseHandler?: string;
 }
 
 export interface WorkflowEngineDeps {
@@ -384,21 +385,19 @@ export class WorkflowEngine {
         this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'error', executionId, stepIndex, errorMessage: 'parent route: no parentChannel in context, skipping' });
         return;
       }
-      const base: Record<string, unknown> = {
-        id: randomUUID(),
-        from: 'server',
-        to: 'client',
-        channel: context.parentChannel,
-        timestamp: new Date().toISOString(),
-      };
-      const resolved = step.transform ? await resolveTransform(step.transform, context) : {};
-      if ('clientMessageType' in resolved) {
-        resolved['type'] = resolved['clientMessageType'];
-        delete resolved['clientMessageType'];
+      const childCtx = await this.resolveChannelContext(channel);
+      const responseHandler = childCtx?.responseHandler;
+      if (!responseHandler) {
+        this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'error', executionId, stepIndex, errorMessage: 'parent route: no responseHandler on channel, skipping' });
+        return;
       }
+      const resolved = step.transform ? await resolveTransform(step.transform, context) : {};
       this.deps.logWorkflowStep?.({ createdAt: new Date(), channel, docType, handlerName, logType: 'route', executionId, stepIndex, route: 'parent', resolvedMessage: resolved });
-      const outbound = { ...base, ...resolved } as unknown as OutboundMessage;
-      await this.deps.publishToClient(outbound);
+      await this.execute({
+        message: { type: responseHandler, channel: context.parentChannel, timestamp: new Date().toISOString(), ...resolved },
+        user: context.user,
+        permissionLevel: context.permissionLevel,
+      }, executionId, stepIndex);
       return;
     }
 
