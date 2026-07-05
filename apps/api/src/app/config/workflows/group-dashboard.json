@@ -62,7 +62,7 @@
                       "workflowType": "@temp.selectedWorkflow",
                       "groupId": "@temp.groupId",
                       "parentChannelId": "@temp._channelId",
-                      "responseHandler": "group-created"
+                      "responseHandler": "@temp.responseHandler"
                     }
                   }
                 ]
@@ -129,7 +129,23 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "browse-documents-workflow" },
               { "actionType": "update", "path": "$temp.nestedChannelId", "value": null },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": "document-opened-from-browser" }
+            ]
+          }
+        }
+      ]
+    },
+    "document-opened-from-browser": {
+      "condition": "$message.channelId",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.channelId" },
               { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
             ]
           }
@@ -192,7 +208,8 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "create-new-group-workflow" },
-              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": "group-created" }
             ]
           }
         }

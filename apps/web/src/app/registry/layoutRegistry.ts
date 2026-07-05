@@ -58,6 +58,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   memberList: lazy(() =>
     import('@/components/layout/MemberList').then((m) => ({ default: m.MemberList as ComponentType<LayoutComponentProps> }))
   ),
+  documentBrowser: lazy(() =>
+    import('@/components/layout/DocumentBrowser').then((m) => ({ default: m.DocumentBrowser as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
