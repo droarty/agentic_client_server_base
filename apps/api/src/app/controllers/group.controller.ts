@@ -58,6 +58,15 @@ export async function getGroup(req: AuthRequest, res: Response, next: NextFuncti
   }
 }
 
+export async function getGroupBreadcrumb(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const breadcrumb = await groupService.getGroupBreadcrumb(req.params['id']);
+    res.json(breadcrumb);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listMembers(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const members = await groupService.getMembers(req.params['id']);

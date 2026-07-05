@@ -16,6 +16,11 @@ export interface Group {
   updatedAt: string;
 }
 
+export interface GroupBreadcrumbItem {
+  _id: string;
+  name: string;
+}
+
 export interface Membership {
   _id: string;
   userId: string;
