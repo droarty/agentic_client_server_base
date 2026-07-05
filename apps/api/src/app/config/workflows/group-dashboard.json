@@ -62,7 +62,7 @@
                       "workflowType": "@temp.selectedWorkflow",
                       "groupId": "@temp.groupId",
                       "parentChannelId": "@temp._channelId",
-                      "responseHandler": "group-created"
+                      "responseHandler": "@temp.responseHandler"
                     }
                   }
                 ]
@@ -177,8 +177,9 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null },
-              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "create-new-document-workflow" },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": "document-created" },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
             ]
           }
         }
@@ -192,6 +193,7 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "create-new-group-workflow" },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": "group-created" },
               { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
             ]
           }
@@ -206,6 +208,7 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "manage-members-workflow" },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": null },
               { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
             ]
           }
@@ -221,6 +224,29 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
+          }
+        },
+        {
+          "route": "parallel-queries",
+          "queries": [
+            { "name": "get-recent-user-documents", "key": "documents" },
+            { "name": "get-subgroups", "key": "groups" }
+          ],
+          "responseType": "dashboard-data-result"
+        }
+      ]
+    },
+    "document-created": {
+      "condition": "$message.document",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.document.currentChannelId" }
             ]
           }
         },
