@@ -34,7 +34,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -501,6 +501,51 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           : [];
         const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
         return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
+      }
+      if (queryName === 'get-group-documents') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId;
+        if (!userId || !groupId) return { documents: [] };
+        const { ObjectId } = await import('mongodb');
+        const rawDocs = await db
+          .collection('artifacts')
+          .find(
+            {
+              userId,
+              groupId: new ObjectId(groupId),
+              type: { $nin: ['user-dashboard', 'group-dashboard', 'log-review', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow'] },
+            },
+            { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
+          )
+          .sort({ createdAt: -1 })
+          .toArray();
+        return { documents: rawDocs.map(stringifyId) };
+      }
+      if (queryName === 'rename-artifact') {
+        const userId = context.user?.['id'] as string | undefined;
+        const documentId = context.message['_id'] as string | undefined;
+        const name = (context.message['name'] as string | undefined)?.trim();
+        if (!userId || !documentId || !name) return { result: 'Missing required fields' };
+        const { ObjectId } = await import('mongodb');
+        const docObjId = new ObjectId(documentId);
+        const artifact = await db.collection('artifacts').findOne({ _id: docObjId });
+        if (!artifact) return { result: 'Document not found' };
+        if (artifact['userId'] !== userId) return { result: 'Insufficient permissions to rename this document' };
+        await db.collection('artifacts').updateOne({ _id: docObjId }, { $set: { name, updatedAt: new Date() } });
+        return { result: `Renamed to "${name}"` };
+      }
+      if (queryName === 'delete-artifact') {
+        const userId = context.user?.['id'] as string | undefined;
+        const documentId = context.message['_id'] as string | undefined;
+        if (!userId || !documentId) return { result: 'Missing required fields' };
+        const { ObjectId } = await import('mongodb');
+        const docObjId = new ObjectId(documentId);
+        const artifact = await db.collection('artifacts').findOne({ _id: docObjId });
+        if (!artifact) return { result: 'Document not found' };
+        if (artifact['userId'] !== userId) return { result: 'Insufficient permissions to delete this document' };
+        await db.collection('artifacts').deleteOne({ _id: docObjId });
+        await db.collection('channels').deleteOne({ artifactId: docObjId });
+        return { result: 'Document deleted' };
       }
       return {};
     } catch (err) {
