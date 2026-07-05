@@ -24,7 +24,34 @@ async function main() {
     // Ensure indexes exist
     await db.collection('channels').createIndex({ channelId: 1 }, { unique: true });
     await db.collection('channels').createIndex({ artifactId: 1 }, { unique: true, sparse: true });
-    await db.collection('channels').createIndex({ workflowType: 1, userId: 1, groupId: 1 }, { unique: true, sparse: true });
+
+    // Migrate the session-uniqueness index: the old `sparse` version also constrained
+    // document-backed channels, preventing a user from creating two documents of the same
+    // type. Drop it if present and replace with a partial index scoped to session channels
+    // (isSessionChannel: true) only — MongoDB partial indexes don't support $exists:false,
+    // so an explicit marker field is used instead of "no artifactId".
+    const existingIndexes = await db.collection('channels').indexes();
+    const staleSessionIndex = existingIndexes.find(
+      (idx) => idx.name === 'workflowType_1_userId_1_groupId_1' && !idx.partialFilterExpression
+    );
+    if (staleSessionIndex) {
+      await db.collection('channels').dropIndex('workflowType_1_userId_1_groupId_1');
+    }
+
+    // Backfill the marker on pre-existing session channels (any channel without an artifactId
+    // was always a session channel — document-backed channels always set artifactId).
+    const backfillResult = await db.collection('channels').updateMany(
+      { artifactId: { $exists: false }, isSessionChannel: { $ne: true } },
+      { $set: { isSessionChannel: true } }
+    );
+    if (backfillResult.modifiedCount > 0) {
+      console.log(`Backfilled isSessionChannel on ${backfillResult.modifiedCount} existing session channel(s).`);
+    }
+
+    await db.collection('channels').createIndex(
+      { workflowType: 1, userId: 1, groupId: 1 },
+      { unique: true, partialFilterExpression: { isSessionChannel: true } }
+    );
 
     const artifacts = await db.collection('artifacts').find({}).toArray();
     console.log(`Found ${artifacts.length} artifact(s) to migrate.`);

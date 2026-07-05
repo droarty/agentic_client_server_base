@@ -18,6 +18,7 @@ export async function getOrCreateWorkflowSession(req: AuthRequest, res: Response
     const query: Record<string, unknown> = {
       workflowType: workflowType.trim(),
       userId: req.userId,
+      isSessionChannel: true,
     };
     if (groupId) query['groupId'] = new Types.ObjectId(groupId);
 
@@ -29,6 +30,7 @@ export async function getOrCreateWorkflowSession(req: AuthRequest, res: Response
         groupId: groupId ? new Types.ObjectId(groupId) : undefined,
         parentChannelId: parentChannelId ?? undefined,
         responseHandler: responseHandler ?? undefined,
+        isSessionChannel: true,
       });
     }
     res.json({ channelId: channel.channelId });
