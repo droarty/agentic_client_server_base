@@ -61,6 +61,7 @@ async function getChannelContext(channel: string): Promise<ChannelContext | null
       groupId: doc['groupId'] ? String(doc['groupId']) : undefined,
       userId: doc['userId'] as string | undefined,
       parentChannelId: doc['parentChannelId'] as string | undefined,
+      responseHandler: doc['responseHandler'] as string | undefined,
     };
   } catch {
     return null;

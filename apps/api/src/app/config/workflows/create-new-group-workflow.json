@@ -1,0 +1,79 @@
+{
+  "name": "create-new-group-workflow",
+  "version": "1.0.0",
+  "initialState": {},
+  "handlers": {
+    "initializeState": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": {}
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "multiFieldInput",
+                    "props": {
+                      "fields": [
+                        { "name": "groupName", "label": "Group Name", "placeholder": "Enter a name for your group" }
+                      ],
+                      "submitLabel": "Create Group"
+                    },
+                    "emits": { "submit": "submit-group-name" }
+                  },
+                  {
+                    "componentType": "textDisplay",
+                    "props": { "text": "@temp.result" }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "submit-group-name": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "create-subgroup-with-permission", "responseType": "subgroup-creation-result" }
+        }
+      ]
+    },
+    "subgroup-creation-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.result", "value": "$message.result" }
+            ]
+          }
+        },
+        {
+          "route": "parent",
+          "transform": {
+            "group": "$message.newGroup",
+            "result": "$message.result"
+          }
+        }
+      ]
+    }
+  }
+}

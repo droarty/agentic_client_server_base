@@ -6,18 +6,22 @@ interface Props {
   channelId?: string;
   workflowType?: string;
   groupId?: string;
+  parentChannelId?: string;
+  responseHandler?: string;
   viewHandler?: string;
   [key: string]: unknown;
 }
 
-export function LayoutDocumentViewLayout({ channelId: channelIdProp, workflowType, groupId, viewHandler }: Props) {
+export function LayoutDocumentViewLayout({ channelId: channelIdProp, workflowType, groupId, parentChannelId, responseHandler, viewHandler }: Props) {
   const [fetchedChannelId, setFetchedChannelId] = useState<string | undefined>();
 
   useEffect(() => {
     if (!channelIdProp && workflowType) {
-      apiGetOrCreateWorkflowSession({ workflowType, groupId }).then(({ channelId }) => setFetchedChannelId(channelId));
+      apiGetOrCreateWorkflowSession({ workflowType, groupId, parentChannelId, responseHandler }).then(({ channelId }) => setFetchedChannelId(channelId));
+    } else if (!workflowType) {
+      setFetchedChannelId(undefined);
     }
-  }, [channelIdProp, workflowType, groupId]);
+  }, [channelIdProp, workflowType, groupId, parentChannelId, responseHandler]);
 
   const resolvedChannelId = channelIdProp ?? fetchedChannelId;
 

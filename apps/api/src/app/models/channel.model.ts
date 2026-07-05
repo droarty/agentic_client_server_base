@@ -8,6 +8,7 @@ export interface IChannel extends Document {
   artifactId?: Types.ObjectId;
   groupId?: Types.ObjectId;
   parentChannelId?: string;
+  responseHandler?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +21,7 @@ const channelSchema = new Schema<IChannel>(
     artifactId: { type: Schema.Types.ObjectId, ref: 'Artifact' },
     groupId: { type: Schema.Types.ObjectId, ref: 'Group' },
     parentChannelId: { type: String },
+    responseHandler: { type: String },
   },
   { timestamps: true }
 );

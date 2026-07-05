@@ -57,7 +57,13 @@
                   },
                   {
                     "componentType": "layoutDocumentView",
-                    "props": { "channelId": "@temp.nestedChannelId" }
+                    "props": {
+                      "channelId": "@temp.nestedChannelId",
+                      "workflowType": "@temp.selectedWorkflow",
+                      "groupId": "@temp.groupId",
+                      "parentChannelId": "@temp._channelId",
+                      "responseHandler": "group-created"
+                    }
                   }
                 ]
               }
@@ -68,7 +74,7 @@
           "route": "parallel-queries",
           "queries": [
             { "name": "get-recent-user-documents", "key": "documents" },
-            { "name": "get-user-groups", "key": "groups" }
+            { "name": "get-subgroups", "key": "groups" }
           ],
           "responseType": "dashboard-data-result"
         }
@@ -121,7 +127,10 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.nestedChannelId", "value": null }]
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null },
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
           }
         }
       ]
@@ -142,7 +151,8 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.document.currentChannelId" }
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.document.currentChannelId" },
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
             ]
           }
         }
@@ -165,7 +175,10 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.nestedChannelId", "value": null }]
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null },
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
           }
         }
       ]
@@ -176,8 +189,33 @@
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
-            "actions": [{ "actionType": "update", "path": "$temp.nestedChannelId", "value": null }]
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "create-new-group-workflow" },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
+            ]
           }
+        }
+      ]
+    },
+    "group-created": {
+      "condition": "$message.group",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
+          }
+        },
+        {
+          "route": "parallel-queries",
+          "queries": [
+            { "name": "get-recent-user-documents", "key": "documents" },
+            { "name": "get-subgroups", "key": "groups" }
+          ],
+          "responseType": "dashboard-data-result"
         }
       ]
     }
