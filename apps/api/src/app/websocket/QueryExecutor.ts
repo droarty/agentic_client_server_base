@@ -395,11 +395,12 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       if (queryName === 'get-group-members') {
         const userId = context.user?.['id'] as string | undefined;
         const groupId = context.groupId;
-        if (!userId || !groupId) return { members: [], currentUserRoles: [] };
+        if (!userId || !groupId) return { members: [], isAdmin: false };
         const { ObjectId } = await import('mongodb');
         const groupObjId = new ObjectId(groupId);
         const callerMembership = await db.collection('memberships').findOne({ userId: new ObjectId(userId), groupId: groupObjId });
         const currentUserRoles = (callerMembership?.['roles'] as string[] | undefined) ?? [];
+        const isAdmin = currentUserRoles.some((r) => r === 'admin' || r === 'owner');
         const memberships = await db.collection('memberships').find({ groupId: groupObjId }).toArray();
         const memberUserIds = memberships.map((m) => m['userId'] as ObjectId);
         const users = memberUserIds.length > 0
@@ -411,7 +412,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           email: emailByUserId.get(String(m['userId'])) ?? 'unknown',
           roles: m['roles'] as string[],
         }));
-        return { members, currentUserRoles };
+        return { members, isAdmin };
       }
       if (queryName === 'add-group-member') {
         const userId = context.user?.['id'] as string | undefined;

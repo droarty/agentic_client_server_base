@@ -73,6 +73,17 @@ function buildChildren(
           </Fragment>
         );
       }
+    } else if (child.componentType === 'showIf' || child.componentType === 'showIfNot') {
+      const sourcePath = ((child.props?.source as string) ?? '').replace(/^@/, '');
+      const value = Boolean(resolveDotPath(state, sourcePath));
+      const show = child.componentType === 'showIf' ? value : !value;
+      if (show) {
+        result.push(
+          <Fragment key={i}>
+            {buildChildren(child, state, emit)}
+          </Fragment>
+        );
+      }
     } else {
       result.push(
         <Suspense key={i} fallback={null}>

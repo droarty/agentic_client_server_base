@@ -35,19 +35,25 @@
                     "componentType": "memberList",
                     "props": {
                       "items": "@temp.members",
-                      "currentUserRoles": "@temp.currentUserRoles"
+                      "isAdmin": "@temp.isAdmin"
                     },
                     "emits": { "remove": "remove-member", "roleChange": "update-member-role" }
                   },
                   {
-                    "componentType": "multiFieldInput",
-                    "props": {
-                      "fields": [
-                        { "name": "email", "label": "Email", "placeholder": "user@example.com" }
-                      ],
-                      "submitLabel": "Add Member"
-                    },
-                    "emits": { "submit": "add-member" }
+                    "componentType": "showIf",
+                    "props": { "source": "@temp.isAdmin" },
+                    "children": [
+                      {
+                        "componentType": "multiFieldInput",
+                        "props": {
+                          "fields": [
+                            { "name": "email", "label": "Email", "placeholder": "user@example.com" }
+                          ],
+                          "submitLabel": "Add Member"
+                        },
+                        "emits": { "submit": "add-member" }
+                      }
+                    ]
                   },
                   {
                     "componentType": "textDisplay",
@@ -72,7 +78,7 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.members", "value": "$message.members" },
-              { "actionType": "update", "path": "$temp.currentUserRoles", "value": "$message.currentUserRoles" }
+              { "actionType": "update", "path": "$temp.isAdmin", "value": "$message.isAdmin" }
             ]
           }
         }
