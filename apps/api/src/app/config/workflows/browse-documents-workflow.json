@@ -1,0 +1,122 @@
+{
+  "name": "browse-documents-workflow",
+  "version": "1.0.0",
+  "initialState": {},
+  "handlers": {
+    "initializeState": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": {}
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "textDisplay",
+                    "props": { "text": "Browse All Documents" }
+                  },
+                  {
+                    "componentType": "documentBrowser",
+                    "props": { "items": "@temp.documents" },
+                    "emits": { "open": "open-document", "rename": "rename-document", "delete": "delete-document" }
+                  },
+                  {
+                    "componentType": "textDisplay",
+                    "props": { "text": "@temp.result" }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-group-documents", "responseType": "documents-loaded" }
+        }
+      ]
+    },
+    "documents-loaded": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.documents", "value": "$message.documents" }
+            ]
+          }
+        }
+      ]
+    },
+    "open-document": {
+      "condition": "$message.documentId",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-document-summary", "responseType": "document-ready-for-parent" }
+        }
+      ]
+    },
+    "document-ready-for-parent": {
+      "steps": [
+        {
+          "route": "parent",
+          "transform": {
+            "channelId": "$message.document.currentChannelId"
+          }
+        }
+      ]
+    },
+    "rename-document": {
+      "condition": "$message._id",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "rename-artifact", "responseType": "document-mutation-result" }
+        }
+      ]
+    },
+    "delete-document": {
+      "condition": "$message._id",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "delete-artifact", "responseType": "document-mutation-result" }
+        }
+      ]
+    },
+    "document-mutation-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.result", "value": "$message.result" }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-group-documents", "responseType": "documents-loaded" }
+        }
+      ]
+    }
+  }
+}
