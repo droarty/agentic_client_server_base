@@ -54,7 +54,7 @@ export function SidebarMenu({ items = [], emit, onSelect }: Props) {
     }
 
     if (item.emits_msg) {
-      emit?.(item.emits_msg, { _id: item._id, name: item.name });
+      emit?.(item.emits_msg, { _id: item._id, documentId: item._id, name: item.name });
     } else {
       onSelect?.({ _id: item._id, name: item.name });
     }
