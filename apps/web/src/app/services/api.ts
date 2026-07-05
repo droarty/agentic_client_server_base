@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, User, UpdateUserRequest, Artifact } from '@agentic-client-server-base/shared-types';
+import { AuthResponse, User, UpdateUserRequest, Artifact, GroupBreadcrumbItem } from '@agentic-client-server-base/shared-types';
 
 const API_URL = (typeof process !== 'undefined' && process.env['API_URL']) || 'http://localhost:3000';
 
@@ -73,5 +73,10 @@ export async function apiGetOrCreateWorkflowSession(params: { workflowType: stri
 
 export async function apiGetGroupDashboardChannel(groupId: string, workflowType: string): Promise<{ channelId: string }> {
   const { data } = await client.get<{ channelId: string }>(`/api/groups/${groupId}/dashboard`, { params: { workflowType } });
+  return data;
+}
+
+export async function apiGetGroupBreadcrumb(groupId: string): Promise<GroupBreadcrumbItem[]> {
+  const { data } = await client.get<GroupBreadcrumbItem[]>(`/api/groups/${groupId}/breadcrumb`);
   return data;
 }

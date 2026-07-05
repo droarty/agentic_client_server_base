@@ -40,6 +40,29 @@ export async function getGroupById(id: string): Promise<IGroup | null> {
   return Group.findById(id);
 }
 
+export async function getGroupBreadcrumb(id: string): Promise<{ _id: string; name: string }[]> {
+  const group = await Group.findById(id, { name: 1, ancestors: 1 });
+  if (!group) {
+    const err = new Error('Group not found') as Error & { statusCode: number };
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const ancestorIds = group.ancestors as Types.ObjectId[];
+  const ancestorGroups = ancestorIds.length
+    ? await Group.find({ _id: { $in: ancestorIds } }, { name: 1 })
+    : [];
+  const ancestorsById = new Map(ancestorGroups.map((g) => [(g._id as Types.ObjectId).toString(), g]));
+  const orderedAncestors = ancestorIds
+    .map((id) => ancestorsById.get(id.toString()))
+    .filter((g) => g != null);
+
+  return [...orderedAncestors, group].map((g) => ({
+    _id: (g._id as Types.ObjectId).toString(),
+    name: g.name,
+  }));
+}
+
 export async function getMembership(groupId: string, userId: string): Promise<IMembership | null> {
   return Membership.findOne({
     groupId: new Types.ObjectId(groupId),

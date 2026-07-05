@@ -4,7 +4,7 @@ import { getMembership } from '../services/group.service';
 import {
   listGroups, createGroup, getGroup,
   listMembers, addMember, updateMember, removeMember,
-  listSubgroups, getGroupDashboard,
+  listSubgroups, getGroupDashboard, getGroupBreadcrumb,
 } from '../controllers/group.controller';
 
 export const groupRoutes = Router();
@@ -33,6 +33,7 @@ async function requireAdminOrOwner(req: AuthRequest, res: Response, next: NextFu
 }
 
 groupRoutes.get('/:id/dashboard',   requireMember,       getGroupDashboard);
+groupRoutes.get('/:id/breadcrumb',  requireMember,       getGroupBreadcrumb);
 groupRoutes.get('/:id',             requireMember,       getGroup);
 groupRoutes.get('/:id/subgroups',   requireMember,       listSubgroups);
 groupRoutes.get('/:id/members',     requireMember,       listMembers);

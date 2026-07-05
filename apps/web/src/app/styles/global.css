@@ -259,6 +259,17 @@ body {
   font-size: 0.9rem;
 }
 
+.group-breadcrumbs {
+  background: white;
+  border-bottom: 1px solid #eee;
+  padding: 0.5rem 2rem;
+  font-size: 0.9rem;
+}
+
+.group-breadcrumbs .breadcrumb-separator {
+  color: #999;
+}
+
 .page main {
   padding: 2rem;
   max-width: 1200px;
