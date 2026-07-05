@@ -92,7 +92,7 @@
                 "path": "$temp.sidebarItems",
                 "value": [
                   {
-                    "name": "My Documents",
+                    "name": "Group Documents",
                     "collapsed": false,
                     "children": {
                       "$map": "$message.documents",
@@ -104,7 +104,7 @@
                     }
                   },
                   {
-                    "name": "My Groups",
+                    "name": "Sub Groups",
                     "collapsed": false,
                     "children": {
                       "$map": "$message.groups",
@@ -113,7 +113,8 @@
                         { "name": "Create New Group", "_id": "create-group", "emits_msg": "create-new-group" }
                       ]
                     }
-                  }
+                  },
+                  { "name": "Manage Members", "_id": "manage-members", "emits_msg": "open-manage-members" }
                 ]
               }
             ]
@@ -191,6 +192,20 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "create-new-group-workflow" },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
+            ]
+          }
+        }
+      ]
+    },
+    "open-manage-members": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "manage-members-workflow" },
               { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
             ]
           }

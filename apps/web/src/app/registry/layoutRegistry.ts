@@ -55,6 +55,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   sidebarMenu: lazy(() =>
     import('@/components/layout/SidebarMenu').then((m) => ({ default: m.SidebarMenu as ComponentType<LayoutComponentProps> }))
   ),
+  memberList: lazy(() =>
+    import('@/components/layout/MemberList').then((m) => ({ default: m.MemberList as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
