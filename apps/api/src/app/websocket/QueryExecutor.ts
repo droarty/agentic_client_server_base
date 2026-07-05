@@ -34,7 +34,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -391,6 +391,94 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const insertResult = await db.collection('groups').insertOne({ name: groupName, parentGroupId: parentGroupObjId, ancestors, createdAt: now, updatedAt: now });
         await db.collection('memberships').insertOne({ userId: userObjId, groupId: insertResult.insertedId, roles: ['owner'], joinedAt: now, createdAt: now, updatedAt: now });
         return { newGroup: { _id: String(insertResult.insertedId), name: groupName }, result: `Group '${groupName}' created!` };
+      }
+      if (queryName === 'get-group-members') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId;
+        if (!userId || !groupId) return { members: [], currentUserRoles: [] };
+        const { ObjectId } = await import('mongodb');
+        const groupObjId = new ObjectId(groupId);
+        const callerMembership = await db.collection('memberships').findOne({ userId: new ObjectId(userId), groupId: groupObjId });
+        const currentUserRoles = (callerMembership?.['roles'] as string[] | undefined) ?? [];
+        const memberships = await db.collection('memberships').find({ groupId: groupObjId }).toArray();
+        const memberUserIds = memberships.map((m) => m['userId'] as ObjectId);
+        const users = memberUserIds.length > 0
+          ? await db.collection('users').find({ _id: { $in: memberUserIds } }, { projection: { _id: 1, email: 1 } }).toArray()
+          : [];
+        const emailByUserId = new Map(users.map((u) => [String(u._id), u['email'] as string]));
+        const members = memberships.map((m) => ({
+          _id: String(m['userId']),
+          email: emailByUserId.get(String(m['userId'])) ?? 'unknown',
+          roles: m['roles'] as string[],
+        }));
+        return { members, currentUserRoles };
+      }
+      if (queryName === 'add-group-member') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId;
+        const email = (context.message['email'] as string | undefined)?.trim().toLowerCase();
+        if (!userId || !groupId || !email) return { result: 'Missing required fields' };
+        const { ObjectId } = await import('mongodb');
+        const groupObjId = new ObjectId(groupId);
+        const callerMembership = await db.collection('memberships').findOne({ userId: new ObjectId(userId), groupId: groupObjId });
+        const callerRoles = (callerMembership?.['roles'] as string[] | undefined) ?? [];
+        if (!callerRoles.some((r) => r === 'admin' || r === 'owner')) {
+          return { result: 'Insufficient permissions to add members' };
+        }
+        const targetUser = await db.collection('users').findOne({ email });
+        if (!targetUser) return { result: `No user found with email ${email}` };
+        const existing = await db.collection('memberships').findOne({ userId: targetUser._id, groupId: groupObjId });
+        if (existing) return { result: `${email} is already a member` };
+        const now = new Date();
+        await db.collection('memberships').insertOne({ userId: targetUser._id, groupId: groupObjId, roles: ['member'], joinedAt: now, createdAt: now, updatedAt: now });
+        return { result: `Added ${email} as a member` };
+      }
+      if (queryName === 'update-group-member-role') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId;
+        const targetUserId = context.message['_id'] as string | undefined;
+        const newRole = context.message['role'] as string | undefined;
+        if (!userId || !groupId || !targetUserId || !newRole || !['admin', 'member'].includes(newRole)) {
+          return { result: 'Missing or invalid required fields' };
+        }
+        const { ObjectId } = await import('mongodb');
+        const groupObjId = new ObjectId(groupId);
+        const callerMembership = await db.collection('memberships').findOne({ userId: new ObjectId(userId), groupId: groupObjId });
+        const callerRoles = (callerMembership?.['roles'] as string[] | undefined) ?? [];
+        if (!callerRoles.some((r) => r === 'admin' || r === 'owner')) {
+          return { result: 'Insufficient permissions to change member roles' };
+        }
+        const targetObjId = new ObjectId(targetUserId);
+        const targetMembership = await db.collection('memberships').findOne({ userId: targetObjId, groupId: groupObjId });
+        if (!targetMembership) return { result: 'Membership not found' };
+        if ((targetMembership['roles'] as string[]).includes('owner')) {
+          const ownerCount = await db.collection('memberships').countDocuments({ groupId: groupObjId, roles: 'owner' });
+          if (ownerCount <= 1) return { result: 'Cannot change role of the last remaining owner' };
+        }
+        await db.collection('memberships').updateOne({ userId: targetObjId, groupId: groupObjId }, { $set: { roles: [newRole], updatedAt: new Date() } });
+        return { result: 'Role updated' };
+      }
+      if (queryName === 'remove-group-member') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupId = context.groupId;
+        const targetUserId = context.message['_id'] as string | undefined;
+        if (!userId || !groupId || !targetUserId) return { result: 'Missing required fields' };
+        const { ObjectId } = await import('mongodb');
+        const groupObjId = new ObjectId(groupId);
+        const callerMembership = await db.collection('memberships').findOne({ userId: new ObjectId(userId), groupId: groupObjId });
+        const callerRoles = (callerMembership?.['roles'] as string[] | undefined) ?? [];
+        if (!callerRoles.some((r) => r === 'admin' || r === 'owner')) {
+          return { result: 'Insufficient permissions to remove members' };
+        }
+        const targetObjId = new ObjectId(targetUserId);
+        const targetMembership = await db.collection('memberships').findOne({ userId: targetObjId, groupId: groupObjId });
+        if (!targetMembership) return { result: 'Membership not found' };
+        if ((targetMembership['roles'] as string[]).includes('owner')) {
+          const ownerCount = await db.collection('memberships').countDocuments({ groupId: groupObjId, roles: 'owner' });
+          if (ownerCount <= 1) return { result: 'Cannot remove the last remaining owner' };
+        }
+        await db.collection('memberships').deleteOne({ userId: targetObjId, groupId: groupObjId });
+        return { result: 'Member removed' };
       }
       if (queryName === 'get-recent-user-documents') {
         const userId = context.user?.['id'] as string | undefined;
