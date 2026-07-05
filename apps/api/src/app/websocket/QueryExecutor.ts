@@ -34,7 +34,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))

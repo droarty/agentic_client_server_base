@@ -1,0 +1,82 @@
+{
+  "name": "create-new-document-workflow",
+  "version": "1.0.0",
+  "initialState": {},
+  "handlers": {
+    "initializeState": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": {}
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "newDocument",
+                    "props": { "availableTypes": "@temp.availableTypes" },
+                    "emits": { "create": "submit-new-document" }
+                  },
+                  {
+                    "componentType": "textDisplay",
+                    "props": { "text": "@temp.result" }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-available-types", "responseType": "types-loaded" }
+        }
+      ]
+    },
+    "types-loaded": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.availableTypes", "value": "$message.availableTypes" }
+            ]
+          }
+        }
+      ]
+    },
+    "submit-new-document": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "create-document", "responseType": "document-creation-result" }
+        }
+      ]
+    },
+    "document-creation-result": {
+      "condition": "$message.document",
+      "steps": [
+        {
+          "route": "parent",
+          "transform": {
+            "document": "$message.document"
+          }
+        }
+      ]
+    }
+  }
+}
