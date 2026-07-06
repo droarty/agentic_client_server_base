@@ -48,7 +48,7 @@
                     "children": [
                       {
                         "componentType": "chatBody",
-                        "props": { "messages": "@state.chatMessages", "defaultToTTS": true }
+                        "props": { "messages": "@state.chatMessages" }
                       },
                       {
                         "componentType": "chatInput",
