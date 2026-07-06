@@ -6,14 +6,6 @@
     "initializeState": {
       "steps": [
         {
-          "route": "database-query",
-          "query": { "name": "get-user-groups", "responseType": "user-groups-result" }
-        }
-      ]
-    },
-    "user-groups-result": {
-      "steps": [
-        {
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-state",
@@ -21,28 +13,23 @@
           }
         },
         {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$temp.groups", "value": "$message.groups" },
-              { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" }
-            ]
-          }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "get-group-documents", "responseType": "user-documents-result" }
+          "route": "parallel-queries",
+          "queries": [
+            { "name": "get-user-groups", "key": "groups" },
+            { "name": "get-group-documents", "key": "documents" }
+          ],
+          "responseType": "dashboard-data-result"
         }
       ]
     },
-    "user-documents-result": {
+    "dashboard-data-result": {
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
+              { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" },
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
@@ -51,7 +38,7 @@
                     "name": "Groups",
                     "collapsed": false,
                     "children": {
-                      "$map": "$temp.groups",
+                      "$map": "$message.groups",
                       "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "open-group" }
                     }
                   },
@@ -157,8 +144,12 @@
           }
         },
         {
-          "route": "database-query",
-          "query": { "name": "get-group-documents", "responseType": "user-documents-result" }
+          "route": "parallel-queries",
+          "queries": [
+            { "name": "get-user-groups", "key": "groups" },
+            { "name": "get-group-documents", "key": "documents" }
+          ],
+          "responseType": "dashboard-data-result"
         }
       ]
     },
