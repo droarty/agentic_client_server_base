@@ -182,6 +182,9 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           createdAt: now,
           updatedAt: now,
         };
+        if (context.groupId) {
+          docFields['groupId'] = new ObjectId(context.groupId);
+        }
         if (initialState !== undefined) {
           docFields['state'] = initialState;
         }
@@ -583,14 +586,15 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       if (queryName === 'get-group-documents') {
         const userId = context.user?.['id'] as string | undefined;
         const groupId = context.groupId;
-        if (!userId || !groupId) return { documents: [] };
+        if (!userId) return { documents: [] };
         const { ObjectId } = await import('mongodb');
+        const scopeFilter = groupId ? { groupId: new ObjectId(groupId) } : { groupId: { $exists: false } };
         const rawDocs = await db
           .collection('artifacts')
           .find(
             {
               userId,
-              groupId: new ObjectId(groupId),
+              ...scopeFilter,
               type: { $nin: ['user-dashboard', 'group-dashboard', 'log-review', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow'] },
             },
             { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
