@@ -9,13 +9,22 @@ interface QueryExecutorDeps {
   dbReady: Promise<MongoClient>;
   configDir: string;
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
+  invalidateWorkflowConfig?: (name: string) => void;
 }
 
 export function createQueryExecutor(deps: QueryExecutorDeps) {
-  const { mongoClient, dbReady, configDir, logWorkflowStep } = deps;
+  const { mongoClient, dbReady, configDir, logWorkflowStep, invalidateWorkflowConfig } = deps;
 
   const stringifyId = <T extends { _id: unknown }>(doc: T): Omit<T, '_id'> & { _id: string } =>
     ({ ...doc, _id: String(doc._id) });
+
+  function bumpPatchVersion(version: string): string {
+    const parts = version.split('.');
+    const patch = parseInt(parts[2] ?? '0', 10);
+    if (Number.isNaN(patch)) return `${version}-1`;
+    parts[2] = String(patch + 1);
+    return parts.join('.');
+  }
 
   async function getChannelIdForArtifact(artifactId: ObjectId): Promise<string | null> {
     const channelDoc = await mongoClient.db().collection('channels')
@@ -34,7 +43,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       await dbReady;
       const db = mongoClient.db();
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow', 'workflow-builder']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -122,6 +131,31 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           .toArray();
         return { users: users.map(stringifyId) };
       }
+      if (queryName === 'create-workflow-builder-document') {
+        const userId = context.user?.['id'] as string | undefined;
+        const { randomUUID } = await import('crypto');
+        const now = new Date();
+        const configPath = path.join(configDir, 'workflow-builder.json');
+        const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+        const result = await db.collection('artifacts').insertOne({
+          name: 'New Workflow',
+          type: 'workflow-builder',
+          userId,
+          createdAt: now,
+          updatedAt: now,
+          state: wfConfig.initialState ?? {},
+        } as any);
+        const newChannelId = randomUUID();
+        await db.collection('channels').insertOne({
+          channelId: newChannelId,
+          workflowType: 'workflow-builder',
+          userId,
+          artifactId: result.insertedId,
+          createdAt: now,
+          updatedAt: now,
+        });
+        return { channelId: newChannelId };
+      }
       if (queryName === 'create-document') {
         const name = (context.message['name'] as string | undefined)?.trim();
         const type = (context.message['documentType'] as string | undefined) ?? 'configged-chat';
@@ -186,6 +220,50 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           },
           documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })),
         };
+      }
+      if (queryName === 'get-workflow-builder-context') {
+        const channel = context.message['channel'] as string | undefined;
+        const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
+        const doc = artifactId ? await db.collection('artifacts').findOne({ _id: artifactId }, { projection: { state: 1 } }) : null;
+        const state = (doc?.['state'] as Record<string, unknown> | undefined) ?? {};
+        return {
+          text: context.message['text'],
+          senderEmail: context.message['senderEmail'],
+          chatMessages: state['chatMessages'] ?? [],
+          draftConfig: state['draftConfig'] ?? null,
+        };
+      }
+      if (queryName === 'publish-workflow-config') {
+        const channel = context.message['channel'] as string | undefined;
+        const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
+        const doc = artifactId ? await db.collection('artifacts').findOne({ _id: artifactId }, { projection: { state: 1 } }) : null;
+        const draft = ((doc?.['state'] as Record<string, unknown> | undefined)?.['draftConfig']) as Record<string, unknown> | undefined;
+        const name = draft?.['name'] as string | undefined;
+        const handlers = draft?.['handlers'] as Record<string, unknown> | undefined;
+        if (!draft || !name || !handlers) {
+          return { type: 'workflow-publish-error', errorMessage: 'No valid draft to publish yet — the draft needs a name and handlers.' };
+        }
+        const userId = context.user?.['id'] as string | undefined;
+        const displayName = (draft['displayName'] as string | undefined) ?? name;
+        const initialState = (draft['initialState'] as Record<string, unknown> | undefined) ?? {};
+
+        const existing = await db.collection('workflowconfigs').findOne({ name });
+        if (existing && existing['createdBy'] && existing['createdBy'] !== userId) {
+          return { type: 'workflow-publish-error', errorMessage: `A workflow named "${name}" already exists and belongs to another user — choose a different name.` };
+        }
+        const nextVersion = existing ? bumpPatchVersion(existing['version'] as string) : '1.0.0';
+
+        await db.collection('workflowconfigs').updateOne(
+          { name },
+          {
+            $set: { name, displayName, version: nextVersion, initialState, handlers, createdBy: userId },
+            $setOnInsert: { createdAt: new Date() },
+          },
+          { upsert: true }
+        );
+        invalidateWorkflowConfig?.(name);
+
+        return { type: 'workflow-published', publishedName: name, publishedVersion: nextVersion };
       }
       if (queryName === 'get-workflow-logs') {
         const userId = context.user?.['id'] as string | undefined;

@@ -26,6 +26,7 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.groups", "value": "$message.groups" },
+              { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" },
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
@@ -37,7 +38,8 @@
                       "$map": "$message.groups",
                       "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "open-group" }
                     }
-                  }
+                  },
+                  { "name": "Build New Workflow", "_id": "build-workflow", "emits_msg": "open-workflow-builder" }
                 ]
               }
             ]
@@ -62,8 +64,13 @@
                     "props": { "items": "@temp.sidebarItems" }
                   },
                   {
-                    "componentType": "textDisplay",
-                    "props": { "text": "Select a group from the menu." }
+                    "componentType": "layoutDocumentView",
+                    "props": {
+                      "channelId": "@temp.nestedChannelId",
+                      "workflowType": "@temp.selectedWorkflow",
+                      "parentChannelId": "@temp._channelId",
+                      "responseHandler": "@temp.responseHandler"
+                    }
                   }
                 ]
               }
@@ -79,6 +86,28 @@
           "transform": {
             "clientMessageType": "redirect",
             "url": "~{ '/group/' & message._id }"
+          }
+        }
+      ]
+    },
+    "open-workflow-builder": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "create-workflow-builder-document", "responseType": "workflow-builder-ready" }
+        }
+      ]
+    },
+    "workflow-builder-ready": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.channelId" },
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
           }
         }
       ]

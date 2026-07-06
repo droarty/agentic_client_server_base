@@ -28,8 +28,8 @@ export class AiService {
       messages: [{ role: 'user', content: userPrompt }],
     });
 
-    const block = message.content[0];
-    if (block.type !== 'text') throw new Error('Unexpected Anthropic response type');
+    const block = message.content.find((b) => b.type === 'text');
+    if (!block || block.type !== 'text') throw new Error('Unexpected Anthropic response type');
     return block.text.trim();
   }
 }
