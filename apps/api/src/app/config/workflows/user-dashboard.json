@@ -26,7 +26,23 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$temp.groups", "value": "$message.groups" },
-              { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" },
+              { "actionType": "update", "path": "$temp._channelId", "value": "$message.channel" }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-group-documents", "responseType": "user-documents-result" }
+        }
+      ]
+    },
+    "user-documents-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
               {
                 "actionType": "update",
                 "path": "$temp.sidebarItems",
@@ -35,8 +51,20 @@
                     "name": "Groups",
                     "collapsed": false,
                     "children": {
-                      "$map": "$message.groups",
+                      "$map": "$temp.groups",
                       "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "open-group" }
+                    }
+                  },
+                  {
+                    "name": "My Documents",
+                    "collapsed": false,
+                    "children": {
+                      "$map": "$message.documents",
+                      "$using": { "_id": "$item._id", "name": "$item.name", "emits_msg": "select-user-document" },
+                      "$append": [
+                        { "name": "Browse All Documents", "_id": "browse-all", "emits_msg": "open-artifact-browser" },
+                        { "name": "Create New Document", "_id": "create-document", "emits_msg": "create-new-document" }
+                      ]
                     }
                   },
                   { "name": "Build New Workflow", "_id": "build-workflow", "emits_msg": "open-workflow-builder" }
@@ -44,6 +72,93 @@
               }
             ]
           }
+        }
+      ]
+    },
+    "open-artifact-browser": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "browse-documents-workflow" },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": "document-opened-from-browser" }
+            ]
+          }
+        }
+      ]
+    },
+    "document-opened-from-browser": {
+      "condition": "$message.channelId",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.channelId" },
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
+          }
+        }
+      ]
+    },
+    "select-user-document": {
+      "condition": "$message._id",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-document-summary", "responseType": "user-document-channel-ready" }
+        }
+      ]
+    },
+    "user-document-channel-ready": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.document.currentChannelId" },
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null }
+            ]
+          }
+        }
+      ]
+    },
+    "create-new-document": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": "create-new-document-workflow" },
+              { "actionType": "update", "path": "$temp.responseHandler", "value": "document-created" },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": null }
+            ]
+          }
+        }
+      ]
+    },
+    "document-created": {
+      "condition": "$message.document",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedWorkflow", "value": null },
+              { "actionType": "update", "path": "$temp.nestedChannelId", "value": "$message.document.currentChannelId" }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-group-documents", "responseType": "user-documents-result" }
         }
       ]
     },
