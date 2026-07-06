@@ -202,6 +202,8 @@ export interface GenericAiResponse {
   channel: string;
   timestamp: string;
   text?: string;
+  reply?: string;
+  workflowConfig?: Record<string, unknown>;
   senderEmail?: string;
   correlationId?: string;
 }

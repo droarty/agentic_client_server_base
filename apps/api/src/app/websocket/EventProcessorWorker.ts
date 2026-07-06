@@ -147,7 +147,14 @@ async function computeChannelAccessLevel(userId: string, channel: string): Promi
   return ACCESS_RANK[userLevel] >= ACCESS_RANK[groupLevel] ? userLevel : groupLevel;
 }
 
-const executeQuery = createQueryExecutor({ mongoClient, dbReady, configDir, logWorkflowStep });
+const cacheInvalidator: { fn?: (name: string) => void } = {};
+const executeQuery = createQueryExecutor({
+  mongoClient,
+  dbReady,
+  configDir,
+  logWorkflowStep,
+  invalidateWorkflowConfig: (name) => cacheInvalidator.fn?.(name),
+});
 const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
 
 const engine = new WorkflowEngine(
@@ -174,6 +181,7 @@ const engine = new WorkflowEngine(
   },
   configDir
 );
+cacheInvalidator.fn = (name) => engine.invalidateConfig(name);
 
 parentPort!.on('message', async (input: WorkerInput) => {
   const { message, user } = input;

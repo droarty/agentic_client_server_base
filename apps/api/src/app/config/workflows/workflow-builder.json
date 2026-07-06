@@ -1,0 +1,212 @@
+{
+  "name": "workflow-builder",
+  "version": "1.0.0",
+  "initialState": {
+    "chatMessages": [
+      {
+        "messageType": "system",
+        "text": "Tell me what kind of workflow you'd like to build! I'll ask clarifying questions and draft the JSON config for you. When you're happy with the draft on the right, click Publish."
+      }
+    ],
+    "draftConfig": null
+  },
+  "handlers": {
+    "initializeState": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-channel-document", "responseType": "initialize-state-document" }
+        }
+      ]
+    },
+    "initialize-state-document": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": "$message.document.state"
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "twoColumnLayout",
+                "props": { "leftWidth": "50%" },
+                "children": [
+                  {
+                    "componentType": "fullPanel",
+                    "targetId": "workflow-builder-chat",
+                    "children": [
+                      {
+                        "componentType": "chatBody",
+                        "props": { "messages": "@state.chatMessages" }
+                      },
+                      {
+                        "componentType": "chatInput",
+                        "emits": { "addText": "add-text" }
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "fullPanel",
+                    "targetId": "workflow-builder-draft",
+                    "children": [
+                      {
+                        "componentType": "jsonView",
+                        "props": {
+                          "config": "@state.draftConfig",
+                          "emptyMessage": "Describe the workflow you want, and a draft will appear here."
+                        }
+                      },
+                      {
+                        "componentType": "actionButton",
+                        "props": { "label": "Publish Workflow" },
+                        "emits": { "click": "publish-workflow" }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "add-text": {
+      "condition": "$message.text",
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "user-text", "text": "$message.text", "authorEmail": "$message.senderEmail" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-workflow-builder-context", "responseType": "run-ai-draft-step" }
+        }
+      ]
+    },
+    "run-ai-draft-step": {
+      "steps": [
+        {
+          "route": "ai",
+          "ai": {
+            "model": "claude-sonnet-5",
+            "maxTokens": 8192,
+            "referenceDocs": ["docs/workflow-config-reference.md"],
+            "systemPrompt": "You are a helpful assistant that helps a user design a config for a JSON-driven workflow engine. The full schema and conventions are provided above this message as reference documentation — follow them exactly.\n\nYour job: have a conversation with the user to understand what they want to build, then iteratively produce a complete, valid workflow JSON config matching the schema.\n\nRules:\n- Once you and the user settle on a workflow name, keep using that SAME name (kebab-case, e.g. \"coin-flip-logger\") for the rest of the conversation, unless the user explicitly asks to start over with a different workflow.\n- Ask clarifying questions about the workflow's purpose, what state it needs to track, what user actions/events it should handle, and what the layout/UI should look like. It's fine to propose a rough first draft early and refine it collaboratively rather than interrogating the user up front.\n- Whenever you propose or update a draft, include the FULL current config object in `workflowConfig` (not a diff) — always `name`, `displayName`, `initialState`, and `handlers` together, reflecting the complete current state of the draft (not just what changed this turn).\n- Current draft (if any): {{message.draftConfig}}\n- Conversation so far: {{message.chatMessages}}\n\nYou MUST respond with valid JSON only — no markdown, no code fences, no explanation outside the JSON. Respond with exactly one of these two shapes:\n  {\"type\":\"chat-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"chat-reply-with-draft\",\"reply\":\"<your conversational response>\",\"workflowConfig\":{\"name\":\"...\",\"displayName\":\"...\",\"initialState\":{...},\"handlers\":{...}}}\nUse the second shape whenever you are proposing a new or updated draft; use the first shape when you're only asking a question or making conversation with no draft change.",
+            "responseTypes": ["chat-reply", "chat-reply-with-draft"]
+          }
+        }
+      ]
+    },
+    "chat-reply": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "chat-reply-with-draft": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" }
+                ]
+              },
+              {
+                "actionType": "update",
+                "path": "$state.draftConfig",
+                "value": "$message.workflowConfig"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "publish-workflow": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "publish-workflow-config", "responseType": "workflow-published" }
+        }
+      ]
+    },
+    "workflow-published": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "system", "text": "~{ 'Published \"' & message.publishedName & '\" as v' & message.publishedVersion }" }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "workflow-publish-error": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "system", "color": "red", "text": "$message.errorMessage" }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

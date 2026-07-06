@@ -22,6 +22,32 @@
   white-space: pre-wrap;
 }
 
+/* JsonView */
+.json-view--empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+  font-style: italic;
+}
+.json-view {
+  padding: 1.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  font-family: monospace;
+  overflow: auto;
+}
+
+/* ActionButton */
+.action-button {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
 /* YouTubePlayer */
 .yt-player {
   width: 100%;

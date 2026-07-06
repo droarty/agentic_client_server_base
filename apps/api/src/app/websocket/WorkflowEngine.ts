@@ -10,6 +10,7 @@ export interface AiStepConfig {
   maxTokens: number;
   systemPrompt: string;
   responseTypes?: string[];
+  referenceDocs?: string[];
 }
 
 interface StepDefinition {
@@ -171,7 +172,8 @@ function substitutePromptTemplate(template: string, context: WorkflowContext): s
       context as unknown as Record<string, unknown>,
       strippedPath
     );
-    return value == null ? '' : String(value);
+    if (value == null) return '';
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
   });
 }
 
@@ -183,6 +185,10 @@ export class WorkflowEngine {
     private deps: WorkflowEngineDeps,
     private configDir: string
   ) { }
+
+  invalidateConfig(docType: string): void {
+    this.configCache.delete(docType);
+  }
 
   async execute(context: WorkflowContext, parentExecutionId?: string, parentStepIndex?: number): Promise<void> {
     const executionId = randomUUID();
@@ -375,8 +381,19 @@ export class WorkflowEngine {
         route: 'ai',
         resolvedMessage: { text, senderEmail },
       });
+      const referenceContent = (step.ai.referenceDocs ?? [])
+        .map((relPath) => {
+          try {
+            return fs.readFileSync(path.join(process.cwd(), relPath), 'utf-8');
+          } catch {
+            return '';
+          }
+        })
+        .filter(Boolean)
+        .join('\n\n');
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: resolvedPrompt }, context.user, `${executionId}:${stepIndex}`);
+      const fullPrompt = referenceContent ? `${referenceContent}\n\n---\n\n${resolvedPrompt}` : resolvedPrompt;
+      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: fullPrompt }, context.user, `${executionId}:${stepIndex}`);
       return;
     }
 

@@ -55,10 +55,13 @@ export class AIEventManager {
 
     // Forward the AI's own text field if present; otherwise fall back to the
     // original request text for valid-text (so configged-chat $message.text still works).
-    const aiText = 'text' in parsed ? (parsed['text'] as string) : undefined;
-    const textToForward = aiText ?? (responseType === 'valid-text' ? request.text : undefined);
+    // Any other fields in the AI's JSON object (e.g. `reply`, `workflowConfig`) are passed
+    // through unchanged so they're accessible as $message.* in the triggered handler.
+    const { type: _type, text: aiText, ...rest } = parsed;
+    const textToForward = (aiText as string | undefined) ?? (responseType === 'valid-text' ? request.text : undefined);
 
     const response: AiResponse = {
+      ...rest,
       type: responseType,
       from: 'ai-service',
       to: 'server',
@@ -67,7 +70,7 @@ export class AIEventManager {
       senderEmail: request.senderEmail,
       correlationId: request.correlationId,
       ...(textToForward !== undefined ? { text: textToForward } : {}),
-    };
+    } as AiResponse;
 
     const eventProcessor = new EventProcessor();
     eventProcessor.process(response, user);
