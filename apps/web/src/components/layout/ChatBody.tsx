@@ -1,6 +1,8 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { Volume2, Square } from 'lucide-react';
 import { MultiFieldInput } from './MultiFieldInput';
 import { MultipleChoiceQuiz } from './MultipleChoiceQuiz';
+import { Button } from '../ui/button';
 
 interface FieldDef {
   name: string;
@@ -34,15 +36,54 @@ interface Props {
   messages?: ChatMessage[];
   inputValues?: Record<string, string>;
   emit?: (type: string, payload: Record<string, unknown>) => void;
+  defaultToTTS?: boolean;
   [key: string]: unknown;
 }
 
-export function ChatBody({ messages = [], inputValues, emit }: Props) {
+export function ChatBody({ messages = [], inputValues, emit, defaultToTTS }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const prevLengthRef = useRef(messages.length);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  const handleSpeak = (text: string, index: number) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    if (speakingIndex === index) {
+      setSpeakingIndex(null);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+    setSpeakingIndex(index);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  useEffect(() => {
+    if (defaultToTTS && messages.length > prevLengthRef.current) {
+      const lastIndex = messages.length - 1;
+      const lastMessage = messages[lastIndex];
+      if (
+        lastMessage?.text &&
+        lastMessage.messageType !== 'multi-field-input' &&
+        lastMessage.messageType !== 'multiple-choice-quiz'
+      ) {
+        handleSpeak(lastMessage.text, lastIndex);
+      }
+    }
+    prevLengthRef.current = messages.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, defaultToTTS]);
 
   return (
     <div className="chat-messages">
@@ -88,6 +129,18 @@ export function ChatBody({ messages = [], inputValues, emit }: Props) {
             >
               <span className="chat-message__author">{msg.authorEmail}</span>
               <span className="chat-message__text">{msg.text}</span>
+              {defaultToTTS !== undefined && msg.text && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="chat-message__speak-btn"
+                  aria-label={speakingIndex === i ? 'Stop reading' : 'Read message aloud'}
+                  onClick={() => handleSpeak(msg.text!, i)}
+                >
+                  {speakingIndex === i ? <Square size={14} /> : <Volume2 size={14} />}
+                </Button>
+              )}
             </div>
           )
       ))}
