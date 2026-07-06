@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { textDisplayMocks } from './mocks/TextDisplayMock';
 import { smartAccordionMocks } from './mocks/SmartAccordionMock';
 import { sidebarMenuMocks } from './mocks/SidebarMenuMock';
+import { chatBodyMocks } from './mocks/ChatBodyMock';
 
 export interface MockEntry {
   id: string;
@@ -14,4 +15,5 @@ export const allMocks: MockEntry[] = [
   ...textDisplayMocks,
   ...smartAccordionMocks,
   ...sidebarMenuMocks,
+  ...chatBodyMocks,
 ];
