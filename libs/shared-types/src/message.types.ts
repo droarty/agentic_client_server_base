@@ -172,6 +172,7 @@ export interface ValidateTextMessage {
   text: string;
   senderEmail?: string;
   correlationId?: string;
+  history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export interface ValidTextAiResponse {

@@ -28,8 +28,10 @@ export class AIEventManager {
   }
 
   private async process(request: ValidateTextMessage, config: AiStepConfig, user?: { id: string; email: string }): Promise<void> {
-    const userPrompt = `Evaluate this text: "${request.text}"`;
-    const raw = await aiService.complete(config.systemPrompt, userPrompt, env.AI_SERVICE_TYPE, {
+    const messages = request.history?.length
+      ? request.history
+      : [{ role: 'user' as const, content: `Evaluate this text: "${request.text}"` }];
+    const raw = await aiService.complete(config.systemPrompt, messages, env.AI_SERVICE_TYPE, {
       model: config.model,
       maxTokens: config.maxTokens,
     });

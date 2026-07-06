@@ -162,7 +162,7 @@ const engine = new WorkflowEngine(
     publishToClient,
     persistToDatabase,
     logWorkflowStep,
-    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user, correlationId) => {
+    sendToAi: (channel, text, senderEmail, aiConfig: AiStepConfig, user, correlationId, history) => {
       const msg: ValidateTextMessage = {
         type: 'validate-text',
         from: 'server',
@@ -172,6 +172,7 @@ const engine = new WorkflowEngine(
         text,
         senderEmail,
         correlationId,
+        history,
       };
       aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
     },

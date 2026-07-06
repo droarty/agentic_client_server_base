@@ -100,6 +100,25 @@
           }
         },
         {
+          "route": ["client"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "ai-ack",
+                    "text": "~{ ($r := $floor($random()*5); ['Got it, thinking it through…','One moment, let me take a look…','On it — let me consider that…','Give me a second to think about that…','Working on it…'][$r]) }",
+                    "authorEmail": "Workflow Assistant"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
           "route": "database-query",
           "query": { "name": "get-workflow-builder-context", "responseType": "run-ai-draft-step" }
         }
@@ -113,7 +132,8 @@
             "model": "claude-sonnet-5",
             "maxTokens": 8192,
             "referenceDocs": ["docs/workflow-config-reference.md"],
-            "systemPrompt": "You are a helpful assistant that helps a user design a config for a JSON-driven workflow engine. The full schema and conventions are provided above this message as reference documentation — follow them exactly.\n\nYour job: have a conversation with the user to understand what they want to build, then iteratively produce a complete, valid workflow JSON config matching the schema.\n\nRules:\n- Once you and the user settle on a workflow name, keep using that SAME name (kebab-case, e.g. \"coin-flip-logger\") for the rest of the conversation, unless the user explicitly asks to start over with a different workflow.\n- Ask clarifying questions about the workflow's purpose, what state it needs to track, what user actions/events it should handle, and what the layout/UI should look like. It's fine to propose a rough first draft early and refine it collaboratively rather than interrogating the user up front.\n- Whenever you propose or update a draft, include the FULL current config object in `workflowConfig` (not a diff) — always `name`, `displayName`, `initialState`, and `handlers` together, reflecting the complete current state of the draft (not just what changed this turn).\n- Current draft (if any): {{message.draftConfig}}\n- Conversation so far: {{message.chatMessages}}\n\nYou MUST respond with valid JSON only — no markdown, no code fences, no explanation outside the JSON. Respond with exactly one of these two shapes:\n  {\"type\":\"chat-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"chat-reply-with-draft\",\"reply\":\"<your conversational response>\",\"workflowConfig\":{\"name\":\"...\",\"displayName\":\"...\",\"initialState\":{...},\"handlers\":{...}}}\nUse the second shape whenever you are proposing a new or updated draft; use the first shape when you're only asking a question or making conversation with no draft change.",
+            "historyPath": "chatMessages",
+            "systemPrompt": "You are a helpful assistant that helps a user design a config for a JSON-driven workflow engine. The full schema and conventions are provided above this message as reference documentation — follow them exactly.\n\nYour job: have a conversation with the user to understand what they want to build, then iteratively produce a complete, valid workflow JSON config matching the schema.\n\nRules:\n- Once you and the user settle on a workflow name, keep using that SAME name (kebab-case, e.g. \"coin-flip-logger\") for the rest of the conversation, unless the user explicitly asks to start over with a different workflow.\n- Ask clarifying questions about the workflow's purpose, what state it needs to track, what user actions/events it should handle, and what the layout/UI should look like. It's fine to propose a rough first draft early and refine it collaboratively rather than interrogating the user up front.\n- Whenever you propose or update a draft, include the FULL current config object in `workflowConfig` (not a diff) — always `name`, `displayName`, `initialState`, and `handlers` together, reflecting the complete current state of the draft (not just what changed this turn).\n- Current draft (if any): {{message.draftConfig}}\n\nYou MUST respond with valid JSON only — no markdown, no code fences, no explanation outside the JSON. Respond with exactly one of these two shapes:\n  {\"type\":\"chat-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"chat-reply-with-draft\",\"reply\":\"<your conversational response>\",\"workflowConfig\":{\"name\":\"...\",\"displayName\":\"...\",\"initialState\":{...},\"handlers\":{...}}}\nUse the second shape whenever you are proposing a new or updated draft; use the first shape when you're only asking a question or making conversation with no draft change.",
             "responseTypes": ["chat-reply", "chat-reply-with-draft"]
           }
         }
