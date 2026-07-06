@@ -2,22 +2,27 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export type AiServiceType = 'anthropic' | 'openai';
 
+export interface AiMessageTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export class AiService {
   async complete(
     systemPrompt: string,
-    userPrompt: string,
+    messages: AiMessageTurn[],
     serviceType: AiServiceType,
     options?: { model?: string; maxTokens?: number }
   ): Promise<string> {
     if (serviceType === 'anthropic') {
-      return this.callAnthropic(systemPrompt, userPrompt, options);
+      return this.callAnthropic(systemPrompt, messages, options);
     }
     throw new Error('OpenAI service not yet configured — add OPENAI_API_KEY to .env');
   }
 
   private async callAnthropic(
     systemPrompt: string,
-    userPrompt: string,
+    messages: AiMessageTurn[],
     options?: { model?: string; maxTokens?: number }
   ): Promise<string> {
     const client = new Anthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] });
@@ -25,7 +30,7 @@ export class AiService {
       model: options?.model ?? 'claude-haiku-4-5-20251001',
       max_tokens: options?.maxTokens ?? 64,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages,
     });
 
     const block = message.content.find((b) => b.type === 'text');

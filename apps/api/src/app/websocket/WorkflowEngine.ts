@@ -11,6 +11,12 @@ export interface AiStepConfig {
   systemPrompt: string;
   responseTypes?: string[];
   referenceDocs?: string[];
+  historyPath?: string;
+}
+
+export interface AiHistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 interface StepDefinition {
@@ -80,7 +86,8 @@ export interface WorkflowEngineDeps {
     senderEmail: string | undefined,
     aiConfig: AiStepConfig,
     user?: Record<string, unknown>,
-    correlationId?: string
+    correlationId?: string,
+    history?: AiHistoryTurn[]
   ) => void;
   getChannelContext: (channel: string) => Promise<ChannelContext | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
@@ -393,7 +400,22 @@ export class WorkflowEngine {
         .join('\n\n');
       const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
       const fullPrompt = referenceContent ? `${referenceContent}\n\n---\n\n${resolvedPrompt}` : resolvedPrompt;
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: fullPrompt }, context.user, `${executionId}:${stepIndex}`);
+      let history: AiHistoryTurn[] | undefined;
+      if (step.ai.historyPath) {
+        const raw = context.message[step.ai.historyPath];
+        if (Array.isArray(raw)) {
+          history = [];
+          for (const m of raw as Record<string, unknown>[]) {
+            const role = m['messageType'] === 'user-text' ? 'user' : m['messageType'] === 'ai-reply' ? 'assistant' : null;
+            if (!role) continue;
+            const content = String(m['text'] ?? '');
+            const last = history[history.length - 1];
+            if (last && last.role === role) last.content += `\n${content}`;
+            else history.push({ role, content });
+          }
+        }
+      }
+      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: fullPrompt }, context.user, `${executionId}:${stepIndex}`, history);
       return;
     }
 
