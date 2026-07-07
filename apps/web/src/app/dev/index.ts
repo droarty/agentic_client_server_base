@@ -3,6 +3,7 @@ import { textDisplayMocks } from './mocks/TextDisplayMock';
 import { smartAccordionMocks } from './mocks/SmartAccordionMock';
 import { sidebarMenuMocks } from './mocks/SidebarMenuMock';
 import { chatBodyMocks } from './mocks/ChatBodyMock';
+import { progressBarMocks } from './mocks/ProgressBarMock';
 
 export interface MockEntry {
   id: string;
@@ -16,4 +17,5 @@ export const allMocks: MockEntry[] = [
   ...smartAccordionMocks,
   ...sidebarMenuMocks,
   ...chatBodyMocks,
+  ...progressBarMocks,
 ];
