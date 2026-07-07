@@ -212,11 +212,16 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
         const doc = artifactId ? await db.collection('artifacts').findOne({ _id: artifactId }, { projection: { state: 1 } }) : null;
         const state = (doc?.['state'] as Record<string, unknown> | undefined) ?? {};
+        const phase = (state['phase'] as string | undefined) ?? 'gathering-requirements';
         return {
           text: context.message['text'],
           senderEmail: context.message['senderEmail'],
           chatMessages: state['chatMessages'] ?? [],
           draftConfig: state['draftConfig'] ?? null,
+          requirementsSummary: state['requirementsSummary'] ?? '',
+          requirementsReady: state['requirementsReady'] ?? false,
+          phase,
+          type: phase === 'building-config' ? 'run-config-ai-step' : 'run-requirements-ai-step',
         };
       }
       if (queryName === 'publish-workflow-config') {

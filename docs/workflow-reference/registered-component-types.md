@@ -308,3 +308,62 @@ to `0` if unset. `percentComplete` (number, 0–100) — used instead of
 `labels`/`completionState` for a plain percentage bar; clamped to `[0, 100]`
 and rounded for display. If `labels` is a non-empty array, step mode takes
 precedence over percent mode.
+
+---
+
+### `actionButton`
+
+A button that emits a message with an empty payload when clicked — the standard way to trigger a handler from a UI action instead of chat input.
+
+```json
+{
+  "componentType": "actionButton",
+  "props": { "label": "Publish Workflow" },
+  "emits": { "click": "publish-workflow" }
+}
+```
+
+Props: `label` (string) — button text.
+
+Emits `click` with an empty payload `{}` when clicked. Wire it to whichever handler name should run (e.g. `"publish-workflow"`, `"generate-workflow"`).
+
+---
+
+### `jsonView`
+
+Renders a JSON object as a formatted, read-only `<pre>` block. Useful for previewing draft config/state.
+
+```json
+{
+  "componentType": "jsonView",
+  "props": {
+    "config": "@state.draftConfig",
+    "emptyMessage": "Nothing to display yet."
+  }
+}
+```
+
+Props: `config` (object | null) — the JSON value to render; `emptyMessage` (string) — shown instead of the `<pre>` block when `config` is null/falsy.
+
+---
+
+### `showIf` / `showIfNot` / `showIfItems` / `showIfEmpty`
+
+Conditional-rendering pseudo-components. They are not looked up in the component registry — `LayoutRenderer` handles them specially and renders their `children` (or not) based on a resolved `state`/`temp` value, with no wrapper element of their own.
+
+```json
+{
+  "componentType": "showIf",
+  "props": { "source": "@state.requirementsReady" },
+  "children": [
+    { "componentType": "actionButton", "props": { "label": "Generate Workflow" }, "emits": { "click": "generate-workflow" } }
+  ]
+}
+```
+
+- `showIf` — renders `children` when `Boolean(source)` is `true`.
+- `showIfNot` — renders `children` when `Boolean(source)` is `false`.
+- `showIfItems` — `source` must resolve to an array; renders `children` when the array is non-empty.
+- `showIfEmpty` — `source` must resolve to an array; renders `children` when the array is empty (or missing).
+
+Props: `source` (string, `@state.*`/`@temp.*` path) — the value to test. `showIf`/`showIfNot` do plain truthiness checks only — they cannot do string/enum equality directly; for a multi-value enum, maintain a separate boolean flag alongside the enum and gate on that instead.

@@ -72,6 +72,7 @@ describe('complete() — tool-use loop', () => {
   test('calls the tool then returns the final text after a tool_use round', async () => {
     const execute = jest.fn().mockResolvedValue('tool result content');
     const tool = makeTool('my_tool', execute);
+    const onToolCall = jest.fn();
 
     mockCreate
       .mockResolvedValueOnce({
@@ -84,11 +85,12 @@ describe('complete() — tool-use loop', () => {
       'sys',
       [{ role: 'user', content: 'hi' }],
       'anthropic',
-      { tools: [tool] }
+      { tools: [tool], onToolCall }
     );
 
     expect(result).toBe('final answer');
     expect(execute).toHaveBeenCalledWith({ foo: 'bar' });
+    expect(onToolCall).toHaveBeenCalledWith('my_tool', { foo: 'bar' });
     expect(mockCreate).toHaveBeenCalledTimes(2);
 
     const secondCallArgs = mockCreate.mock.calls[1][0];
@@ -142,6 +144,7 @@ describe('complete() — tool-use loop', () => {
   test('a throwing tool produces an is_error tool_result and the loop continues', async () => {
     const execute = jest.fn().mockRejectedValue(new Error('boom'));
     const tool = makeTool('flaky_tool', execute);
+    const onToolError = jest.fn();
 
     mockCreate
       .mockResolvedValueOnce({
@@ -154,7 +157,7 @@ describe('complete() — tool-use loop', () => {
       'sys',
       [{ role: 'user', content: 'hi' }],
       'anthropic',
-      { tools: [tool] }
+      { tools: [tool], onToolError }
     );
 
     expect(result).toBe('recovered');
@@ -162,10 +165,12 @@ describe('complete() — tool-use loop', () => {
     const toolResult = secondCallArgs.messages[secondCallArgs.messages.length - 1].content[0];
     expect(toolResult.is_error).toBe(true);
     expect(toolResult.content).toContain('boom');
+    expect(onToolError).toHaveBeenCalledWith('flaky_tool', expect.any(Error));
   });
 
   test('a tool_use block naming an unrecognized tool returns an is_error result without throwing', async () => {
     const tool = makeTool('known_tool', jest.fn().mockResolvedValue('x'));
+    const onToolError = jest.fn();
 
     mockCreate
       .mockResolvedValueOnce({
@@ -178,13 +183,14 @@ describe('complete() — tool-use loop', () => {
       'sys',
       [{ role: 'user', content: 'hi' }],
       'anthropic',
-      { tools: [tool] }
+      { tools: [tool], onToolError }
     );
 
     expect(result).toBe('ok');
     const secondCallArgs = mockCreate.mock.calls[1][0];
     const toolResult = secondCallArgs.messages[secondCallArgs.messages.length - 1].content[0];
     expect(toolResult.is_error).toBe(true);
+    expect(onToolError).toHaveBeenCalledWith('unknown_tool', expect.any(Error));
   });
 
   test('throws after exceeding the max tool-use rounds', async () => {

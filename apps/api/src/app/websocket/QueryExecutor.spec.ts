@@ -352,6 +352,46 @@ describe('get-channel-log-tree', () => {
   });
 });
 
+// ─── get-workflow-builder-context ──────────────────────────────────────────────
+
+describe('get-workflow-builder-context', () => {
+  test('defaults to gathering-requirements phase and routes to run-requirements-ai-step when no state exists', async () => {
+    await insertArtifact({ type: 'workflow-builder', state: {} });
+    const execute = makeExecutor();
+    const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
+    expect(result['phase']).toBe('gathering-requirements');
+    expect(result['type']).toBe('run-requirements-ai-step');
+    expect(result['requirementsSummary']).toBe('');
+    expect(result['requirementsReady']).toBe(false);
+    expect(result['draftConfig']).toBeNull();
+  });
+
+  test('routes to run-config-ai-step once phase is building-config', async () => {
+    await insertArtifact({
+      type: 'workflow-builder',
+      state: { phase: 'building-config', requirementsSummary: 'a coin-flip logger', requirementsReady: true },
+    });
+    const execute = makeExecutor();
+    const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
+    expect(result['phase']).toBe('building-config');
+    expect(result['type']).toBe('run-config-ai-step');
+    expect(result['requirementsSummary']).toBe('a coin-flip logger');
+    expect(result['requirementsReady']).toBe(true);
+  });
+
+  test('passes through chatMessages and draftConfig from persisted state', async () => {
+    const chatMessages = [{ messageType: 'user-text', text: 'hi', authorEmail: 'a@test.com' }];
+    await insertArtifact({
+      type: 'workflow-builder',
+      state: { chatMessages, draftConfig: { name: 'demo' } },
+    });
+    const execute = makeExecutor();
+    const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
+    expect(result['chatMessages']).toEqual(chatMessages);
+    expect(result['draftConfig']).toEqual({ name: 'demo' });
+  });
+});
+
 // ─── unknown query ────────────────────────────────────────────────────────────
 
 describe('unknown query name', () => {
