@@ -45,6 +45,9 @@ const WORKFLOW_CONFIG = {
     'parent-route-message': {
       steps: [{ route: 'parent', transform: { clientMessageType: 'parent-notification', text: '$message.text' } }],
     },
+    'parent-response-handler': {
+      steps: [{ route: 'client', transform: { type: 'parent-notification', text: '$message.text' } }],
+    },
     'groupid-message': {
       steps: [{ route: 'client', transform: { type: 'response', gid: '$groupId' } }],
     },
@@ -450,9 +453,14 @@ describe('composable context — groupId and parentChannel', () => {
 });
 
 describe('"parent" route', () => {
-  test('publishes to parentChannel instead of current channel', async () => {
+  test('invokes responseHandler on parentChannel instead of current channel', async () => {
     const deps = makeDeps({
-      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow', artifactId: 'art-1', parentChannelId: 'parent-ch' }),
+      getChannelContext: jest.fn().mockResolvedValue({
+        workflowType: 'test-workflow',
+        artifactId: 'art-1',
+        parentChannelId: 'parent-ch',
+        responseHandler: 'parent-response-handler',
+      }),
     });
     await makeEngine(deps).execute(makeContext('parent-route-message', { text: 'hello-up' }));
     const out = (deps.publishToClient as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
@@ -463,6 +471,15 @@ describe('"parent" route', () => {
 
   test('logs error and skips when no parentChannel in context', async () => {
     const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('parent-route-message', { text: 'hi' }));
+    expect(deps.publishToClient).not.toHaveBeenCalled();
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+  });
+
+  test('logs error and skips when channel has no responseHandler', async () => {
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow', artifactId: 'art-1', parentChannelId: 'parent-ch' }),
+    });
     await makeEngine(deps).execute(makeContext('parent-route-message', { text: 'hi' }));
     expect(deps.publishToClient).not.toHaveBeenCalled();
     expect(deps.logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
