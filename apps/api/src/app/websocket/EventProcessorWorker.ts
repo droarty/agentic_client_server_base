@@ -30,7 +30,7 @@ dbReady.then(() =>
     .createIndex({ createdAt: 1 }, { expireAfterSeconds: 604800 })
 ).catch(console.error);
 
-const aiEventManager = new AIEventManager();
+const aiEventManager = new AIEventManager({ logWorkflowStep });
 
 const configDir = path.join(__dirname, '..', 'config', 'workflows');
 

@@ -252,11 +252,19 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         return { type: 'workflow-published', publishedName: name, publishedVersion: nextVersion };
       }
       async function buildTree(executionId: string, channel: string): Promise<unknown[]> {
-        const routes = await db
+        const entries = await db
           .collection('workflowlogs')
-          .find({ channel, executionId, logType: { $in: ['route', 'error'] } })
-          .sort({ stepIndex: 1 })
+          .find({ channel, executionId, logType: { $in: ['route', 'error', 'tool'] } })
+          .sort({ stepIndex: 1, createdAt: 1 })
           .toArray();
+        const routes = entries.filter((e) => e.logType !== 'tool');
+        const toolsByStep = new Map<number, typeof entries>();
+        for (const toolEntry of entries.filter((e) => e.logType === 'tool')) {
+          const key = (toolEntry.stepIndex as number | undefined) ?? -1;
+          const arr = toolsByStep.get(key) ?? [];
+          arr.push(toolEntry);
+          toolsByStep.set(key, arr);
+        }
         const children: unknown[] = [];
         for (const route of routes) {
           const routeNode: Record<string, unknown> = {
@@ -267,6 +275,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             rawData: structuredClone(route),
             children: [],
           };
+          for (const toolEntry of toolsByStep.get((route.stepIndex as number | undefined) ?? -1) ?? []) {
+            (routeNode.children as unknown[]).push({
+              id: String(toolEntry._id),
+              name: `tool: ${(toolEntry.message as Record<string, unknown> | undefined)?.['tool'] ?? '?'}`,
+              rawData: structuredClone(toolEntry),
+              children: [],
+            });
+          }
           const subHandler = await db.collection('workflowlogs').findOne({
             channel,
             parentExecutionId: executionId,
