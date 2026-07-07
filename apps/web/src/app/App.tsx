@@ -9,6 +9,7 @@ import { GroupDashboardPage } from './pages/GroupDashboardPage';
 import { AuthorDashboardPage } from './pages/AuthorDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LogReviewPage } from './pages/LogReviewPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { DevPage } from './pages/DevPage';
 
@@ -30,6 +31,7 @@ export function App() {
           <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
 
           <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+          <Route path="/channel/:channelId/logs" element={<PrivateRoute><LogReviewPage /></PrivateRoute>} />
 
           <Route path="/" element={<Navigate to="/user" replace />} />
           <Route path="*" element={<Navigate to="/user" replace />} />
