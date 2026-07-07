@@ -239,3 +239,12 @@ export function mountChannel(
     emit(viewHandler);
   }
 }
+
+export function unmountChannel(channelId: string, viewHandler: string): void {
+  if (!channelId) return;
+  const prefix = `${channelId}:`;
+  const stillListening = [...listeners.keys()].some((key) => key.startsWith(prefix) && listeners.get(key)?.size);
+  if (stillListening) return;
+  vhEmitted.delete(`${channelId}:initializeState`);
+  vhEmitted.delete(`${channelId}:${viewHandler}`);
+}
