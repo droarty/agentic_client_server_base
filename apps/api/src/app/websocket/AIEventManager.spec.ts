@@ -76,26 +76,51 @@ describe('markdown code fence stripping', () => {
       undefined
     );
   });
+
+  test('recovers a JSON object even when the model prepends explanatory prose before it', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue(
+      'This feature is not currently supported by this system.\n\n{"type":"valid-text"}'
+    );
+    new AIEventManager().publish(makeRequest());
+    await flushPromises();
+    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'valid-text' }),
+      undefined
+    );
+  });
+
+  test('still throws when no JSON object is present at all', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue('Sorry, I cannot help with that.');
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => new AIEventManager().publish(makeRequest())).not.toThrow();
+    await flushPromises();
+    expect(spy).toHaveBeenCalledWith('AIEventManager error:', expect.objectContaining({ message: expect.stringContaining('invalid JSON') }));
+    spy.mockRestore();
+  });
 });
 
 // ─── error paths (swallowed by publish()) ────────────────────────────────────
 
 describe('error paths — swallowed by publish()', () => {
-  test('invalid JSON → publish() does not throw, console.error called', async () => {
+  test('invalid JSON → publish() does not throw, console.error called, logged as logType: error', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('not-json');
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => new AIEventManager().publish(makeRequest())).not.toThrow();
+    const logWorkflowStep = jest.fn();
+    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest())).not.toThrow();
     await flushPromises();
     expect(spy).toHaveBeenCalled();
+    expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
     spy.mockRestore();
   });
 
-  test('unknown type → publish() does not throw, console.error called', async () => {
+  test('unknown type → publish() does not throw, console.error called, logged as logType: error', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"banana"}');
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => new AIEventManager().publish(makeRequest())).not.toThrow();
+    const logWorkflowStep = jest.fn();
+    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest())).not.toThrow();
     await flushPromises();
     expect(spy).toHaveBeenCalled();
+    expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
     spy.mockRestore();
   });
 });
@@ -135,5 +160,48 @@ describe('tools wiring', () => {
     await flushPromises();
     const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
     expect(options.tools).toBeUndefined();
+  });
+
+  test('onToolCall logs a tool entry including the tool input', async () => {
+    const logWorkflowStep = jest.fn();
+    (AiService.prototype.complete as jest.Mock).mockImplementation(async (_sys, _msgs, _type, options) => {
+      options.onToolCall('get_reference_section', { section: 'steps-and-routes' });
+      return '{"type":"valid-text"}';
+    });
+    const config: AiStepConfig = {
+      model: 'claude-sonnet-5',
+      maxTokens: 100,
+      systemPrompt: 'sys',
+      tools: ['get_reference_section'],
+    };
+    new AIEventManager({ logWorkflowStep }).publish(makeRequest({ correlationId: 'exec-1:2' }), config);
+    await flushPromises();
+    expect(logWorkflowStep).toHaveBeenCalledWith(
+      expect.objectContaining({
+        logType: 'tool',
+        executionId: 'exec-1',
+        stepIndex: 2,
+        message: { tool: 'get_reference_section', input: { section: 'steps-and-routes' } },
+      })
+    );
+  });
+
+  test('onToolError logs a logType: error entry', async () => {
+    const logWorkflowStep = jest.fn();
+    (AiService.prototype.complete as jest.Mock).mockImplementation(async (_sys, _msgs, _type, options) => {
+      options.onToolError('get_reference_section', new Error('boom'));
+      return '{"type":"valid-text"}';
+    });
+    const config: AiStepConfig = {
+      model: 'claude-sonnet-5',
+      maxTokens: 100,
+      systemPrompt: 'sys',
+      tools: ['get_reference_section'],
+    };
+    new AIEventManager({ logWorkflowStep }).publish(makeRequest(), config);
+    await flushPromises();
+    expect(logWorkflowStep).toHaveBeenCalledWith(
+      expect.objectContaining({ logType: 'error', errorMessage: 'tool "get_reference_section" failed', errorDetail: expect.stringContaining('boom') })
+    );
   });
 });
