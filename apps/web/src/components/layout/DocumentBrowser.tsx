@@ -8,7 +8,7 @@ interface Props {
   onOpen?: (payload: { documentId: string }) => void;
   onRename?: (payload: { _id: string; name: string }) => void;
   onDelete?: (payload: { _id: string }) => void;
-  onViewLogs?: (payload: { documentId: string }) => void;
+  onViewLogs?: (payload: { channelId: string }) => void;
 }
 
 type SortKey = 'date' | 'name';
@@ -76,15 +76,17 @@ export function DocumentBrowser({ items = [], onOpen, onRename, onDelete, onView
                   {' '}
                   <Button onClick={() => handleDelete(doc._id, doc.name)}>Delete</Button>
                   {' '}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="View logs"
-                    onClick={() => onViewLogs?.({ documentId: doc._id })}
-                  >
-                    <ScrollText size={14} />
-                  </Button>
+                  {doc.currentChannelId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="View logs"
+                      onClick={() => onViewLogs?.({ channelId: doc.currentChannelId })}
+                    >
+                      <ScrollText size={14} />
+                    </Button>
+                  )}
                 </span>
               )}
             </li>

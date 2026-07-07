@@ -287,26 +287,30 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         return children;
       }
 
-      if (queryName === 'get-artifact-log-tree') {
+      if (queryName === 'get-channel-log-tree') {
         const userId = context.user?.['id'] as string | undefined;
-        const targetArtifactId = context.targetArtifactId;
-        if (!targetArtifactId) return { treeData: [], artifactState: {} };
-        const { ObjectId } = await import('mongodb');
-        const artifact = await db.collection('artifacts').findOne({ _id: new ObjectId(targetArtifactId), userId });
-        if (!artifact) return { treeData: [], artifactState: {} };
-        const channelId = await getChannelIdForArtifact(artifact._id as ObjectId);
-        if (!channelId) return { treeData: [], artifactState: artifact['state'] ?? {} };
+        const targetChannelId = context.targetChannelId;
+        if (!targetChannelId) return { treeData: [], artifactState: null };
+        const channelDoc = await db.collection('channels').findOne({ channelId: targetChannelId });
+        if (!channelDoc) return { treeData: [], artifactState: null };
+        // Document-backed channels are owned via their artifact's userId; stateless channels
+        // (no artifactId — e.g. workflow-builder, browse-documents-workflow) carry userId directly.
+        const artifact = channelDoc['artifactId']
+          ? await db.collection('artifacts').findOne({ _id: channelDoc['artifactId'], userId })
+          : null;
+        if (channelDoc['artifactId'] && !artifact) return { treeData: [], artifactState: null };
+        if (!channelDoc['artifactId'] && channelDoc['userId'] !== userId) return { treeData: [], artifactState: null };
         const roots = await db.collection('workflowlogs')
-          .find({ channel: channelId, parentExecutionId: null, logType: 'handler' })
+          .find({ channel: targetChannelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
         const treeData = await Promise.all(roots.map(async (root) => ({
           id: String(root._id),
           name: `handler: ${root.handlerName}`,
           rawData: structuredClone(root),
-          children: await buildTree(root.executionId as string, channelId),
+          children: await buildTree(root.executionId as string, targetChannelId),
         })));
-        return { treeData, artifactState: artifact['state'] ?? {} };
+        return { treeData, artifactState: artifact?.['state'] ?? null };
       }
 
       if (queryName === 'get-user-groups') {
@@ -513,7 +517,12 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           )
           .sort({ createdAt: -1 })
           .toArray();
-        return { documents: rawDocs.map(stringifyId) };
+        const artifactIds = rawDocs.map((d) => d._id as ObjectId);
+        const channels = artifactIds.length > 0
+          ? await db.collection('channels').find({ artifactId: { $in: artifactIds } }, { projection: { artifactId: 1, channelId: 1 } }).toArray()
+          : [];
+        const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
+        return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
       }
       if (queryName === 'rename-artifact') {
         const userId = context.user?.['id'] as string | undefined;

@@ -7,7 +7,7 @@ export interface IChannel extends Document {
   userId: string;
   artifactId?: Types.ObjectId;
   groupId?: Types.ObjectId;
-  targetArtifactId?: Types.ObjectId;
+  targetChannelId?: string;
   parentChannelId?: string;
   responseHandler?: string;
   isSessionChannel?: boolean;
@@ -22,11 +22,11 @@ const channelSchema = new Schema<IChannel>(
     userId: { type: String, required: true },
     artifactId: { type: Schema.Types.ObjectId, ref: 'Artifact' },
     groupId: { type: Schema.Types.ObjectId, ref: 'Group' },
-    // The artifact a stateless session channel is *about* (e.g. log-review reviewing another
-    // document's logs) — distinct from artifactId, which means "this channel's own backing
-    // document". Kept separate so the artifactId unique-sparse index (one channel per document)
-    // isn't violated when multiple users review the same target artifact.
-    targetArtifactId: { type: Schema.Types.ObjectId, ref: 'Artifact' },
+    // The channel a stateless session channel is *about* (e.g. log-review reviewing another
+    // channel's workflow logs) — distinct from artifactId, which means "this channel's own
+    // backing document". Any channel can be a target, document-backed or stateless, which is
+    // what lets log-review generalize to reviewing stateless channel interactions later.
+    targetChannelId: { type: String },
     parentChannelId: { type: String },
     responseHandler: { type: String },
     // Set only on stateless workflow-session channels (see getOrCreateWorkflowSession), never
@@ -41,12 +41,12 @@ const channelSchema = new Schema<IChannel>(
 channelSchema.index({ channelId: 1 }, { unique: true });
 channelSchema.index({ artifactId: 1 }, { unique: true, sparse: true });
 // Only applies to stateless workflow-session channels, which are looked up by
-// { workflowType, userId, groupId, targetArtifactId } and reused rather than duplicated.
+// { workflowType, userId, groupId, targetChannelId } and reused rather than duplicated.
 // Document-backed channels must not be constrained by this — otherwise creating two documents
-// of the same type for the same user (and group) would collide. targetArtifactId is included
-// so reviewing two different artifacts (e.g. log-review) doesn't collide into one channel.
+// of the same type for the same user (and group) would collide. targetChannelId is included
+// so reviewing two different channels (e.g. log-review) doesn't collide into one channel.
 channelSchema.index(
-  { workflowType: 1, userId: 1, groupId: 1, targetArtifactId: 1 },
+  { workflowType: 1, userId: 1, groupId: 1, targetChannelId: 1 },
   { unique: true, partialFilterExpression: { isSessionChannel: true } }
 );
 

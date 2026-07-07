@@ -15,11 +15,11 @@ const USER_ID = 'u-1';
 const OTHER_USER_ID = 'u-2';
 const CHANNEL = 'ch-1';
 
-function makeContext(userId: string | undefined, message: Record<string, unknown> = {}, targetArtifactId?: string): WorkflowContext {
+function makeContext(userId: string | undefined, message: Record<string, unknown> = {}, targetChannelId?: string): WorkflowContext {
   return {
     message: { channel: CHANNEL, type: 'test', ...message },
     user: userId !== undefined ? { id: userId, email: 'test@example.com' } : undefined,
-    targetArtifactId,
+    targetChannelId,
   };
 }
 
@@ -261,39 +261,45 @@ describe('create-document', () => {
   });
 });
 
-// ─── get-artifact-log-tree ─────────────────────────────────────────────────────
+// ─── get-channel-log-tree ──────────────────────────────────────────────────────
 
-describe('get-artifact-log-tree', () => {
-  test('returns empty treeData and state when no targetArtifactId', async () => {
+describe('get-channel-log-tree', () => {
+  test('returns empty treeData and state when no targetChannelId', async () => {
     const execute = makeExecutor();
-    const result = await execute('get-artifact-log-tree', makeContext(USER_ID));
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID));
     expect(result['treeData']).toEqual([]);
-    expect(result['artifactState']).toEqual({});
+    expect(result['artifactState']).toBeNull();
   });
 
-  test('returns empty treeData when artifact not found for user', async () => {
-    const artifact = await insertArtifact({ userId: OTHER_USER_ID });
+  test('returns empty treeData when channel not found', async () => {
     const execute = makeExecutor();
-    const result = await execute('get-artifact-log-tree', makeContext(USER_ID, {}, String(artifact._id)));
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, 'no-such-channel'));
     expect(result['treeData']).toEqual([]);
   });
 
-  test('returns the artifact\'s current state alongside the tree', async () => {
-    const artifact = await insertArtifact({ state: { title: 'my state' } });
+  test('returns empty treeData when document-backed channel belongs to another user', async () => {
+    await insertArtifact({ userId: OTHER_USER_ID });
     const execute = makeExecutor();
-    const result = await execute('get-artifact-log-tree', makeContext(USER_ID, {}, String(artifact._id)));
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
+    expect(result['treeData']).toEqual([]);
+  });
+
+  test('returns the artifact\'s current state alongside the tree for a document-backed channel', async () => {
+    await insertArtifact({ state: { title: 'my state' } });
+    const execute = makeExecutor();
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     expect(result['artifactState']).toEqual({ title: 'my state' });
   });
 
-  test('returns multiple root logs for the artifact channel sorted by createdAt desc', async () => {
-    const artifact = await insertArtifact();
+  test('returns multiple root logs for the channel sorted by createdAt desc', async () => {
+    await insertArtifact();
     const older = new Date('2024-01-01');
     const newer = new Date('2024-06-01');
     await insertLog({ channel: CHANNEL, createdAt: older, handlerName: 'older', executionId: 'exec-older', parentExecutionId: null, logType: 'handler' });
     await insertLog({ channel: CHANNEL, createdAt: newer, handlerName: 'newer', executionId: 'exec-newer', parentExecutionId: null, logType: 'handler' });
     await insertLog({ channel: CHANNEL, parentExecutionId: 'exec-parent', logType: 'handler' });
     const execute = makeExecutor();
-    const result = await execute('get-artifact-log-tree', makeContext(USER_ID, {}, String(artifact._id)));
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     const treeData = result['treeData'] as Array<Record<string, unknown>>;
     expect(treeData).toHaveLength(2);
     expect(treeData[0]['name']).toBe('handler: newer');
@@ -301,7 +307,7 @@ describe('get-artifact-log-tree', () => {
   });
 
   test('nests route and sub-handler children correctly for each root', async () => {
-    const artifact = await insertArtifact();
+    await insertArtifact();
     await insertLog({ handlerName: 'root', executionId: 'exec-root' });
     await client.db().collection('workflowlogs').insertOne({
       channel: CHANNEL, executionId: 'exec-root', logType: 'route', stepIndex: 0,
@@ -313,12 +319,36 @@ describe('get-artifact-log-tree', () => {
       createdAt: new Date(),
     } as any);
     const execute = makeExecutor();
-    const result = await execute('get-artifact-log-tree', makeContext(USER_ID, {}, String(artifact._id)));
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     const treeData = result['treeData'] as Array<Record<string, unknown>>;
     const rootChildren = treeData[0]['children'] as Array<Record<string, unknown>>;
     expect(rootChildren).toHaveLength(1);
     const routeChildren = rootChildren[0]['children'] as Array<Record<string, unknown>>;
     expect(routeChildren[0]['name']).toBe('handler: childHandler');
+  });
+
+  test('returns logs for a stateless channel (no artifactId), owned via channel.userId', async () => {
+    await client.db().collection('channels').insertOne({
+      channelId: CHANNEL, workflowType: 'workflow-builder', userId: USER_ID, isSessionChannel: true,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as any);
+    await insertLog({ handlerName: 'statelessRoot', executionId: 'exec-stateless' });
+    const execute = makeExecutor();
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
+    const treeData = result['treeData'] as Array<Record<string, unknown>>;
+    expect(treeData).toHaveLength(1);
+    expect(treeData[0]['name']).toBe('handler: statelessRoot');
+    expect(result['artifactState']).toBeNull();
+  });
+
+  test('returns empty treeData when a stateless channel belongs to another user', async () => {
+    await client.db().collection('channels').insertOne({
+      channelId: CHANNEL, workflowType: 'workflow-builder', userId: OTHER_USER_ID, isSessionChannel: true,
+      createdAt: new Date(), updatedAt: new Date(),
+    } as any);
+    const execute = makeExecutor();
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
+    expect(result['treeData']).toEqual([]);
   });
 });
 

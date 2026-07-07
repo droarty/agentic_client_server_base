@@ -41,7 +41,7 @@
         },
         {
           "route": "database-query",
-          "query": { "name": "get-artifact-log-tree", "responseType": "log-tree-loaded" }
+          "query": { "name": "get-channel-log-tree", "responseType": "log-tree-loaded" }
         }
       ]
     },

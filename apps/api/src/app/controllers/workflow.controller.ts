@@ -5,12 +5,12 @@ import { ChannelModel } from '../models/channel.model';
 
 export async function getOrCreateWorkflowSession(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { workflowType, groupId, parentChannelId, responseHandler, targetArtifactId } = req.body as {
+    const { workflowType, groupId, parentChannelId, responseHandler, targetChannelId } = req.body as {
       workflowType?: string;
       groupId?: string;
       parentChannelId?: string;
       responseHandler?: string;
-      targetArtifactId?: string;
+      targetChannelId?: string;
     };
     if (!workflowType?.trim()) {
       res.status(400).json({ message: 'workflowType is required' });
@@ -22,7 +22,7 @@ export async function getOrCreateWorkflowSession(req: AuthRequest, res: Response
       isSessionChannel: true,
     };
     if (groupId) query['groupId'] = new Types.ObjectId(groupId);
-    if (targetArtifactId) query['targetArtifactId'] = new Types.ObjectId(targetArtifactId);
+    if (targetChannelId) query['targetChannelId'] = targetChannelId;
 
     let channel = await ChannelModel.findOne(query);
     if (!channel) {
@@ -30,7 +30,7 @@ export async function getOrCreateWorkflowSession(req: AuthRequest, res: Response
         workflowType: workflowType.trim(),
         userId: req.userId,
         groupId: groupId ? new Types.ObjectId(groupId) : undefined,
-        targetArtifactId: targetArtifactId ? new Types.ObjectId(targetArtifactId) : undefined,
+        targetChannelId: targetChannelId ?? undefined,
         parentChannelId: parentChannelId ?? undefined,
         responseHandler: responseHandler ?? undefined,
         isSessionChannel: true,

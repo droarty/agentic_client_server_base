@@ -5,21 +5,21 @@ import { LayoutDocumentView } from '../components/LayoutDocumentView';
 import { apiGetOrCreateWorkflowSession } from '../services/api';
 
 export function LogReviewPage() {
-  const { documentId } = useParams<{ documentId: string }>();
-  const [channelId, setChannelId] = useState<string | null>(null);
+  const { channelId: targetChannelId } = useParams<{ channelId: string }>();
+  const [sessionChannelId, setSessionChannelId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (documentId) {
-      apiGetOrCreateWorkflowSession({ workflowType: 'log-review', targetArtifactId: documentId }).then(({ channelId }) => setChannelId(channelId));
+    if (targetChannelId) {
+      apiGetOrCreateWorkflowSession({ workflowType: 'log-review', targetChannelId }).then(({ channelId }) => setSessionChannelId(channelId));
     }
-  }, [documentId]);
+  }, [targetChannelId]);
 
   return (
     <div className="page" style={{ height: '100vh', overflow: 'hidden' }}>
       <PageHeader title="Log Review" />
       <main style={{ flex: 1, overflow: 'hidden', padding: 0 }}>
-        {channelId
-          ? <LayoutDocumentView channelId={channelId} />
+        {sessionChannelId
+          ? <LayoutDocumentView channelId={sessionChannelId} />
           : <p className="doc-empty">Loading…</p>
         }
       </main>

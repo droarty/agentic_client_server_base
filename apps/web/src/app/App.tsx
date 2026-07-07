@@ -31,7 +31,7 @@ export function App() {
           <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
 
           <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-          <Route path="/documents/:documentId/logs" element={<PrivateRoute><LogReviewPage /></PrivateRoute>} />
+          <Route path="/channel/:channelId/logs" element={<PrivateRoute><LogReviewPage /></PrivateRoute>} />
 
           <Route path="/" element={<Navigate to="/user" replace />} />
           <Route path="*" element={<Navigate to="/user" replace />} />

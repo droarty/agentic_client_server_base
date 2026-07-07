@@ -84,13 +84,13 @@
       ]
     },
     "view-document-logs": {
-      "condition": "$message.documentId",
+      "condition": "$message.channelId",
       "steps": [
         {
           "route": "client",
           "transform": {
             "clientMessageType": "redirect",
-            "url": "~{ '/documents/' & message.documentId & '/logs' }"
+            "url": "~{ '/channel/' & message.channelId & '/logs' }"
           }
         }
       ]
