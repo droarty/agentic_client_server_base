@@ -271,3 +271,40 @@ Embeds a YouTube player. Fires `videoEnd` when playback ends.
 Props: `videoId` — the 11-character YouTube video ID.
 
 Emits `videoEnd` with an empty payload when the video ends.
+
+---
+
+### `progressBar`
+
+Displays workflow completion. Two modes, chosen by which props are set: a
+labeled step mode (`labels` + `completionState`), or a percent mode
+(`percentComplete`). Read-only/display-only — no `emits`.
+
+Labeled steps:
+```json
+{
+  "componentType": "progressBar",
+  "props": {
+    "labels": ["Step 1", "Step 2", "Step 3"],
+    "completionState": "@state.myCompletionState"
+  }
+}
+```
+
+Percent:
+```json
+{
+  "componentType": "progressBar",
+  "props": {
+    "percentComplete": "@state.pctComplete"
+  }
+}
+```
+
+Props: `labels` (string array, typically a static literal) — step labels;
+`completionState` (number, zero-based) — steps before this index render as
+completed, the step at this index as active, steps after as pending; defaults
+to `0` if unset. `percentComplete` (number, 0–100) — used instead of
+`labels`/`completionState` for a plain percentage bar; clamped to `[0, 100]`
+and rounded for display. If `labels` is a non-empty array, step mode takes
+precedence over percent mode.

@@ -9,6 +9,7 @@
 @import './multi-input.css';
 @import './quiz.css';
 @import './dev-page.css';
+@import './progress-bar.css';
 
 :root {
   --background: 0 0% 100%;

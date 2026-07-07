@@ -67,6 +67,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   actionButton: lazy(() =>
     import('@/components/layout/ActionButton').then((m) => ({ default: m.ActionButton as ComponentType<LayoutComponentProps> }))
   ),
+  progressBar: lazy(() =>
+    import('@/components/layout/ProgressBar').then((m) => ({ default: m.ProgressBar as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
