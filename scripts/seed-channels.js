@@ -25,17 +25,23 @@ async function main() {
     await db.collection('channels').createIndex({ channelId: 1 }, { unique: true });
     await db.collection('channels').createIndex({ artifactId: 1 }, { unique: true, sparse: true });
 
-    // Migrate the session-uniqueness index: the old `sparse` version also constrained
-    // document-backed channels, preventing a user from creating two documents of the same
-    // type. Drop it if present and replace with a partial index scoped to session channels
-    // (isSessionChannel: true) only — MongoDB partial indexes don't support $exists:false,
-    // so an explicit marker field is used instead of "no artifactId".
+    // Migrate the session-uniqueness index. Its compound key has changed shape more than once
+    // (sparse-all-channels -> partial+3-key -> partial+4-key with targetChannelId), and Mongoose's
+    // default autoIndex only ever *adds* the current definition — it never drops indexes that are
+    // no longer declared in the schema. Each shape change left its predecessor behind, silently
+    // enforcing a stricter/staler uniqueness constraint than intended (this is what caused
+    // https://github.com/droarty/agentic_client_server_base/issues/225: a leftover 3-key index
+    // collapsed two distinct log-review sessions for the same user into one key). Drop every
+    // variant of this index except the one matching the current schema before recreating it, so
+    // this class of bug self-heals on future key changes too.
+    const CURRENT_SESSION_INDEX_NAME = 'workflowType_1_userId_1_groupId_1_targetChannelId_1';
     const existingIndexes = await db.collection('channels').indexes();
-    const staleSessionIndex = existingIndexes.find(
-      (idx) => idx.name === 'workflowType_1_userId_1_groupId_1' && !idx.partialFilterExpression
+    const staleSessionIndexes = existingIndexes.filter(
+      (idx) => idx.name.startsWith('workflowType_1_userId_1_groupId_1') && idx.name !== CURRENT_SESSION_INDEX_NAME
     );
-    if (staleSessionIndex) {
-      await db.collection('channels').dropIndex('workflowType_1_userId_1_groupId_1');
+    for (const idx of staleSessionIndexes) {
+      console.log(`Dropping stale channels index: ${idx.name}`);
+      await db.collection('channels').dropIndex(idx.name);
     }
 
     // Backfill the marker on pre-existing session channels (any channel without an artifactId
@@ -49,7 +55,7 @@ async function main() {
     }
 
     await db.collection('channels').createIndex(
-      { workflowType: 1, userId: 1, groupId: 1 },
+      { workflowType: 1, userId: 1, groupId: 1, targetChannelId: 1 },
       { unique: true, partialFilterExpression: { isSessionChannel: true } }
     );
 
