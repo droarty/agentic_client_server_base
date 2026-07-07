@@ -12,6 +12,7 @@ export interface AiStepConfig {
   responseTypes?: string[];
   referenceDocs?: string[];
   historyPath?: string;
+  tools?: string[];
 }
 
 export interface AiHistoryTurn {

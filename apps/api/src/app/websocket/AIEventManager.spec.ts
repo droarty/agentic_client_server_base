@@ -4,6 +4,7 @@ jest.mock('./EventProcessor');
 import { AiService } from './AiService';
 import { EventProcessor } from './EventProcessor';
 import { AIEventManager } from './AIEventManager';
+import { AiStepConfig } from './WorkflowEngine';
 import { ValidateTextMessage } from '@agentic-client-server-base/shared-types';
 
 const flushPromises = () => new Promise(setImmediate);
@@ -108,5 +109,31 @@ describe('user context', () => {
     new AIEventManager().publish(makeRequest(), undefined, user);
     await flushPromises();
     expect(EventProcessor.prototype.process).toHaveBeenCalledWith(expect.anything(), user);
+  });
+});
+
+// ─── tools wiring ──────────────────────────────────────────────────────────────
+
+describe('tools wiring', () => {
+  test('config.tools names are resolved to real tools and passed to AiService.complete', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"valid-text"}');
+    const config: AiStepConfig = {
+      model: 'claude-sonnet-5',
+      maxTokens: 100,
+      systemPrompt: 'sys',
+      tools: ['get_reference_section'],
+    };
+    new AIEventManager().publish(makeRequest(), config);
+    await flushPromises();
+    const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
+    expect(options.tools).toEqual([expect.objectContaining({ name: 'get_reference_section' })]);
+  });
+
+  test('config without tools passes tools: undefined (unchanged single-shot behavior)', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"valid-text"}');
+    new AIEventManager().publish(makeRequest());
+    await flushPromises();
+    const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
+    expect(options.tools).toBeUndefined();
   });
 });
