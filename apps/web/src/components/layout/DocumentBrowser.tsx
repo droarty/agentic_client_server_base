@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ScrollText } from 'lucide-react';
 import { ArtifactSummary } from '@agentic-client-server-base/shared-types';
 import { Button } from '@/components/ui/button';
 
@@ -7,11 +8,12 @@ interface Props {
   onOpen?: (payload: { documentId: string }) => void;
   onRename?: (payload: { _id: string; name: string }) => void;
   onDelete?: (payload: { _id: string }) => void;
+  onViewLogs?: (payload: { documentId: string }) => void;
 }
 
 type SortKey = 'date' | 'name';
 
-export function DocumentBrowser({ items = [], onOpen, onRename, onDelete }: Props) {
+export function DocumentBrowser({ items = [], onOpen, onRename, onDelete, onViewLogs }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -73,6 +75,16 @@ export function DocumentBrowser({ items = [], onOpen, onRename, onDelete }: Prop
                   <Button onClick={() => startRename(doc)}>Rename</Button>
                   {' '}
                   <Button onClick={() => handleDelete(doc._id, doc.name)}>Delete</Button>
+                  {' '}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="View logs"
+                    onClick={() => onViewLogs?.({ documentId: doc._id })}
+                  >
+                    <ScrollText size={14} />
+                  </Button>
                 </span>
               )}
             </li>

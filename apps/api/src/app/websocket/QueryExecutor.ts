@@ -72,23 +72,6 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
         return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
       }
-      if (queryName === 'get-reviewable-documents') {
-        const userId = context.user?.['id'] as string | undefined;
-        if (!userId) return { documents: [] };
-        const rawDocs = await db
-          .collection('artifacts')
-          .find(
-            { userId, type: { $nin: ['user-dashboard', 'log-review'] } },
-            { projection: { _id: 1, name: 1, type: 1, userId: 1, createdAt: 1, updatedAt: 1 } }
-          )
-          .toArray();
-        const artifactIds = rawDocs.map((d) => d._id as ObjectId);
-        const channels = artifactIds.length > 0
-          ? await db.collection('channels').find({ artifactId: { $in: artifactIds } }, { projection: { artifactId: 1, channelId: 1 } }).toArray()
-          : [];
-        const channelMap = new Map(channels.map((c) => [String(c['artifactId']), c['channelId'] as string]));
-        return { documents: rawDocs.map((d) => ({ ...stringifyId(d), currentChannelId: channelMap.get(String(d._id)) ?? '' })) };
-      }
       if (queryName === 'get-document') {
         const userId = context.user?.['id'] as string | undefined;
         if (!userId) return { document: null };
@@ -268,24 +251,6 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
 
         return { type: 'workflow-published', publishedName: name, publishedVersion: nextVersion };
       }
-      if (queryName === 'get-workflow-logs') {
-        const userId = context.user?.['id'] as string | undefined;
-        const id = context.message['id'] as string | undefined;
-        if (!id) return { id: null, workflowLogs: [] };
-        const { ObjectId } = await import('mongodb');
-        const artifact = await db.collection('artifacts').findOne(
-          { _id: new ObjectId(id), userId },
-          { projection: { _id: 1 } }
-        );
-        if (!artifact) return { id, workflowLogs: [] };
-        const channelId = await getChannelIdForArtifact(artifact._id as ObjectId);
-        if (!channelId) return { id, workflowLogs: [] };
-        const logs = await db.collection('workflowlogs')
-          .find({ channel: channelId, parentExecutionId: null, logType: 'handler' })
-          .sort({ createdAt: -1 })
-          .toArray();
-        return { id, workflowLogs: logs.map(stringifyId) };
-      }
       async function buildTree(executionId: string, channel: string): Promise<unknown[]> {
         const routes = await db
           .collection('workflowlogs')
@@ -322,79 +287,26 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         return children;
       }
 
-      if (queryName === 'get-log-tree') {
+      if (queryName === 'get-artifact-log-tree') {
         const userId = context.user?.['id'] as string | undefined;
-        const id = context.message['id'] as string | undefined;
-        if (!id) return { id: null, treeData: [] };
+        const targetArtifactId = context.targetArtifactId;
+        if (!targetArtifactId) return { treeData: [], artifactState: {} };
         const { ObjectId } = await import('mongodb');
-        const root = await db.collection('workflowlogs').findOne({ _id: new ObjectId(id) });
-        if (!root) return { id, treeData: [] };
-        const channelDoc = await db.collection('channels').findOne(
-          { channelId: root.channel },
-          { projection: { artifactId: 1, userId: 1 } }
-        );
-        if (!channelDoc) return { id, treeData: [] };
-        const artifact = channelDoc['artifactId']
-          ? await db.collection('artifacts').findOne({ _id: channelDoc['artifactId'], userId }, { projection: { _id: 1 } })
-          : null;
-        if (channelDoc['artifactId'] && !artifact) return { id, treeData: [] };
-        if (!channelDoc['artifactId'] && channelDoc['userId'] !== userId) return { id, treeData: [] };
-        const rootChildren = await buildTree(root.executionId, root.channel);
-        const treeData = [{
-          id: String(root._id),
-          name: `handler: ${root.handlerName}`,
-          rawData: structuredClone(root),
-          children: rootChildren,
-        }];
-        return { id, treeData };
-      }
-      if (queryName === 'rehydrate-workflow-logs') {
-        const userId = context.user?.['id'] as string | undefined;
-        const document = context.message['document'] as Record<string, unknown> | null;
-        const docState = document?.['state'] as Record<string, unknown> | undefined;
-        const id = docState?.['selectedDocumentId'] as string | undefined;
-        if (!id) return { workflowLogs: [] };
-        const { ObjectId } = await import('mongodb');
-        const artifact = await db.collection('artifacts').findOne(
-          { _id: new ObjectId(id), userId },
-          { projection: { _id: 1 } }
-        );
-        if (!artifact) return { workflowLogs: [] };
+        const artifact = await db.collection('artifacts').findOne({ _id: new ObjectId(targetArtifactId), userId });
+        if (!artifact) return { treeData: [], artifactState: {} };
         const channelId = await getChannelIdForArtifact(artifact._id as ObjectId);
-        if (!channelId) return { workflowLogs: [] };
-        const logs = await db.collection('workflowlogs')
+        if (!channelId) return { treeData: [], artifactState: artifact['state'] ?? {} };
+        const roots = await db.collection('workflowlogs')
           .find({ channel: channelId, parentExecutionId: null, logType: 'handler' })
           .sort({ createdAt: -1 })
           .toArray();
-        return { workflowLogs: logs.map(stringifyId) };
-      }
-      if (queryName === 'rehydrate-log-tree') {
-        const userId = context.user?.['id'] as string | undefined;
-        const document = context.message['document'] as Record<string, unknown> | null;
-        const docState = document?.['state'] as Record<string, unknown> | undefined;
-        const id = docState?.['selectedLogId'] as string | undefined;
-        if (!id) return { treeData: [] };
-        const { ObjectId } = await import('mongodb');
-        const root = await db.collection('workflowlogs').findOne({ _id: new ObjectId(id) });
-        if (!root) return { treeData: [] };
-        const channelDoc = await db.collection('channels').findOne(
-          { channelId: root.channel },
-          { projection: { artifactId: 1, userId: 1 } }
-        );
-        if (!channelDoc) return { treeData: [] };
-        const artifact = channelDoc['artifactId']
-          ? await db.collection('artifacts').findOne({ _id: channelDoc['artifactId'], userId }, { projection: { _id: 1 } })
-          : null;
-        if (channelDoc['artifactId'] && !artifact) return { treeData: [] };
-        if (!channelDoc['artifactId'] && channelDoc['userId'] !== userId) return { treeData: [] };
-        const rootChildren = await buildTree(root.executionId, root.channel);
-        const treeData = [{
+        const treeData = await Promise.all(roots.map(async (root) => ({
           id: String(root._id),
           name: `handler: ${root.handlerName}`,
           rawData: structuredClone(root),
-          children: rootChildren,
-        }];
-        return { treeData };
+          children: await buildTree(root.executionId as string, channelId),
+        })));
+        return { treeData, artifactState: artifact['state'] ?? {} };
       }
 
       if (queryName === 'get-user-groups') {

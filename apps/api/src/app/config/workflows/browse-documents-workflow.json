@@ -34,7 +34,7 @@
                   {
                     "componentType": "documentBrowser",
                     "props": { "items": "@temp.documents" },
-                    "emits": { "open": "open-document", "rename": "rename-document", "delete": "delete-document" }
+                    "emits": { "open": "open-document", "rename": "rename-document", "delete": "delete-document", "viewLogs": "view-document-logs" }
                   },
                   {
                     "componentType": "textDisplay",
@@ -79,6 +79,18 @@
           "route": "parent",
           "transform": {
             "channelId": "$message.document.currentChannelId"
+          }
+        }
+      ]
+    },
+    "view-document-logs": {
+      "condition": "$message.documentId",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "redirect",
+            "url": "~{ '/documents/' & message.documentId & '/logs' }"
           }
         }
       ]

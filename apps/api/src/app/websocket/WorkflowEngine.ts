@@ -47,6 +47,7 @@ export interface WorkflowContext {
   permissionLevel?: AccessLevel;
   groupId?: string;
   parentChannel?: string;
+  targetArtifactId?: string;
 }
 
 export interface WorkflowLogEntry {
@@ -74,6 +75,7 @@ export interface ChannelContext {
   userId?: string;
   parentChannelId?: string;
   responseHandler?: string;
+  targetArtifactId?: string;
 }
 
 export interface WorkflowEngineDeps {
@@ -214,6 +216,7 @@ export class WorkflowEngine {
       ...context,
       groupId: context.groupId ?? channelCtx.groupId,
       parentChannel: context.parentChannel ?? channelCtx.parentChannelId,
+      targetArtifactId: context.targetArtifactId ?? channelCtx.targetArtifactId,
     };
     const hasArtifact = !!channelCtx.artifactId;
 
