@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Artifact, InboundMessage } from '@agentic-client-server-base/shared-types';
 import { eventManager } from '../services/EventManager';
 import { LayoutRenderer } from '../../components/LayoutRenderer';
-import { subscribeToModel, getModelSnapshot, mountChannel, onRedirect } from '../services/documentModelStore';
+import { subscribeToModel, getModelSnapshot, mountChannel, unmountChannel, onRedirect } from '../services/documentModelStore';
 
 interface Props {
   doc?: Artifact;
@@ -43,7 +43,9 @@ export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler 
   }, [resolvedChannelId, groupId]);
 
   useEffect(() => {
-    if (!isRecursive) mountChannel(resolvedChannelId, emit, viewHandler);
+    if (isRecursive) return;
+    mountChannel(resolvedChannelId, emit, viewHandler);
+    return () => unmountChannel(resolvedChannelId, viewHandler);
   }, [resolvedChannelId, emit, viewHandler, isRecursive]);
 
   const model = useSyncExternalStore(

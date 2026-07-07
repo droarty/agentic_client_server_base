@@ -20,8 +20,8 @@ export async function getOrCreateWorkflowSession(req: AuthRequest, res: Response
       workflowType: workflowType.trim(),
       userId: req.userId,
       isSessionChannel: true,
+      groupId: groupId ? new Types.ObjectId(groupId) : { $exists: false },
     };
-    if (groupId) query['groupId'] = new Types.ObjectId(groupId);
     if (targetChannelId) query['targetChannelId'] = targetChannelId;
 
     let channel = await ChannelModel.findOne(query);
