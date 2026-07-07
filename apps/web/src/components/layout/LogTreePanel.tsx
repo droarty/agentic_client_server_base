@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { TreeView, type TreeDataItem } from '../ui/tree-view';
 import { TwoColumnPanel } from './TwoColumnPanel';
+import { JsonView } from './JsonView';
 
 interface LogTreeNode {
   id: string;
@@ -11,10 +12,11 @@ interface LogTreeNode {
 
 interface Props {
   treeData?: unknown;
+  selectedLog?: unknown;
+  artifactState?: unknown;
+  onSelect?: (payload: { selectedLog: LogTreeNode }) => void;
   [key: string]: unknown;
 }
-
-const OMIT_KEYS = new Set(['id', 'name', 'children', 'rawData', '_id', '__v']);
 
 function toTreeDataItems(nodes: LogTreeNode[]): TreeDataItem[] {
   return nodes.map((node) => ({
@@ -35,39 +37,16 @@ function findNode(nodes: LogTreeNode[], id: string): LogTreeNode | null {
   return null;
 }
 
-function formatValue(val: unknown): string {
-  if (val == null) return '';
-  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) {
-    return new Date(val).toLocaleString();
-  }
-  if (typeof val === 'object') return JSON.stringify(val, null, 2);
-  return String(val);
-}
-
-function NodeDetails({ node }: { node: LogTreeNode }) {
-  const entries = Object.entries(node.rawData).filter(([k]) => !OMIT_KEYS.has(k));
-  return (
-    <div className="log-tree-details">
-      {entries.map(([key, val]) => (
-        <div key={key} className="log-tree-entry">
-          <span className="log-tree-key">{key}: </span>
-          <span className="log-tree-value">{formatValue(val)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function LogTreePanel({ treeData }: Props) {
-  const [selectedNode, setSelectedNode] = useState<LogTreeNode | null>(null);
-
+export function LogTreePanel({ treeData, selectedLog, artifactState, onSelect }: Props) {
   const nodes = Array.isArray(treeData) ? (treeData as LogTreeNode[]) : [];
+  const selectedNode = (selectedLog as LogTreeNode | null | undefined) ?? null;
 
   const items = useMemo(() => toTreeDataItems(nodes), [nodes]);
 
   const handleSelect = (item: TreeDataItem | undefined) => {
     if (!item) return;
-    setSelectedNode(findNode(nodes, item.id));
+    const node = findNode(nodes, item.id);
+    if (node) onSelect?.({ selectedLog: node });
   };
 
   return (
@@ -76,15 +55,20 @@ export function LogTreePanel({ treeData }: Props) {
         items.length === 0 ? (
           <p className="log-tree-empty">No tree data.</p>
         ) : (
-          <TreeView data={items} onSelectChange={handleSelect} />
+          <TreeView data={items} initialSelectedItemId={selectedNode?.id} onSelectChange={handleSelect} />
         )
       }
       right={
-        selectedNode ? (
-          <NodeDetails node={selectedNode} />
-        ) : (
-          <p className="log-tree-empty">Select a node to view details.</p>
-        )
+        <div className="log-review-right">
+          <h4>Artifact State</h4>
+          <JsonView config={(artifactState as Record<string, unknown>) ?? null} emptyMessage="No state." />
+          <h4>Selected Log</h4>
+          {selectedNode ? (
+            <JsonView config={selectedNode.rawData} />
+          ) : (
+            <p className="log-tree-empty">Select a node to view details.</p>
+          )}
+        </div>
       }
     />
   );

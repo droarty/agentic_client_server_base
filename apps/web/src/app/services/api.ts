@@ -66,7 +66,7 @@ export async function apiGetDocument(id: string): Promise<Artifact> {
   return data;
 }
 
-export async function apiGetOrCreateWorkflowSession(params: { workflowType: string; groupId?: string; parentChannelId?: string; responseHandler?: string }): Promise<{ channelId: string }> {
+export async function apiGetOrCreateWorkflowSession(params: { workflowType: string; groupId?: string; parentChannelId?: string; responseHandler?: string; targetChannelId?: string }): Promise<{ channelId: string }> {
   const { data } = await client.post<{ channelId: string }>('/api/workflow/session', params);
   return data;
 }
