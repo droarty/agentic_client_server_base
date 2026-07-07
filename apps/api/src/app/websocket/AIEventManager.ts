@@ -2,6 +2,7 @@ import { ValidateTextMessage, AiResponse } from '@agentic-client-server-base/sha
 import { AiService } from './AiService';
 import { EventProcessor } from './EventProcessor';
 import { AiStepConfig } from './WorkflowEngine';
+import { resolveTools } from './tools/registry';
 import { env } from '../config/env';
 
 const DEFAULT_AI_CONFIG: AiStepConfig = {
@@ -31,9 +32,11 @@ export class AIEventManager {
     const messages = request.history?.length
       ? request.history
       : [{ role: 'user' as const, content: `Evaluate this text: "${request.text}"` }];
+    const tools = config.tools?.length ? resolveTools(config.tools) : undefined;
     const raw = await aiService.complete(config.systemPrompt, messages, env.AI_SERVICE_TYPE, {
       model: config.model,
       maxTokens: config.maxTokens,
+      tools,
     });
 
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
