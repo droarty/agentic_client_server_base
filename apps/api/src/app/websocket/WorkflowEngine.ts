@@ -13,6 +13,8 @@ export interface AiStepConfig {
   referenceDocs?: string[];
   historyPath?: string;
   tools?: string[];
+  docType?: string;
+  handlerName?: string;
 }
 
 export interface AiHistoryTurn {
@@ -56,7 +58,7 @@ export interface WorkflowLogEntry {
   channel: string;
   docType: string;
   handlerName: string;
-  logType: 'handler' | 'route' | 'error';
+  logType: 'handler' | 'route' | 'error' | 'tool';
   executionId?: string;
   parentExecutionId?: string;
   stepIndex?: number;
@@ -381,17 +383,6 @@ export class WorkflowEngine {
     if (routes.includes('ai') && step.ai) {
       const text = context.message['text'] as string;
       const senderEmail = context.message['senderEmail'] as string | undefined;
-      this.deps.logWorkflowStep?.({
-        createdAt: new Date(),
-        channel,
-        docType,
-        handlerName,
-        logType: 'route',
-        executionId,
-        stepIndex,
-        route: 'ai',
-        resolvedMessage: { text, senderEmail },
-      });
       const referenceContent = (step.ai.referenceDocs ?? [])
         .map((relPath) => {
           try {
@@ -419,7 +410,28 @@ export class WorkflowEngine {
           }
         }
       }
-      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: fullPrompt }, context.user, `${executionId}:${stepIndex}`, history);
+      this.deps.logWorkflowStep?.({
+        createdAt: new Date(),
+        channel,
+        docType,
+        handlerName,
+        logType: 'route',
+        executionId,
+        stepIndex,
+        route: 'ai',
+        resolvedMessage: {
+          text,
+          senderEmail,
+          model: step.ai.model,
+          maxTokens: step.ai.maxTokens,
+          systemPrompt: fullPrompt,
+          tools: step.ai.tools,
+          responseTypes: step.ai.responseTypes,
+          historyPath: step.ai.historyPath,
+          history,
+        },
+      });
+      this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: fullPrompt, docType, handlerName }, context.user, `${executionId}:${stepIndex}`, history);
       return;
     }
 

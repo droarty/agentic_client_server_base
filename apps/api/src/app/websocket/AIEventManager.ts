@@ -1,7 +1,7 @@
 import { ValidateTextMessage, AiResponse } from '@agentic-client-server-base/shared-types';
 import { AiService } from './AiService';
 import { EventProcessor } from './EventProcessor';
-import { AiStepConfig } from './WorkflowEngine';
+import { AiStepConfig, WorkflowLogEntry } from './WorkflowEngine';
 import { resolveTools } from './tools/registry';
 import { env } from '../config/env';
 
@@ -22,6 +22,8 @@ const DEFAULT_AI_CONFIG: AiStepConfig = {
 const aiService = new AiService();
 
 export class AIEventManager {
+  constructor(private deps: { logWorkflowStep?: (entry: WorkflowLogEntry) => void } = {}) { }
+
   publish(request: ValidateTextMessage, config: AiStepConfig = DEFAULT_AI_CONFIG, user?: { id: string; email: string }): void {
     this.process(request, config, user).catch((err) =>
       console.error('AIEventManager error:', err)
@@ -33,10 +35,24 @@ export class AIEventManager {
       ? request.history
       : [{ role: 'user' as const, content: `Evaluate this text: "${request.text}"` }];
     const tools = config.tools?.length ? resolveTools(config.tools) : undefined;
+    const [executionId, stepIndexStr] = (request.correlationId ?? '').split(':');
+    const stepIndex = stepIndexStr !== undefined ? parseInt(stepIndexStr, 10) : undefined;
     const raw = await aiService.complete(config.systemPrompt, messages, env.AI_SERVICE_TYPE, {
       model: config.model,
       maxTokens: config.maxTokens,
       tools,
+      onToolCall: (toolName) => {
+        this.deps.logWorkflowStep?.({
+          createdAt: new Date(),
+          channel: request.channel,
+          docType: config.docType ?? '',
+          handlerName: config.handlerName ?? '',
+          logType: 'tool',
+          executionId,
+          stepIndex,
+          message: { tool: toolName },
+        });
+      },
     });
 
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();

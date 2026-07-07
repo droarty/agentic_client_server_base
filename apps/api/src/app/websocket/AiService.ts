@@ -17,7 +17,7 @@ export class AiService {
     systemPrompt: string,
     messages: AiMessageTurn[],
     serviceType: AiServiceType,
-    options?: { model?: string; maxTokens?: number; tools?: AiTool[] }
+    options?: { model?: string; maxTokens?: number; tools?: AiTool[]; onToolCall?: (toolName: string) => void }
   ): Promise<string> {
     if (serviceType === 'anthropic') {
       return this.callAnthropic(systemPrompt, messages, options);
@@ -28,7 +28,7 @@ export class AiService {
   private async callAnthropic(
     systemPrompt: string,
     messages: AiMessageTurn[],
-    options?: { model?: string; maxTokens?: number; tools?: AiTool[] }
+    options?: { model?: string; maxTokens?: number; tools?: AiTool[]; onToolCall?: (toolName: string) => void }
   ): Promise<string> {
     const client = new Anthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] });
     const model = options?.model ?? 'claude-haiku-4-5-20251001';
@@ -62,6 +62,8 @@ export class AiService {
         if (!block || block.type !== 'text') throw new Error('Unexpected Anthropic response type');
         return block.text.trim();
       }
+
+      toolUseBlocks.forEach((block) => options?.onToolCall?.(block.name));
 
       working.push({ role: 'assistant', content: message.content });
 
