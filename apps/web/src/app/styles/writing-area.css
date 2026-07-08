@@ -1,0 +1,20 @@
+/* WritingArea */
+.writing-area {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  resize: none;
+  overflow-y: hidden;
+  outline: none;
+}
+.writing-area:focus {
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+.writing-area--fixed {
+  overflow-y: auto;
+}

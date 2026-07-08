@@ -238,6 +238,34 @@ Emits `submit` with payload containing all field values keyed by `name`, plus `t
 
 ---
 
+### `writingArea`
+
+A multiline textarea for longer free-text writing (e.g. student responses/essays). Defaults to a 10-line-tall box that grows as the student types; can be configured to more/fewer lines or locked to a fixed height with internal scrolling.
+
+```json
+{
+  "componentType": "writingArea",
+  "props": {
+    "value": "@state.essayDraft",
+    "placeholder": "Start writing...",
+    "rows": 10
+  },
+  "emits": { "change": "save-draft" }
+}
+```
+
+Props:
+| Prop | Type | Description |
+|---|---|---|
+| `value` | string | Initial text (e.g. bound to `@state.*`/`@temp.*`). Only seeds the field on mount — not resynced on later state pushes, to avoid clobbering in-progress typing. |
+| `placeholder` | string | Placeholder text shown when empty |
+| `rows` | number | Visible line count (default `10`) |
+| `fixedHeight` | boolean | If `true`, height stays fixed at `rows` lines with internal scrolling. If `false` (default), the box grows to fit content as the student types, with no upper bound. |
+
+Emits `change` with payload `{ text: string }`, throttled to at most once per 10 seconds while the student is typing (plus a final flush on unmount) — not on every keystroke, since each emit is a real WebSocket call to the backend. Wire it to a handler that persists to `$temp.*` (cheap, for autosave-while-typing) and/or `$state.*` (for durable persistence) as needed.
+
+---
+
 ### `textDisplay`
 
 Renders a block of text with `white-space: pre-wrap`.
