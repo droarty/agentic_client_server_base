@@ -7,8 +7,24 @@
 }
 .v-split-top,
 .v-split-bottom {
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+.v-split-top > h4,
+.v-split-bottom > h4 {
+  flex-shrink: 0;
+}
+.v-split-top > .json-view,
+.v-split-top > .json-view--empty,
+.v-split-top > .log-tree-empty,
+.v-split-bottom > .json-view,
+.v-split-bottom > .json-view--empty,
+.v-split-bottom > .log-tree-empty {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .v-split-handle {
   cursor: row-resize;
