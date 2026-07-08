@@ -52,9 +52,9 @@ Each step: `{ "route": "client" | "database" | ["client","database"] | "database
 ## AI step configuration
 
 ```json
-{ "route": "ai", "ai": { "model": "...", "maxTokens": 64, "systemPrompt": "...", "responseTypes": [...], "referenceDocs": [...], "historyPath": "...", "tools": [...] } }
+{ "route": "ai", "ai": { "model": "...", "maxTokens": 64, "systemPrompt": "...", "responseTypes": [...], "referenceDocs": [...], "historyPath": "...", "tools": [...], "maxTurns": 8 } }
 ```
-`systemPrompt` supports `{{path.to.field}}` templating (double braces, no sigil). The AI must respond with JSON containing `type`; extra fields become `$message.*` in the triggered handler. `referenceDocs` inlines markdown files on every call (use sparingly — prefer `tools` for larger material). `historyPath` replays a chat-message array as multi-turn history. `tools` names tools (see registry) the model may call — the engine loops tool-use rounds internally and only emits the model's final JSON once it stops calling tools.
+`systemPrompt` supports `{{path.to.field}}` templating (double braces, no sigil). The AI must respond with JSON containing `type`; extra fields become `$message.*` in the triggered handler. `referenceDocs` inlines markdown files on every call (use sparingly — prefer `tools` for larger material). `historyPath` replays a chat-message array as multi-turn history. `tools` names tools (see registry) the model may call — the engine loops tool-use rounds internally and only emits the model's final JSON once it stops calling tools. `maxTurns` (default `8`) caps that tool-use loop — raise it for steps whose tools get called many times per turn.
 
 ## initialize-state / initialize-view
 
