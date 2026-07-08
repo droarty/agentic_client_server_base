@@ -26,6 +26,10 @@ type TreeProps = React.HTMLAttributes<HTMLDivElement> & {
 function TreeView({ ref, data, initialSelectedItemId, onSelectChange, expandAll, defaultLeafIcon, defaultNodeIcon, className, ...props }: TreeProps) {
   const [selectedItemId, setSelectedItemId] = React.useState<string | undefined>(initialSelectedItemId);
 
+  React.useEffect(() => {
+    setSelectedItemId(initialSelectedItemId);
+  }, [initialSelectedItemId]);
+
   const handleSelectChange = React.useCallback(
     (item: TreeDataItem | undefined) => {
       setSelectedItemId(item?.id);

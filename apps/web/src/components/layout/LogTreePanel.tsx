@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { TreeView, type TreeDataItem } from '../ui/tree-view';
 import { TwoColumnPanel } from './TwoColumnPanel';
+import { VerticalSplitPanel } from './VerticalSplitPanel';
 import { JsonView } from './JsonView';
 
 interface LogTreeNode {
@@ -59,16 +60,25 @@ export function LogTreePanel({ treeData, selectedLog, artifactState, onSelect }:
         )
       }
       right={
-        <div className="log-review-right">
-          <h4>Artifact State</h4>
-          <JsonView config={(artifactState as Record<string, unknown>) ?? null} emptyMessage="No state." />
-          <h4>Selected Log</h4>
-          {selectedNode ? (
-            <JsonView config={selectedNode.rawData} />
-          ) : (
-            <p className="log-tree-empty">Select a node to view details.</p>
-          )}
-        </div>
+        <VerticalSplitPanel
+          initialTopPercent={40}
+          top={
+            <>
+              <h4>Artifact State</h4>
+              <JsonView config={(artifactState as Record<string, unknown>) ?? null} emptyMessage="No state." />
+            </>
+          }
+          bottom={
+            <>
+              <h4>Selected Log</h4>
+              {selectedNode ? (
+                <JsonView config={selectedNode.rawData} />
+              ) : (
+                <p className="log-tree-empty">Select a node to view details.</p>
+              )}
+            </>
+          }
+        />
       }
     />
   );
