@@ -1,0 +1,21 @@
+/* VerticalSplitPanel (v-split) */
+.v-split {
+  display: grid;
+  grid-template-rows: var(--top-size) 6px var(--bottom-size);
+  height: 100%;
+  overflow: hidden;
+}
+.v-split-top,
+.v-split-bottom {
+  overflow-y: auto;
+  min-height: 0;
+}
+.v-split-handle {
+  cursor: row-resize;
+  background: hsl(var(--border));
+  touch-action: none;
+}
+.v-split-handle:hover,
+.v-split-handle:active {
+  background: hsl(var(--accent));
+}

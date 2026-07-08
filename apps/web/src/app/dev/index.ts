@@ -4,6 +4,7 @@ import { smartAccordionMocks } from './mocks/SmartAccordionMock';
 import { sidebarMenuMocks } from './mocks/SidebarMenuMock';
 import { chatBodyMocks } from './mocks/ChatBodyMock';
 import { progressBarMocks } from './mocks/ProgressBarMock';
+import { verticalSplitPanelMocks } from './mocks/VerticalSplitPanelMock';
 
 export interface MockEntry {
   id: string;
@@ -18,4 +19,5 @@ export const allMocks: MockEntry[] = [
   ...sidebarMenuMocks,
   ...chatBodyMocks,
   ...progressBarMocks,
+  ...verticalSplitPanelMocks,
 ];
