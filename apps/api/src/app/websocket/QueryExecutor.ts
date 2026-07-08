@@ -277,14 +277,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             name: route.logType === 'error'
               ? `[${route.stepIndex ?? '?'}] error: ${route.errorMessage ?? ''}`
               : `[${route.stepIndex ?? '?'}] route: ${Array.isArray(route.route) ? (route.route as string[]).join(', ') : route.route}`,
-            rawData: structuredClone(route),
+            rawData: structuredClone(stringifyId(route)),
             children: [],
           };
           for (const toolEntry of toolsByStep.get((route.stepIndex as number | undefined) ?? -1) ?? []) {
             (routeNode.children as unknown[]).push({
               id: String(toolEntry._id),
               name: `tool: ${(toolEntry.message as Record<string, unknown> | undefined)?.['tool'] ?? '?'}`,
-              rawData: structuredClone(toolEntry),
+              rawData: structuredClone(stringifyId(toolEntry)),
               children: [],
             });
           }
@@ -299,7 +299,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
             (routeNode.children as unknown[]).push({
               id: String(subHandler._id),
               name: `handler: ${subHandler.handlerName}`,
-              rawData: structuredClone(subHandler),
+              rawData: structuredClone(stringifyId(subHandler)),
               children: subChildren,
             });
           }
@@ -328,7 +328,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const treeData = await Promise.all(roots.map(async (root) => ({
           id: String(root._id),
           name: `handler: ${root.handlerName}`,
-          rawData: structuredClone(root),
+          rawData: structuredClone(stringifyId(root)),
           children: await buildTree(root.executionId as string, targetChannelId),
         })));
         return { treeData, artifactState: artifact?.['state'] ?? null };
