@@ -125,6 +125,45 @@ describe('error paths — swallowed by publish()', () => {
   });
 });
 
+// ─── responseSchema validation ─────────────────────────────────────────────────
+
+describe('responseSchema validation', () => {
+  const config: AiStepConfig = {
+    model: 'claude-sonnet-5',
+    maxTokens: 4096,
+    systemPrompt: 'system prompt',
+    responseTypes: ['requirements-reply-with-summary'],
+    responseSchema: {
+      'requirements-reply-with-summary': { reply: 'string', requirementsSummary: 'string', ready: 'boolean' },
+    },
+  };
+
+  test('field with wrong type → publish() does not throw, EventProcessor never called, logged as logType: error', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue(
+      '{"type":"requirements-reply-with-summary","reply":"ok","requirementsSummary":{"type":0,"data":{"0":0}},"ready":true}'
+    );
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const logWorkflowStep = jest.fn();
+    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest(), config)).not.toThrow();
+    await flushPromises();
+    expect(EventProcessor.prototype.process).not.toHaveBeenCalled();
+    expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
+    spy.mockRestore();
+  });
+
+  test('matching schema → EventProcessor called with parsed fields', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue(
+      '{"type":"requirements-reply-with-summary","reply":"ok","requirementsSummary":"a summary","ready":true}'
+    );
+    new AIEventManager().publish(makeRequest(), config);
+    await flushPromises();
+    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
+      expect.objectContaining({ requirementsSummary: 'a summary', ready: true }),
+      undefined
+    );
+  });
+});
+
 // ─── user context ─────────────────────────────────────────────────────────────
 
 describe('user context', () => {

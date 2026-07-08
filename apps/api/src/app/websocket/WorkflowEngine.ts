@@ -10,6 +10,7 @@ export interface AiStepConfig {
   maxTokens: number;
   systemPrompt: string;
   responseTypes?: string[];
+  responseSchema?: Record<string, Record<string, 'string' | 'number' | 'boolean' | 'object'>>;
   referenceDocs?: string[];
   historyPath?: string;
   tools?: string[];

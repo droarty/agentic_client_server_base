@@ -100,6 +100,22 @@ export class AIEventManager {
         throw new Error(`AI service returned unexpected type: ${responseType}`);
       }
 
+      // Guard the response fields the workflow config declares as required, so a model
+      // that returns the wrong shape (e.g. an object where a string is expected) fails
+      // loudly here instead of corrupting document state and crashing the client render.
+      const schema = config.responseSchema?.[responseType];
+      if (schema) {
+        for (const [field, expectedType] of Object.entries(schema)) {
+          const value = parsed[field];
+          const actualOk = expectedType === 'object'
+            ? (typeof value === 'object' && value !== null && !Array.isArray(value))
+            : typeof value === expectedType;
+          if (!actualOk) {
+            throw new Error(`AI service returned wrong type for field "${field}" in response "${responseType}": expected ${expectedType}`);
+          }
+        }
+      }
+
       // Forward the AI's own text field if present; otherwise fall back to the
       // original request text for valid-text (so configged-chat $message.text still works).
       // Any other fields in the AI's JSON object (e.g. `reply`, `workflowConfig`) are passed
