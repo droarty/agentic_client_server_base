@@ -201,6 +201,21 @@ describe('tools wiring', () => {
     expect(options.tools).toBeUndefined();
   });
 
+  test('config.maxTurns is passed through to AiService.complete', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"valid-text"}');
+    const config: AiStepConfig = {
+      model: 'claude-sonnet-5',
+      maxTokens: 16000,
+      maxTurns: 20,
+      systemPrompt: 'sys',
+      tools: ['get_reference_section'],
+    };
+    new AIEventManager().publish(makeRequest(), config);
+    await flushPromises();
+    const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
+    expect(options.maxTurns).toBe(20);
+  });
+
   test('onToolCall logs a tool entry including the tool input', async () => {
     const logWorkflowStep = jest.fn();
     (AiService.prototype.complete as jest.Mock).mockImplementation(async (_sys, _msgs, _type, options) => {

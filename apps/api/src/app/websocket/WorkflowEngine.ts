@@ -8,6 +8,7 @@ import { AccessLevel, ACCESS_RANK } from './access-level';
 export interface AiStepConfig {
   model: string;
   maxTokens: number;
+  maxTurns?: number;
   systemPrompt: string;
   responseTypes?: string[];
   responseSchema?: Record<string, Record<string, 'string' | 'number' | 'boolean' | 'object'>>;

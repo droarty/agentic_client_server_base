@@ -39,6 +39,12 @@ const WORKFLOW_CONFIG = {
         ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Ctx: {{$message.context}}' },
       }],
     },
+    'ai-message-with-max-turns': {
+      steps: [{
+        route: 'ai',
+        ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, maxTurns: 20, systemPrompt: 'Ctx: {{$message.context}}' },
+      }],
+    },
     'unknown-route-message': {
       steps: [{ route: 'bad-route' }],
     },
@@ -261,6 +267,20 @@ describe('step routing — ai', () => {
     const deps = makeDeps();
     await makeEngine(deps).execute(makeContext('ai-message', { text: 'hi', context: 'c' }));
     expect(deps.publishToClient).not.toHaveBeenCalled();
+  });
+
+  test('maxTurns forwarded to sendToAi config when set on the step', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('ai-message-with-max-turns', { text: 'hi', context: 'c' }));
+    const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(config.maxTurns).toBe(20);
+  });
+
+  test('maxTurns is undefined in forwarded config when not set on the step', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('ai-message', { text: 'hi', context: 'c' }));
+    const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(config.maxTurns).toBeUndefined();
   });
 });
 

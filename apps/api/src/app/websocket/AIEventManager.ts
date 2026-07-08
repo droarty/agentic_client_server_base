@@ -41,6 +41,7 @@ export class AIEventManager {
       const raw = await aiService.complete(config.systemPrompt, messages, env.AI_SERVICE_TYPE, {
         model: config.model,
         maxTokens: config.maxTokens,
+        maxTurns: config.maxTurns,
         tools,
         onToolCall: (toolName, input) => {
           this.deps.logWorkflowStep?.({

@@ -261,6 +261,7 @@
           "ai": {
             "model": "claude-sonnet-5",
             "maxTokens": 16000,
+            "maxTurns": 20,
             "referenceDocs": ["docs/workflow-reference/summary.md"],
             "tools": ["get_reference_section"],
             "historyPath": "chatMessages",
