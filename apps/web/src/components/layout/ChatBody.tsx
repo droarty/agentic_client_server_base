@@ -40,6 +40,15 @@ interface Props {
   [key: string]: unknown;
 }
 
+function messageText(msg: ChatMessage): string | undefined {
+  if (msg.text === undefined) return undefined;
+  if (typeof msg.text !== 'string') {
+    console.warn('ChatBody: expected string message text, got', msg.text);
+    return undefined;
+  }
+  return msg.text;
+}
+
 export function ChatBody({ messages = [], inputValues, emit, defaultToTTS }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
@@ -73,12 +82,13 @@ export function ChatBody({ messages = [], inputValues, emit, defaultToTTS }: Pro
     if (defaultToTTS && messages.length > prevLengthRef.current) {
       const lastIndex = messages.length - 1;
       const lastMessage = messages[lastIndex];
+      const lastText = lastMessage ? messageText(lastMessage) : undefined;
       if (
-        lastMessage?.text &&
+        lastText &&
         lastMessage.messageType !== 'multi-field-input' &&
         lastMessage.messageType !== 'multiple-choice-quiz'
       ) {
-        handleSpeak(lastMessage.text, lastIndex);
+        handleSpeak(lastText, lastIndex);
       }
     }
     prevLengthRef.current = messages.length;
@@ -128,15 +138,15 @@ export function ChatBody({ messages = [], inputValues, emit, defaultToTTS }: Pro
               style={msg.color ? { color: msg.color } : undefined}
             >
               <span className="chat-message__author">{msg.authorEmail}</span>
-              <span className="chat-message__text">{msg.text}</span>
-              {defaultToTTS !== undefined && msg.text && (
+              <span className="chat-message__text">{messageText(msg)}</span>
+              {defaultToTTS !== undefined && messageText(msg) && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="chat-message__speak-btn"
                   aria-label={speakingIndex === i ? 'Stop reading' : 'Read message aloud'}
-                  onClick={() => handleSpeak(msg.text!, i)}
+                  onClick={() => handleSpeak(messageText(msg)!, i)}
                 >
                   {speakingIndex === i ? <Square size={14} /> : <Volume2 size={14} />}
                 </Button>
