@@ -207,6 +207,20 @@ describe('complete() — tool-use loop', () => {
     expect(mockCreate).toHaveBeenCalledTimes(8);
   });
 
+  test('honors a maxTurns override instead of the default round limit', async () => {
+    const tool = makeTool('infinite_tool', jest.fn().mockResolvedValue('x'));
+    mockCreate.mockResolvedValue({
+      stop_reason: 'tool_use',
+      content: [{ type: 'tool_use', id: 't1', name: 'infinite_tool', input: {} }],
+    });
+
+    await expect(
+      new AiService().complete('sys', [{ role: 'user', content: 'hi' }], 'anthropic', { tools: [tool], maxTurns: 20 })
+    ).rejects.toThrow('exceeded 20 rounds');
+
+    expect(mockCreate).toHaveBeenCalledTimes(20);
+  });
+
   test('does not send a tools param and behaves exactly as before when tools is omitted', async () => {
     mockCreate.mockResolvedValue({ content: [{ type: 'text', text: 'plain response' }] });
 

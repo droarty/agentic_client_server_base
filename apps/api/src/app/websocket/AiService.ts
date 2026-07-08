@@ -10,7 +10,7 @@ export interface AiMessageTurn {
 
 // Bounded so a model that keeps calling tools can never loop forever; sized
 // with headroom for a handful of lookups across one turn, not just one.
-const MAX_TOOL_ROUNDS = 8;
+const DEFAULT_MAX_TOOL_ROUNDS = 8;
 
 export class AiService {
   async complete(
@@ -20,6 +20,7 @@ export class AiService {
     options?: {
       model?: string;
       maxTokens?: number;
+      maxTurns?: number;
       tools?: AiTool[];
       onToolCall?: (toolName: string, input: Record<string, unknown>) => void;
       onToolError?: (toolName: string, error: unknown) => void;
@@ -37,6 +38,7 @@ export class AiService {
     options?: {
       model?: string;
       maxTokens?: number;
+      maxTurns?: number;
       tools?: AiTool[];
       onToolCall?: (toolName: string, input: Record<string, unknown>) => void;
       onToolError?: (toolName: string, error: unknown) => void;
@@ -45,6 +47,7 @@ export class AiService {
     const client = new Anthropic({ apiKey: process.env['ANTHROPIC_API_KEY'] });
     const model = options?.model ?? 'claude-haiku-4-5-20251001';
     const maxTokens = options?.maxTokens ?? 64;
+    const maxRounds = options?.maxTurns ?? DEFAULT_MAX_TOOL_ROUNDS;
     const tools = options?.tools;
     const toolDefs: Anthropic.Tool[] | undefined = tools?.length
       ? tools.map((t) => ({
@@ -56,7 +59,7 @@ export class AiService {
 
     const working: Anthropic.MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }));
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    for (let round = 0; round < maxRounds; round++) {
       const message = await client.messages.create({
         model,
         max_tokens: maxTokens,
@@ -98,6 +101,6 @@ export class AiService {
       working.push({ role: 'user', content: toolResults });
     }
 
-    throw new Error(`AI tool loop exceeded ${MAX_TOOL_ROUNDS} rounds without a final response`);
+    throw new Error(`AI tool loop exceeded ${maxRounds} rounds without a final response`);
   }
 }
