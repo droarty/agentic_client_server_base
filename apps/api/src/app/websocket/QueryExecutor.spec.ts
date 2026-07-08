@@ -327,6 +327,41 @@ describe('get-channel-log-tree', () => {
     expect(routeChildren[0]['name']).toBe('handler: childHandler');
   });
 
+  test('rawData._id is stringified (not a raw ObjectId) on root, route, tool, and sub-handler nodes', async () => {
+    await insertArtifact();
+    await insertLog({ handlerName: 'root', executionId: 'exec-root' });
+    await client.db().collection('workflowlogs').insertOne({
+      channel: CHANNEL, executionId: 'exec-root', logType: 'route', stepIndex: 0,
+      route: 'database-query', createdAt: new Date(),
+    } as any);
+    await client.db().collection('workflowlogs').insertOne({
+      channel: CHANNEL, executionId: 'exec-root', stepIndex: 0,
+      logType: 'tool', message: { tool: 'get_reference_section' }, createdAt: new Date(),
+    } as any);
+    await client.db().collection('workflowlogs').insertOne({
+      channel: CHANNEL, parentExecutionId: 'exec-root', stepIndex: 0,
+      logType: 'handler', handlerName: 'childHandler', executionId: 'exec-child',
+      createdAt: new Date(),
+    } as any);
+    const execute = makeExecutor();
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
+    const treeData = result['treeData'] as Array<Record<string, unknown>>;
+
+    const rootRawData = treeData[0]['rawData'] as Record<string, unknown>;
+    expect(typeof rootRawData['_id']).toBe('string');
+
+    const rootChildren = treeData[0]['children'] as Array<Record<string, unknown>>;
+    const routeRawData = rootChildren[0]['rawData'] as Record<string, unknown>;
+    expect(typeof routeRawData['_id']).toBe('string');
+
+    const routeChildren = rootChildren[0]['children'] as Array<Record<string, unknown>>;
+    const toolNode = routeChildren.find((c) => (c['name'] as string).startsWith('tool:'))!;
+    expect(typeof (toolNode['rawData'] as Record<string, unknown>)['_id']).toBe('string');
+
+    const subHandlerNode = routeChildren.find((c) => (c['name'] as string).startsWith('handler:'))!;
+    expect(typeof (subHandlerNode['rawData'] as Record<string, unknown>)['_id']).toBe('string');
+  });
+
   test('returns logs for a stateless channel (no artifactId), owned via channel.userId', async () => {
     await client.db().collection('channels').insertOne({
       channelId: CHANNEL, workflowType: 'workflow-builder', userId: USER_ID, isSessionChannel: true,
