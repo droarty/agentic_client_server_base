@@ -70,6 +70,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   progressBar: lazy(() =>
     import('@/components/layout/ProgressBar').then((m) => ({ default: m.ProgressBar as ComponentType<LayoutComponentProps> }))
   ),
+  writingArea: lazy(() =>
+    import('@/components/layout/WritingArea').then((m) => ({ default: m.WritingArea as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

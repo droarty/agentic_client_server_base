@@ -12,6 +12,7 @@
 @import './dev-page.css';
 @import './progress-bar.css';
 @import './dialog.css';
+@import './writing-area.css';
 
 :root {
   --background: 0 0% 100%;
