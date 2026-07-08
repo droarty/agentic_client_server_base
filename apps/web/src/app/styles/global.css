@@ -11,6 +11,7 @@
 @import './quiz.css';
 @import './dev-page.css';
 @import './progress-bar.css';
+@import './dialog.css';
 
 :root {
   --background: 0 0% 100%;
