@@ -82,12 +82,24 @@ export class AIEventManager {
         const firstBrace = cleaned.indexOf('{');
         const lastBrace = cleaned.lastIndexOf('}');
         if (firstBrace === -1 || lastBrace <= firstBrace) {
-          throw new Error(`AI service returned invalid JSON: ${raw}`);
-        }
-        try {
-          parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
-        } catch {
-          throw new Error(`AI service returned invalid JSON: ${raw}`);
+          // No JSON object at all — the model occasionally answers in plain prose despite
+          // the JSON-only instruction. If the first declared response type is just a bare
+          // conversational reply (a single string field), treat the whole message as that
+          // shape rather than failing the turn outright and leaving the chat silently stuck.
+          const fallbackType = config.responseTypes?.[0];
+          const fallbackSchema = fallbackType ? config.responseSchema?.[fallbackType] : undefined;
+          const fallbackFields = fallbackSchema ? Object.keys(fallbackSchema) : [];
+          if (fallbackType && fallbackFields.length === 1 && fallbackSchema![fallbackFields[0]] === 'string') {
+            parsed = { type: fallbackType, [fallbackFields[0]]: cleaned };
+          } else {
+            throw new Error(`AI service returned invalid JSON: ${raw}`);
+          }
+        } else {
+          try {
+            parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+          } catch {
+            throw new Error(`AI service returned invalid JSON: ${raw}`);
+          }
         }
       }
 
