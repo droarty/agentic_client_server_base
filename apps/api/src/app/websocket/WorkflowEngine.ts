@@ -97,6 +97,7 @@ export interface WorkflowEngineDeps {
     history?: AiHistoryTurn[]
   ) => void;
   getChannelContext: (channel: string) => Promise<ChannelContext | null>;
+  getArtifactState?: (artifactId: string) => Promise<Record<string, unknown> | null>;
   executeQuery?: (queryName: string, context: WorkflowContext) => Promise<Record<string, unknown>>;
   fetchCustomWorkflowConfig?: (docType: string) => Promise<WorkflowConfig | null>;
 }
@@ -129,6 +130,7 @@ async function resolveValue(value: unknown, context: WorkflowContext): Promise<u
     if (value.startsWith('$')) {
       if (value === '$uuid') return randomUUID();
       const [root, ...rest] = value.slice(1).split('.');
+      if (root === 'state' || root === 'temp') return value; // action.path destinations — never server-resolved
       const rootObj = (context as unknown as Record<string, unknown>)[root] as Record<string, unknown>;
       if (rootObj == null) return value;
       if (rest.length === 0) return rootObj;
@@ -216,9 +218,17 @@ export class WorkflowEngine {
     }
     const docType = channelCtx.workflowType;
 
+    // Fetch live document state once per top-level execution chain — recursive
+    // database-query/parallel-queries continuations already forward context.state
+    // unchanged, so this only fires when the caller hasn't supplied one yet.
+    const state = context.state ?? (channelCtx.artifactId && this.deps.getArtifactState
+      ? (await this.deps.getArtifactState(channelCtx.artifactId)) ?? undefined
+      : context.state);
+
     // Enrich context with channel-derived fields (caller's values take precedence)
     const enrichedContext: WorkflowContext = {
       ...context,
+      state,
       groupId: context.groupId ?? channelCtx.groupId,
       parentChannel: context.parentChannel ?? channelCtx.parentChannelId,
       targetChannelId: context.targetChannelId ?? channelCtx.targetChannelId,

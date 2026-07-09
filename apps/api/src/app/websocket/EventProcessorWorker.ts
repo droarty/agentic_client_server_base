@@ -69,6 +69,17 @@ async function getChannelContext(channel: string): Promise<ChannelContext | null
   }
 }
 
+async function getArtifactState(artifactId: string): Promise<Record<string, unknown> | null> {
+  try {
+    await dbReady;
+    const doc = await mongoClient.db().collection('artifacts')
+      .findOne({ _id: new ObjectId(artifactId) }, { projection: { state: 1 } });
+    return (doc?.['state'] as Record<string, unknown> | undefined) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchCustomWorkflowConfig(docType: string) {
   try {
     await dbReady;
@@ -178,6 +189,7 @@ const engine = new WorkflowEngine(
       aiEventManager.publish(msg, aiConfig, user as { id: string; email: string } | undefined);
     },
     getChannelContext,
+    getArtifactState,
     executeQuery,
     fetchCustomWorkflowConfig,
   },

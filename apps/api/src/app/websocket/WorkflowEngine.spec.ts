@@ -96,6 +96,12 @@ const WORKFLOW_CONFIG = {
     'unrestricted-message': {
       steps: [{ route: 'client', transform: { type: 'response' } }],
     },
+    'state-prompt-message': {
+      steps: [{
+        route: 'ai',
+        ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Draft: {{state.poemDraft}}' },
+      }],
+    },
   },
 };
 
@@ -324,6 +330,14 @@ describe('simple transformer', () => {
     expect(out['tmp']).toBe('$temp.bar');
   });
 
+  test('$state.*/$temp.* stay literal even when context.state is populated (regression guard)', async () => {
+    const deps = makeDeps({ getArtifactState: jest.fn().mockResolvedValue({ foo: 'should-not-leak' }) });
+    await makeEngine(deps).execute(makeContext('state-path-message'));
+    const out = (deps.publishToClient as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    expect(out['ref']).toBe('$state.foo');
+    expect(out['tmp']).toBe('$temp.bar');
+  });
+
   test('non-$ literal value passes through unchanged', async () => {
     const out = await resolvedOutbound('client-message', { text: 'hi' });
     expect(out['type']).toBe('response');
@@ -375,6 +389,41 @@ describe('prompt template substitution', () => {
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.systemPrompt).toContain('missing: ');
     expect(config.systemPrompt).not.toContain('{{');
+  });
+});
+
+// ─── context.state population ────────────────────────────────────────────────
+
+describe('context.state population', () => {
+  test('{{state.x}} resolves via getArtifactState', async () => {
+    const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
+    const deps = makeDeps({ getArtifactState });
+    await makeEngine(deps).execute(makeContext('state-prompt-message'));
+    const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(config.systemPrompt).toContain('Draft: hello world');
+    expect(getArtifactState).toHaveBeenCalledWith('art-1');
+  });
+
+  test('getArtifactState not called when channel has no artifact', async () => {
+    const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
+    const deps = makeDeps({
+      getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow' }),
+      getArtifactState,
+    });
+    await makeEngine(deps).execute(makeContext('state-prompt-message'));
+    const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(config.systemPrompt).toContain('Draft: ');
+    expect(getArtifactState).not.toHaveBeenCalled();
+  });
+
+  test('getArtifactState not called when context.state is already provided', async () => {
+    const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
+    const deps = makeDeps({ getArtifactState });
+    const ctx: WorkflowContext = { ...makeContext('state-prompt-message'), state: { poemDraft: 'existing' } };
+    await makeEngine(deps).execute(ctx);
+    const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(config.systemPrompt).toContain('Draft: existing');
+    expect(getArtifactState).not.toHaveBeenCalled();
   });
 });
 
