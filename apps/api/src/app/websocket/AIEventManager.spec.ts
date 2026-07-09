@@ -164,6 +164,51 @@ describe('responseSchema validation', () => {
   });
 });
 
+// ─── plain-prose fallback (no JSON object at all) ─────────────────────────────
+
+describe('plain-prose fallback when the model omits the JSON envelope entirely', () => {
+  const config: AiStepConfig = {
+    model: 'claude-sonnet-5',
+    maxTokens: 4096,
+    systemPrompt: 'system prompt',
+    responseTypes: ['chat-reply', 'chat-reply-with-draft'],
+    responseSchema: {
+      'chat-reply': { reply: 'string' },
+      'chat-reply-with-draft': { reply: 'string', workflowConfig: 'object' },
+    },
+  };
+
+  test('bare prose response is treated as the first responseType when its schema is a single string field', async () => {
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue(
+      'That sounds like a new requirement rather than a config tweak — want me to send this back to the requirements step?'
+    );
+    new AIEventManager().publish(makeRequest(), config);
+    await flushPromises();
+    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'chat-reply',
+        reply: 'That sounds like a new requirement rather than a config tweak — want me to send this back to the requirements step?',
+      }),
+      undefined
+    );
+  });
+
+  test('still throws when the first responseType schema needs more than a bare string reply', async () => {
+    const draftFirstConfig: AiStepConfig = {
+      ...config,
+      responseTypes: ['chat-reply-with-draft', 'chat-reply'],
+    };
+    (AiService.prototype.complete as jest.Mock).mockResolvedValue('Sorry, I cannot help with that.');
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const logWorkflowStep = jest.fn();
+    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest(), draftFirstConfig)).not.toThrow();
+    await flushPromises();
+    expect(EventProcessor.prototype.process).not.toHaveBeenCalled();
+    expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
+    spy.mockRestore();
+  });
+});
+
 // ─── user context ─────────────────────────────────────────────────────────────
 
 describe('user context', () => {
