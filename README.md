@@ -25,26 +25,31 @@ To accommodate all these aspects of an agentic client/server stack there are sev
   - it allows us to replay events on the client for debugging purposes
   - it allows us to easily incorporate multi-user features in workflows. ie. two users interacting with the same document cause model updates from one user to be broadcast to the client of the other user.
 
-This work is about 20% done at the moment, but the pieces are falling in place (June 2026).
+This work is about 30% done at the moment, but the pieces are falling in place (July 2026).
 
 <hr>
 
 In diagram form, the flow starts in the context of authenticated users, groups and documents.  The documents have a "type" and each "type" of document has a workflow config that defines what you can do.  The process for creating workflow config JSONs is typically AI assisted but could also be manually written.  I have used claude to author config files and now there is a workflow "type" that allows you to create new "type"s by interacting with AI to generate the config file.
 
 Structure of the Config File JSON:
+<br>
 <img width="600" alt="image" src="https://github.com/user-attachments/assets/1330eb95-6b97-4391-b887-d7cc994ddbd4" />
 
 Upon loading a document we either create it's state from the config's initialization block or retrieve the state from the database.  The source of truth for this state is always the server, but the client is kept in sync:
+<br>
 <img width="600" alt="image" src="https://github.com/user-attachments/assets/fca30317-84a4-4a21-98de-d9e8b65529d8" />
 
 After the client loads the state, it also requests a view.  There is always a default view and possibly other views into this document's state:
+<br>
 <img width="1000" alt="image" src="https://github.com/user-attachments/assets/fc4e401b-4664-417f-9bca-e94f5c4818ef" />
 
 Client components receive props from the client state.    They also emit events back to the server and to configured handlers that can transform data, persist data, query data, hit external services like AI, and return data to the client.
+<br>
 <img width="1000" alt="image" src="https://github.com/user-attachments/assets/2b2d2469-17f5-4b2c-bc3c-9ece57a65528" />
 
 And all of these parts are tied together with messages sent from client to server and server to client:
-<img width="7664" height="4593" alt="image" src="https://github.com/user-attachments/assets/328e37f6-0f00-42e8-87fe-8af48318c6b8" />
+<br>
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/328e37f6-0f00-42e8-87fe-8af48318c6b8" />
 
 
 <hr>
