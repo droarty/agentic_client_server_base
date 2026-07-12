@@ -27,14 +27,37 @@ To accommodate all these aspects of an agentic client/server stack there are sev
 
 This work is about 20% done at the moment, but the pieces are falling in place (June 2026).
 
+<hr>
+
+In diagram form, the flow starts in the context of authenticated users, groups and documents.  The documents have a "type" and each "type" of document has a workflow config that defines what you can do.  The process for creating workflow config JSONs is typically AI assisted but could also be manually written.  I have used claude to author config files and now there is a workflow "type" that allows you to create new "type"s by interacting with AI to generate the config file.
+
+Structure of the Config File JSON:
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/1330eb95-6b97-4391-b887-d7cc994ddbd4" />
+
+Upon loading a document we either create it's state from the config's initialization block or retrieve the state from the database.  The source of truth for this state is always the server, but the client is kept in sync:
+<img width="600" alt="image" src="https://github.com/user-attachments/assets/fca30317-84a4-4a21-98de-d9e8b65529d8" />
+
+After the client loads the state, it also requests a view.  There is always a default view and possibly other views into this document's state:
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/fc4e401b-4664-417f-9bca-e94f5c4818ef" />
+
+Client components receive props from the client state.    They also emit events back to the server and to configured handlers that can transform data, persist data, query data, hit external services like AI, and return data to the client.
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/2b2d2469-17f5-4b2c-bc3c-9ece57a65528" />
+
+And all of these parts are tied together with messages sent from client to server and server to client:
+<img width="7664" height="4593" alt="image" src="https://github.com/user-attachments/assets/328e37f6-0f00-42e8-87fe-8af48318c6b8" />
+
+
+<hr>
+
 ### Try it out
-What can you do with it?  At the moment, not much.  After setting up the repo and logging into the app the first time, you can run a script to seed the db with some custom workflows (`pnpm run seed:workflows`).  You can use these in the UI to create new documents right away.   You can also ask claude to write new scripts from your terminal.   Soon, you will be able to do so from within the app.
+What can you do with it?  At the moment, you can login, create a group, add other logged in people to groups, and create documents.  And the most interesting part is that you can create workflows (though pretty limited at the moment) that become new document types.  For example you can create an activity for students by interacting with an AI chat bot to configure the activity.  ie. ask it to tell the student to watch a video and take a quiz.  Or to write a poem with the help of an AI assistant.
 
 I will be adding more frontend components and backend services as we go along.  And I will be adding more user, group, document and workflow management features.
 
-For now you could describe a simple new workflow to Claude and see what it does.  There is enough precedent that it will easily configure the thing for you and might offer to create new components as needed.
+For now you could also describe a simple new workflow to Claude and see what it does.  There is enough precedent that it will easily configure the thing for you and might offer to create new components as needed.
 
-<hr>
+
+
 
 Below, I am letting Claude take over the summary and instructions for using the app.
 
