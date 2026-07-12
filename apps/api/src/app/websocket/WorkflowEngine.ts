@@ -421,6 +421,19 @@ export class WorkflowEngine {
             else history.push({ role, content });
           }
         }
+        if (!history || history.length === 0) {
+          this.deps.logWorkflowStep?.({
+            createdAt: new Date(),
+            channel,
+            docType,
+            handlerName,
+            logType: 'error',
+            executionId,
+            stepIndex,
+            errorMessage: `AI step "${handlerName}": historyPath "${step.ai.historyPath}" did not resolve to any messages`,
+            errorDetail: `context.message["${step.ai.historyPath}"] = ${JSON.stringify(raw)}`,
+          });
+        }
       }
       this.deps.logWorkflowStep?.({
         createdAt: new Date(),
@@ -443,6 +456,19 @@ export class WorkflowEngine {
           history,
         },
       });
+      if ((!history || history.length === 0) && !text?.trim()) {
+        this.deps.logWorkflowStep?.({
+          createdAt: new Date(),
+          channel,
+          docType,
+          handlerName,
+          logType: 'error',
+          executionId,
+          stepIndex,
+          errorMessage: `AI step "${handlerName}": no text and no resolved history — nothing to send to AI`,
+        });
+        return;
+      }
       this.deps.sendToAi(channel, text, senderEmail, { ...step.ai, systemPrompt: fullPrompt, docType, handlerName }, context.user, `${executionId}:${stepIndex}`, history);
       return;
     }

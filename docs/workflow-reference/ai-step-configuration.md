@@ -23,9 +23,17 @@ A step with `"route": "ai"` sends the inbound message's `text` field to Claude (
 | `systemPrompt` | string | required | System prompt. Supports `{{expr}}` template substitution (not `$` patterns). |
 | `responseTypes` | string[] | optional | List of expected `type` values in the AI JSON response. Each must match a handler name. |
 | `referenceDocs` | string[] | optional | Paths (relative to the repo root) to markdown files whose content is read from disk and prepended to `systemPrompt` on every call. Use for always-needed context that's small enough to inline on every turn — for larger reference material, prefer `tools` (see below) so the model fetches detail only when it needs it. |
-| `historyPath` | string | optional | Dot-path (relative to the inbound message) to an array of prior chat messages to replay as multi-turn conversation history. Entries with `messageType: "user-text"` become `user` turns; `messageType: "ai-reply"` become `assistant` turns. Omit for single-shot (no history) steps. |
+| `historyPath` | string | optional | **Flat, top-level key name** on the inbound message object — e.g. `"chatMessages"` — resolved via a literal lookup (`message[historyPath]`), **not** a dot-path expression. A key like `"state.chatMessages"` or `"$state.chatMessages"` will silently fail to resolve. This key is typically populated by a preceding `database-query` step attaching an array directly onto the message (see `named-queries-database-query.md`). The array's entries are replayed as multi-turn conversation history: `messageType: "user-text"` becomes a `user` turn, `messageType: "ai-reply"` becomes an `assistant` turn. Omit for single-shot (no history) steps. |
 | `tools` | string[] | optional | Names of tools (resolved via the tool registry, `apps/api/src/app/websocket/tools/registry.ts`) the model may call before producing its final JSON response. The engine runs a bounded multi-round tool-use loop: whenever the model requests a tool, the engine executes it locally and feeds the result back, repeating until the model returns a final plain-text response. Omit entirely for existing single-shot steps (e.g. content moderation) — behavior is unchanged when `tools` is absent. |
 | `maxTurns` | number | `8` | Caps the tool-use loop described above — the number of Claude round-trips allowed before the step fails with "AI tool loop exceeded N rounds without a final response". Only relevant when `tools` is set; irrelevant for single-shot steps, which always complete in one round. Raise this for steps whose tools are called many times per turn (e.g. `run-config-ai-step`, which fetches several `get_reference_section` sections while drafting a workflow config, uses `20`). |
+
+### Text-or-history invariant
+
+Every `ai` step must resolve either a non-empty inbound `message.text` **or** a non-empty
+`historyPath` array — Claude needs at least one of the two to have anything to respond to.
+If `historyPath` is set but resolves to nothing, or if neither `text` nor history is
+present, the engine logs a `logType: "error"` entry to `workflowlogs` and (in the
+neither-present case) skips the AI call entirely rather than sending an empty request.
 
 ### System prompt templating
 

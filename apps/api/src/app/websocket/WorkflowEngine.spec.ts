@@ -45,6 +45,12 @@ const WORKFLOW_CONFIG = {
         ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, maxTurns: 20, systemPrompt: 'Ctx: {{$message.context}}' },
       }],
     },
+    'ai-message-with-history': {
+      steps: [{
+        route: 'ai',
+        ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Ctx: {{$message.context}}', historyPath: 'chatMessages' },
+      }],
+    },
     'unknown-route-message': {
       steps: [{ route: 'bad-route' }],
     },
@@ -288,6 +294,50 @@ describe('step routing — ai', () => {
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.maxTurns).toBeUndefined();
   });
+
+  test('historyPath set but not resolving to an array logs an error, still sends via text fallback', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c' }));
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(
+      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('historyPath "chatMessages" did not resolve') }),
+    );
+    expect(deps.sendToAi).toHaveBeenCalled();
+    const [, text] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(text).toBe('hi');
+  });
+
+  test('historyPath resolving to an empty array logs an error, still sends via text fallback', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c', chatMessages: [] }));
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(
+      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('historyPath "chatMessages" did not resolve') }),
+    );
+    expect(deps.sendToAi).toHaveBeenCalled();
+  });
+
+  test('no text and no history — logs error and does not call sendToAi', async () => {
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('ai-message', { text: '', context: 'c' }));
+    expect(deps.sendToAi).not.toHaveBeenCalled();
+    expect(deps.logWorkflowStep).toHaveBeenCalledWith(
+      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('no text and no resolved history') }),
+    );
+  });
+
+  test('valid historyPath resolving to turns — no error log, history forwarded', async () => {
+    const deps = makeDeps();
+    const chatMessages = [
+      { messageType: 'user-text', text: 'hello' },
+      { messageType: 'ai-reply', text: 'hi there' },
+    ];
+    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c', chatMessages }));
+    expect(deps.logWorkflowStep).not.toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+    const [, , , , , , history] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(history).toEqual([
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi there' },
+    ]);
+  });
 });
 
 describe('step routing — unknown route', () => {
@@ -378,14 +428,14 @@ describe('JSONata transformer', () => {
 describe('prompt template substitution', () => {
   test('{{$message.name}} is interpolated into the AI system prompt', async () => {
     const deps = makeDeps();
-    await makeEngine(deps).execute(makeContext('prompt-template-message', { name: 'Denis' }));
+    await makeEngine(deps).execute(makeContext('prompt-template-message', { text: 'hi', name: 'Denis' }));
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.systemPrompt).toContain('Denis');
   });
 
   test('missing key in template replaced with empty string', async () => {
     const deps = makeDeps();
-    await makeEngine(deps).execute(makeContext('prompt-template-message', { name: 'Denis' }));
+    await makeEngine(deps).execute(makeContext('prompt-template-message', { text: 'hi', name: 'Denis' }));
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.systemPrompt).toContain('missing: ');
     expect(config.systemPrompt).not.toContain('{{');
@@ -398,7 +448,7 @@ describe('context.state population', () => {
   test('{{state.x}} resolves via getArtifactState', async () => {
     const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
     const deps = makeDeps({ getArtifactState });
-    await makeEngine(deps).execute(makeContext('state-prompt-message'));
+    await makeEngine(deps).execute(makeContext('state-prompt-message', { text: 'hi' }));
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.systemPrompt).toContain('Draft: hello world');
     expect(getArtifactState).toHaveBeenCalledWith('art-1');
@@ -410,7 +460,7 @@ describe('context.state population', () => {
       getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-workflow' }),
       getArtifactState,
     });
-    await makeEngine(deps).execute(makeContext('state-prompt-message'));
+    await makeEngine(deps).execute(makeContext('state-prompt-message', { text: 'hi' }));
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.systemPrompt).toContain('Draft: ');
     expect(getArtifactState).not.toHaveBeenCalled();
@@ -419,7 +469,7 @@ describe('context.state population', () => {
   test('getArtifactState not called when context.state is already provided', async () => {
     const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
     const deps = makeDeps({ getArtifactState });
-    const ctx: WorkflowContext = { ...makeContext('state-prompt-message'), state: { poemDraft: 'existing' } };
+    const ctx: WorkflowContext = { ...makeContext('state-prompt-message', { text: 'hi' }), state: { poemDraft: 'existing' } };
     await makeEngine(deps).execute(ctx);
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(config.systemPrompt).toContain('Draft: existing');
