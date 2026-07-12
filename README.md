@@ -163,6 +163,19 @@ npx nx serve api &
 npx nx serve web &
 ```
 
+### 4. Create the root group
+
+Once the first user has registered and logged in through the web app, run this once
+on the server to create the initial ("root") group and make that user its owner:
+
+```bash
+pnpm run create-root-group "root group"
+```
+
+This only picks an owner automatically when it's the very first user in the system.
+For any later root group, ownership is inherited from the most recently created root
+group's owner(s) — it will not guess at an arbitrary user.
+
 ## Stopping the Servers
 
 ### Stop MongoDB

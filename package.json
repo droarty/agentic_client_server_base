@@ -31,7 +31,8 @@
     "restart:web": "bash scripts/restart-web.sh",
     "restart:both": "bash scripts/restart-both.sh",
     "seed:workflows": "node scripts/seed-workflow-configs.js",
-    "seed:channels": "node scripts/seed-channels.js"
+    "seed:channels": "node scripts/seed-channels.js",
+    "create-root-group": "node scripts/create-new-root-group.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
