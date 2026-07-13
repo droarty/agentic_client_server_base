@@ -48,7 +48,13 @@ const WORKFLOW_CONFIG = {
     'ai-message-with-history': {
       steps: [{
         route: 'ai',
-        ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Ctx: {{$message.context}}', historyPath: 'chatMessages' },
+        ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Ctx: {{$message.context}}', historyPath: 'state.chatMessages' },
+      }],
+    },
+    'ai-message-with-message-history': {
+      steps: [{
+        route: 'ai',
+        ai: { model: 'claude-haiku-4-5-20251001', maxTokens: 64, systemPrompt: 'Ctx: {{$message.context}}', historyPath: 'message.chatMessages' },
       }],
     },
     'unknown-route-message': {
@@ -295,11 +301,11 @@ describe('step routing — ai', () => {
     expect(config.maxTurns).toBeUndefined();
   });
 
-  test('historyPath set but not resolving to an array logs an error, still sends via text fallback', async () => {
-    const deps = makeDeps();
+  test('historyPath set but not resolving (state.* with no getArtifactState data) logs an error, still sends via text fallback', async () => {
+    const deps = makeDeps({ getArtifactState: jest.fn().mockResolvedValue({}) });
     await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c' }));
     expect(deps.logWorkflowStep).toHaveBeenCalledWith(
-      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('historyPath "chatMessages" did not resolve') }),
+      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('historyPath "state.chatMessages" did not resolve') }),
     );
     expect(deps.sendToAi).toHaveBeenCalled();
     const [, text] = (deps.sendToAi as jest.Mock).mock.calls[0];
@@ -307,10 +313,10 @@ describe('step routing — ai', () => {
   });
 
   test('historyPath resolving to an empty array logs an error, still sends via text fallback', async () => {
-    const deps = makeDeps();
-    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c', chatMessages: [] }));
+    const deps = makeDeps({ getArtifactState: jest.fn().mockResolvedValue({ chatMessages: [] }) });
+    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c' }));
     expect(deps.logWorkflowStep).toHaveBeenCalledWith(
-      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('historyPath "chatMessages" did not resolve') }),
+      expect.objectContaining({ logType: 'error', errorMessage: expect.stringContaining('historyPath "state.chatMessages" did not resolve') }),
     );
     expect(deps.sendToAi).toHaveBeenCalled();
   });
@@ -324,19 +330,49 @@ describe('step routing — ai', () => {
     );
   });
 
-  test('valid historyPath resolving to turns — no error log, history forwarded', async () => {
-    const deps = makeDeps();
+  test('valid state.* historyPath resolving to turns — no error log, history forwarded', async () => {
     const chatMessages = [
       { messageType: 'user-text', text: 'hello' },
       { messageType: 'ai-reply', text: 'hi there' },
     ];
-    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c', chatMessages }));
+    const deps = makeDeps({ getArtifactState: jest.fn().mockResolvedValue({ chatMessages }) });
+    await makeEngine(deps).execute(makeContext('ai-message-with-history', { text: 'hi', context: 'c' }));
     expect(deps.logWorkflowStep).not.toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
     const [, , , , , , history] = (deps.sendToAi as jest.Mock).mock.calls[0];
     expect(history).toEqual([
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi there' },
     ]);
+  });
+
+  test('valid message.* historyPath still resolves — parity with {{expr}} dot-path resolution', async () => {
+    const chatMessages = [
+      { messageType: 'user-text', text: 'hello' },
+      { messageType: 'ai-reply', text: 'hi there' },
+    ];
+    const deps = makeDeps();
+    await makeEngine(deps).execute(makeContext('ai-message-with-message-history', { text: 'hi', context: 'c', chatMessages }));
+    expect(deps.logWorkflowStep).not.toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
+    const [, , , , , , history] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(history).toEqual([
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi there' },
+    ]);
+  });
+
+  test('re-fetches fresh artifact state before resolving state.* historyPath, ignoring stale context.state', async () => {
+    const staleChatMessages = [{ messageType: 'user-text', text: 'stale' }];
+    const freshChatMessages = [{ messageType: 'user-text', text: 'fresh' }];
+    const getArtifactState = jest.fn().mockResolvedValue({ chatMessages: freshChatMessages });
+    const deps = makeDeps({ getArtifactState });
+    const ctx: WorkflowContext = {
+      ...makeContext('ai-message-with-history', { text: 'hi', context: 'c' }),
+      state: { chatMessages: staleChatMessages },
+    };
+    await makeEngine(deps).execute(ctx);
+    expect(getArtifactState).toHaveBeenCalledWith('art-1');
+    const [, , , , , , history] = (deps.sendToAi as jest.Mock).mock.calls[0];
+    expect(history).toEqual([{ role: 'user', content: 'fresh' }]);
   });
 });
 
@@ -466,14 +502,22 @@ describe('context.state population', () => {
     expect(getArtifactState).not.toHaveBeenCalled();
   });
 
-  test('getArtifactState not called when context.state is already provided', async () => {
+  test('top-of-chain getArtifactState skipped for non-ai steps when context.state is already provided', async () => {
+    const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
+    const deps = makeDeps({ getArtifactState });
+    const ctx: WorkflowContext = { ...makeContext('client-message', { text: 'hi' }), state: { poemDraft: 'existing' } };
+    await makeEngine(deps).execute(ctx);
+    expect(getArtifactState).not.toHaveBeenCalled();
+  });
+
+  test('ai step always re-fetches fresh state for its own resolution, even when context.state was already provided', async () => {
     const getArtifactState = jest.fn().mockResolvedValue({ poemDraft: 'hello world' });
     const deps = makeDeps({ getArtifactState });
     const ctx: WorkflowContext = { ...makeContext('state-prompt-message', { text: 'hi' }), state: { poemDraft: 'existing' } };
     await makeEngine(deps).execute(ctx);
     const [, , , config] = (deps.sendToAi as jest.Mock).mock.calls[0];
-    expect(config.systemPrompt).toContain('Draft: existing');
-    expect(getArtifactState).not.toHaveBeenCalled();
+    expect(config.systemPrompt).toContain('Draft: hello world');
+    expect(getArtifactState).toHaveBeenCalledWith('art-1');
   });
 });
 

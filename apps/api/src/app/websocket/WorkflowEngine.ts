@@ -405,11 +405,25 @@ export class WorkflowEngine {
         })
         .filter(Boolean)
         .join('\n\n');
-      const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, context);
+
+      // Re-fetch fresh artifact state right before the AI call — context.state was
+      // snapshotted once at the top of execute(), before any earlier steps in this
+      // handler chain persisted their own $state.* mutations.
+      let freshState = context.state;
+      if (hasArtifact && this.deps.getArtifactState) {
+        const channelCtx = await this.resolveChannelContext(channel);
+        if (channelCtx?.artifactId) {
+          freshState = (await this.deps.getArtifactState(channelCtx.artifactId)) ?? context.state;
+        }
+      }
+      const aiContext: WorkflowContext = { ...context, state: freshState };
+
+      const resolvedPrompt = substitutePromptTemplate(step.ai.systemPrompt, aiContext);
       const fullPrompt = referenceContent ? `${referenceContent}\n\n---\n\n${resolvedPrompt}` : resolvedPrompt;
       let history: AiHistoryTurn[] | undefined;
       if (step.ai.historyPath) {
-        const raw = context.message[step.ai.historyPath];
+        const strippedPath = step.ai.historyPath.startsWith('$') ? step.ai.historyPath.slice(1) : step.ai.historyPath;
+        const raw = resolveDotPath(aiContext as unknown as Record<string, unknown>, strippedPath);
         if (Array.isArray(raw)) {
           history = [];
           for (const m of raw as Record<string, unknown>[]) {
@@ -431,7 +445,7 @@ export class WorkflowEngine {
             executionId,
             stepIndex,
             errorMessage: `AI step "${handlerName}": historyPath "${step.ai.historyPath}" did not resolve to any messages`,
-            errorDetail: `context.message["${step.ai.historyPath}"] = ${JSON.stringify(raw)}`,
+            errorDetail: `resolved "${step.ai.historyPath}" relative to { message, user, state } = ${JSON.stringify(raw)}`,
           });
         }
       }

@@ -414,15 +414,13 @@ describe('get-workflow-builder-context', () => {
     expect(result['requirementsReady']).toBe(true);
   });
 
-  test('passes through chatMessages and draftConfig from persisted state', async () => {
-    const chatMessages = [{ messageType: 'user-text', text: 'hi', authorEmail: 'a@test.com' }];
+  test('passes through draftConfig from persisted state', async () => {
     await insertArtifact({
       type: 'workflow-builder',
-      state: { chatMessages, draftConfig: { name: 'demo' } },
+      state: { draftConfig: { name: 'demo' } },
     });
     const execute = makeExecutor();
     const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
-    expect(result['chatMessages']).toEqual(chatMessages);
     expect(result['draftConfig']).toEqual({ name: 'demo' });
   });
 });

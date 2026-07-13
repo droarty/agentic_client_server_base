@@ -216,7 +216,6 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         return {
           text: context.message['text'],
           senderEmail: context.message['senderEmail'],
-          chatMessages: state['chatMessages'] ?? [],
           draftConfig: state['draftConfig'] ?? null,
           requirementsSummary: state['requirementsSummary'] ?? '',
           requirementsReady: state['requirementsReady'] ?? false,
