@@ -69,7 +69,7 @@ Two distinct messages: `initialize-state` (`initialState`, seeds `DocState.state
 
 ## Registered component types
 
-`fullPanel`, `chatBody`, `chatInput`, `smartAccordion`, `logTreePanel`, `smartTab`/`smartTabs`, `documentList`, `newDocument`, `layoutDocumentView`, `twoColumnLayout`, `multiFieldInput`, `textDisplay`, `youtubePlayer`, `writingArea`. Each has its own prop set — don't guess a component's exact props; fetch `registered-component-types` for the one(s) you need.
+`fullPanel`, `chatBody`, `chatInput`, `smartAccordion`, `logTreePanel`, `smartTab`/`smartTabs`, `documentList`, `newDocument`, `layoutDocumentView`, `twoColumnLayout`, `multiFieldInput`, `textDisplay`, `youtubePlayer`, `writingArea`, `simpleTimer`. Each has its own prop set — don't guess a component's exact props; fetch `registered-component-types` for the one(s) you need.
 
 ## Emit system & state namespaces
 

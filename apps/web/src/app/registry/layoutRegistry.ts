@@ -73,6 +73,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   writingArea: lazy(() =>
     import('@/components/layout/WritingArea').then((m) => ({ default: m.WritingArea as ComponentType<LayoutComponentProps> }))
   ),
+  simpleTimer: lazy(() =>
+    import('@/components/layout/SimpleTimer').then((m) => ({ default: m.SimpleTimer as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {
