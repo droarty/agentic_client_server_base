@@ -261,8 +261,9 @@ Props:
 | `placeholder` | string | Placeholder text shown when empty |
 | `rows` | number | Visible line count (default `10`) |
 | `fixedHeight` | boolean | If `true`, height stays fixed at `rows` lines with internal scrolling. If `false` (default), the box grows to fit content as the student types, with no upper bound. |
+| `debounceSeconds` | number | Seconds of no typing before the change is emitted (default `2`) |
 
-Emits `change` with payload `{ text: string }`, throttled to at most once per 10 seconds while the student is typing (plus a final flush on unmount) — not on every keystroke, since each emit is a real WebSocket call to the backend. Wire it to a handler that persists to `$temp.*` (cheap, for autosave-while-typing) and/or `$state.*` (for durable persistence) as needed.
+Emits `change` with payload `{ text: string }`, debounced so it only fires once the student has paused for more than `debounceSeconds` (default 2s) — not on a fixed interval during continuous typing, and not on every keystroke, since each emit is a real WebSocket call to the backend. A final flush also fires on unmount so a pause-in-progress edit isn't lost. Wire it to a handler that persists to `$temp.*` (cheap, for autosave-while-typing) and/or `$state.*` (for durable persistence) as needed.
 
 ---
 
