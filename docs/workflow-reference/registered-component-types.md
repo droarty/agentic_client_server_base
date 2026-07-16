@@ -375,6 +375,32 @@ Props: `config` (object | null) — the JSON value to render; `emptyMessage` (st
 
 ---
 
+### `simpleTimer`
+
+A headless (no visible UI) timer. While `active`, fires an emit every `duration`
+seconds, up to `repeats` times, then stops until reactivated.
+
+```json
+{
+  "componentType": "simpleTimer",
+  "props": { "active": "@state.timerRunning", "duration": 10, "repeats": 3 },
+  "emits": { "complete": "timer-tick" }
+}
+```
+
+Props:
+| Prop | Type | Description |
+|---|---|---|
+| `active` | boolean | Turns the timer on/off (default `false`). Toggling off clears any pending firing and resets the repeat count; toggling back on always restarts from repeat 1. |
+| `duration` | number | Seconds between firings (default `10`). |
+| `repeats` | number | Total number of firings before the timer stops on its own (default `1`). |
+
+Emits `complete` with payload `{ repeat: number, repeatsTotal: number }` each time
+`duration` elapses, where `repeat` is the 1-indexed firing count — compare it to
+`repeatsTotal` in the triggered handler to detect the final firing.
+
+---
+
 ### `showIf` / `showIfNot` / `showIfItems` / `showIfEmpty`
 
 Conditional-rendering pseudo-components. They are not looked up in the component registry — `LayoutRenderer` handles them specially and renders their `children` (or not) based on a resolved `state`/`temp` value, with no wrapper element of their own.
