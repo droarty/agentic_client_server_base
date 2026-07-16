@@ -1,17 +1,25 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 
-const EMIT_THROTTLE_MS = 10000;
+const DEFAULT_DEBOUNCE_SECONDS = 2;
 
 interface Props {
   value?: string;
   placeholder?: string;
   rows?: number;
   fixedHeight?: boolean;
+  debounceSeconds?: number;
   onChange?: (payload: { text: string }) => void;
   [key: string]: unknown;
 }
 
-export function WritingArea({ value, placeholder, rows = 10, fixedHeight = false, onChange }: Props) {
+export function WritingArea({
+  value,
+  placeholder,
+  rows = 10,
+  fixedHeight = false,
+  debounceSeconds = DEFAULT_DEBOUNCE_SECONDS,
+  onChange,
+}: Props) {
   const [text, setText] = useState(() => value ?? '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -27,7 +35,7 @@ export function WritingArea({ value, placeholder, rows = 10, fixedHeight = false
     el.style.height = `${el.scrollHeight}px`;
   }, [text, fixedHeight]);
 
-  // Flush any pending throttled change on unmount so late edits aren't lost.
+  // Flush any pending debounced change on unmount so late edits aren't lost.
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -43,14 +51,15 @@ export function WritingArea({ value, placeholder, rows = 10, fixedHeight = false
     const next = e.target.value;
     setText(next);
     pendingTextRef.current = next;
-    if (!timerRef.current) {
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        const pending = pendingTextRef.current;
-        pendingTextRef.current = null;
-        if (pending !== null) onChangeRef.current?.({ text: pending });
-      }, EMIT_THROTTLE_MS);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
     }
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      const pending = pendingTextRef.current;
+      pendingTextRef.current = null;
+      if (pending !== null) onChangeRef.current?.({ text: pending });
+    }, debounceSeconds * 1000);
   }
 
   return (
