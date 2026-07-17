@@ -6,6 +6,7 @@ interface Props {
   nodes: LayoutNode[];
   state: Record<string, unknown>;
   emit: (type: string, payload: Record<string, unknown>) => void;
+  channelId: string;
 }
 
 function resolveDotPath(obj: Record<string, unknown>, path: string): unknown {
@@ -46,7 +47,8 @@ function resolveEmits(
 function buildChildren(
   node: LayoutNode,
   state: Record<string, unknown>,
-  emit: Props['emit']
+  emit: Props['emit'],
+  channelId: string
 ): ReactNode[] {
   if (!node.children) return [];
   const result: ReactNode[] = [];
@@ -58,7 +60,7 @@ function buildChildren(
         const itemState = { ...state, item };
         result.push(
           <Fragment key={`${i}-${j}`}>
-            {buildChildren(child, itemState, emit)}
+            {buildChildren(child, itemState, emit, channelId)}
           </Fragment>
         );
       });
@@ -69,7 +71,7 @@ function buildChildren(
       if (show) {
         result.push(
           <Fragment key={i}>
-            {buildChildren(child, state, emit)}
+            {buildChildren(child, state, emit, channelId)}
           </Fragment>
         );
       }
@@ -80,14 +82,14 @@ function buildChildren(
       if (show) {
         result.push(
           <Fragment key={i}>
-            {buildChildren(child, state, emit)}
+            {buildChildren(child, state, emit, channelId)}
           </Fragment>
         );
       }
     } else {
       result.push(
         <Suspense key={i} fallback={null}>
-          {renderNode(child, state, emit)}
+          {renderNode(child, state, emit, channelId)}
         </Suspense>
       );
     }
@@ -98,7 +100,8 @@ function buildChildren(
 function renderNode(
   node: LayoutNode,
   state: Record<string, unknown>,
-  emit: Props['emit']
+  emit: Props['emit'],
+  channelId: string
 ): ReactNode {
   const Component = getLayoutComponent(node.componentType);
   if (!Component) {
@@ -108,7 +111,13 @@ function renderNode(
 
   const resolvedProps = resolveProps(node.props, state);
   const resolvedEmits = resolveEmits(node.emits, emit);
-  const children = buildChildren(node, state, emit);
+  const children = buildChildren(node, state, emit, channelId);
+
+  // Only fall back to the ambient channelId when the node's own JSON props don't
+  // author a "channelId" key at all — an explicitly-authored value (even a currently
+  // null one, e.g. layoutDocumentView's "@temp.nestedChannelId" before a session
+  // exists) must be respected as-is, not silently replaced.
+  const hasOwnChannelId = !!node.props && 'channelId' in node.props;
 
   return (
     <Component
@@ -116,18 +125,19 @@ function renderNode(
       {...resolvedEmits}
       emit={emit}
       targetId={node.targetId}
+      channelId={hasOwnChannelId ? resolvedProps['channelId'] : channelId}
     >
       {children}
     </Component>
   );
 }
 
-export function LayoutRenderer({ nodes, state, emit }: Props) {
+export function LayoutRenderer({ nodes, state, emit, channelId }: Props) {
   return (
     <>
       {nodes.map((node, i) => (
         <Suspense key={i} fallback={<p className="doc-empty">Loading…</p>}>
-          {renderNode(node, state, emit)}
+          {renderNode(node, state, emit, channelId)}
         </Suspense>
       ))}
     </>

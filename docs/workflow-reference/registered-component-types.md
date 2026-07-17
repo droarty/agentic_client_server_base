@@ -187,6 +187,33 @@ Props:
 
 ---
 
+### `namedView`
+
+Fetches and renders an *additional* view handler's layout for the **same** document
+the component is already rendered inside of — e.g. a second tab that lazily loads a
+different view of the current document's data, without embedding a separate document.
+Unlike `layoutDocumentView`, it never triggers the "already open above" recursion
+guard, because it isn't nesting a document inside itself — it shares the current
+channel's subscription and state.
+
+```json
+{
+  "componentType": "namedView",
+  "props": { "viewHandler": "someOtherViewHandler" }
+}
+```
+
+Props:
+| Prop | Type | Description |
+|---|---|---|
+| `viewHandler` | string | The view handler name to request for the current document. Required. |
+
+The current `channelId` is always the ambient one this node is rendered under — there
+is no `channelId` prop to set. Commonly placed inside a `smartTab` so its view handler
+is only requested once that tab is actually selected.
+
+---
+
 ### `twoColumnLayout`
 
 A two-column flex layout. Pass exactly two children: the left column and the right column.

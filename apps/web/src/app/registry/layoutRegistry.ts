@@ -76,6 +76,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   simpleTimer: lazy(() =>
     import('@/components/layout/SimpleTimer').then((m) => ({ default: m.SimpleTimer as ComponentType<LayoutComponentProps> }))
   ),
+  namedView: lazy(() =>
+    import('@/components/layout/NamedView').then((m) => ({ default: m.NamedView as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

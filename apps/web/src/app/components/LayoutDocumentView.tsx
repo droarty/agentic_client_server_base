@@ -69,6 +69,7 @@ export function LayoutDocumentView({ doc, channelId: channelIdProp, viewHandler 
         nodes={model.layoutConfig}
         state={model.docState as unknown as Record<string, unknown>}
         emit={emit}
+        channelId={resolvedChannelId}
       />
     </DocumentViewAncestryContext.Provider>
   );
