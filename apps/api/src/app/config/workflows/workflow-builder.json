@@ -42,75 +42,130 @@
             "viewHandler": "defaultView",
             "layoutConfig": [
               {
-                "componentType": "twoColumnLayout",
-                "props": { "leftWidth": "50%" },
+                "componentType": "smartTabs",
                 "children": [
                   {
-                    "componentType": "fullPanel",
-                    "targetId": "workflow-builder-chat",
+                    "componentType": "smartTab",
+                    "props": { "id": "builder", "title": "Builder" },
                     "children": [
                       {
-                        "componentType": "chatBody",
-                        "props": { "messages": "@state.chatMessages" }
-                      },
-                      {
-                        "componentType": "chatInput",
-                        "emits": { "addText": "add-text" }
+                        "componentType": "twoColumnLayout",
+                        "props": { "leftWidth": "50%" },
+                        "children": [
+                          {
+                            "componentType": "fullPanel",
+                            "targetId": "workflow-builder-chat",
+                            "children": [
+                              {
+                                "componentType": "chatBody",
+                                "props": { "messages": "@state.chatMessages" }
+                              },
+                              {
+                                "componentType": "chatInput",
+                                "emits": { "addText": "add-text" }
+                              }
+                            ]
+                          },
+                          {
+                            "componentType": "fullPanel",
+                            "targetId": "workflow-builder-draft",
+                            "children": [
+                              {
+                                "componentType": "textDisplay",
+                                "props": { "text": "Requirements" }
+                              },
+                              {
+                                "componentType": "textDisplay",
+                                "props": {
+                                  "text": "@state.requirementsSummary",
+                                  "placeholder": "Describe the workflow you want — a requirements summary will build up here as we chat."
+                                }
+                              },
+                              {
+                                "componentType": "showIf",
+                                "props": { "source": "@state.requirementsReady" },
+                                "children": [
+                                  {
+                                    "componentType": "actionButton",
+                                    "props": { "label": "Generate Workflow" },
+                                    "emits": { "click": "generate-workflow" }
+                                  }
+                                ]
+                              },
+                              {
+                                "componentType": "textDisplay",
+                                "props": { "text": "Draft Config" }
+                              },
+                              {
+                                "componentType": "jsonView",
+                                "props": {
+                                  "config": "@state.draftConfig",
+                                  "emptyMessage": "Once you click Generate Workflow, a draft will appear here."
+                                }
+                              },
+                              {
+                                "componentType": "showIf",
+                                "props": { "source": "@state.draftConfig" },
+                                "children": [
+                                  {
+                                    "componentType": "actionButton",
+                                    "props": { "label": "Publish Workflow" },
+                                    "emits": { "click": "publish-workflow" }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
                       }
                     ]
                   },
                   {
-                    "componentType": "fullPanel",
-                    "targetId": "workflow-builder-draft",
+                    "componentType": "smartTab",
+                    "props": { "id": "ai-requests", "title": "AI Requests" },
                     "children": [
                       {
-                        "componentType": "textDisplay",
-                        "props": { "text": "Requirements" }
-                      },
-                      {
-                        "componentType": "textDisplay",
-                        "props": {
-                          "text": "@state.requirementsSummary",
-                          "placeholder": "Describe the workflow you want — a requirements summary will build up here as we chat."
-                        }
-                      },
-                      {
-                        "componentType": "showIf",
-                        "props": { "source": "@state.requirementsReady" },
-                        "children": [
-                          {
-                            "componentType": "actionButton",
-                            "props": { "label": "Generate Workflow" },
-                            "emits": { "click": "generate-workflow" }
-                          }
-                        ]
-                      },
-                      {
-                        "componentType": "textDisplay",
-                        "props": { "text": "Draft Config" }
-                      },
-                      {
-                        "componentType": "jsonView",
-                        "props": {
-                          "config": "@state.draftConfig",
-                          "emptyMessage": "Once you click Generate Workflow, a draft will appear here."
-                        }
-                      },
-                      {
-                        "componentType": "showIf",
-                        "props": { "source": "@state.draftConfig" },
-                        "children": [
-                          {
-                            "componentType": "actionButton",
-                            "props": { "label": "Publish Workflow" },
-                            "emits": { "click": "publish-workflow" }
-                          }
-                        ]
+                        "componentType": "namedView",
+                        "props": { "viewHandler": "aiHandlersView" }
                       }
                     ]
                   }
                 ]
               }
+            ]
+          }
+        }
+      ]
+    },
+    "aiHandlersView": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "aiHandlersView",
+            "layoutConfig": [
+              {
+                "componentType": "logTreePanel",
+                "props": { "treeData": "@temp.aiHandlerTree" }
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-ai-handler-tree", "responseType": "ai-handler-tree-loaded" }
+        }
+      ]
+    },
+    "ai-handler-tree-loaded": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.aiHandlerTree", "value": "$message.treeData" }
             ]
           }
         }

@@ -10,6 +10,7 @@ interface TabEntry {
 export interface SmartTabsContextValue {
   registerTab: (id: string, title: string, onClose?: () => void) => void;
   unregisterTab: (id: string) => void;
+  activeTab: string;
 }
 
 export const SmartTabsContext = createContext<SmartTabsContextValue | null>(null);
@@ -44,8 +45,8 @@ export function SmartTabs({ children, selectedId }: { children?: ReactNode; sele
   }, [tabs, activeTab]);
 
   const ctx = useMemo<SmartTabsContextValue>(
-    () => ({ registerTab, unregisterTab }),
-    [registerTab, unregisterTab]
+    () => ({ registerTab, unregisterTab, activeTab }),
+    [registerTab, unregisterTab, activeTab]
   );
 
   return (
