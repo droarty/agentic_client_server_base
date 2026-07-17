@@ -223,27 +223,6 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           type: phase === 'building-config' ? 'run-config-ai-step' : 'run-requirements-ai-step',
         };
       }
-      if (queryName === 'get-ai-handler-tree') {
-        const channel = context.message['channel'] as string | undefined;
-        const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
-        const doc = artifactId ? await db.collection('artifacts').findOne({ _id: artifactId }, { projection: { state: 1 } }) : null;
-        const state = (doc?.['state'] as Record<string, unknown> | undefined) ?? {};
-        const draftConfig = state['draftConfig'] as
-          | { handlers?: Record<string, { steps?: { route?: string | string[] }[] }> }
-          | null
-          | undefined;
-
-        const handlers = draftConfig?.handlers ?? {};
-        const treeData = Object.entries(handlers)
-          .filter(([, handler]) =>
-            (handler.steps ?? []).some(
-              (step) => step.route === 'ai' || (Array.isArray(step.route) && step.route.includes('ai'))
-            )
-          )
-          .map(([name, handler]) => ({ id: name, name, rawData: handler, children: [] }));
-
-        return { treeData };
-      }
       if (queryName === 'publish-workflow-config') {
         const channel = context.message['channel'] as string | undefined;
         const artifactId = channel ? await getArtifactIdForChannel(channel) : null;

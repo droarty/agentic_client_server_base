@@ -140,6 +140,14 @@
     "aiHandlersView": {
       "steps": [
         {
+          "route": "database-query",
+          "query": { "name": "get-channel-document", "responseType": "ai-handlers-view-render" }
+        }
+      ]
+    },
+    "ai-handlers-view-render": {
+      "steps": [
+        {
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-view",
@@ -147,25 +155,14 @@
             "layoutConfig": [
               {
                 "componentType": "logTreePanel",
-                "props": { "treeData": "@temp.aiHandlerTree" }
+                "props": {
+                  "treeData": {
+                    "$map": "$message.document.state.draftConfig.handlers",
+                    "$where": "~{ item.steps[route='ai' or ($type(route)='array' and 'ai' in route)] }",
+                    "$using": { "id": "$key", "name": "$key", "rawData": "$item", "children": [] }
+                  }
+                }
               }
-            ]
-          }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "get-ai-handler-tree", "responseType": "ai-handler-tree-loaded" }
-        }
-      ]
-    },
-    "ai-handler-tree-loaded": {
-      "steps": [
-        {
-          "route": "client",
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$temp.aiHandlerTree", "value": "$message.treeData" }
             ]
           }
         }

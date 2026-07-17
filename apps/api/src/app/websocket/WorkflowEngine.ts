@@ -143,11 +143,25 @@ async function resolveValue(value: unknown, context: WorkflowContext): Promise<u
   if (typeof value === 'object' && value !== null) {
     const obj = value as Record<string, unknown>;
     if ('$map' in obj) {
-      const sourceArray = await resolveValue(obj['$map'], context);
-      const items = Array.isArray(sourceArray) ? sourceArray : [];
+      const source = await resolveValue(obj['$map'], context);
+      const entries: [unknown, unknown][] = Array.isArray(source)
+        ? source.map((item, i) => [i, item])
+        : source !== null && typeof source === 'object'
+        ? Object.entries(source as Record<string, unknown>)
+        : [];
+
+      const kept: [unknown, unknown][] = [];
+      for (const [key, item] of entries) {
+        if ('$where' in obj) {
+          const match = await resolveValue(obj['$where'], { ...context, item, key } as unknown as WorkflowContext);
+          if (!match) continue;
+        }
+        kept.push([key, item]);
+      }
+
       const mapped = await Promise.all(
-        items.map((item) =>
-          resolveValue(obj['$using'], { ...context, item } as unknown as WorkflowContext)
+        kept.map(([key, item]) =>
+          resolveValue(obj['$using'], { ...context, item, key } as unknown as WorkflowContext)
         )
       );
       const head = Array.isArray(obj['$prepend'])
