@@ -39,7 +39,7 @@ export async function listDocuments(req: AuthRequest, res: Response, next: NextF
 
 export async function createDocument(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { name, workflowType, groupId, targetUserId } = req.body as Partial<CreateDocumentRequest>;
+    const { name, workflowType, groupId, targetUserId, parentId } = req.body as Partial<CreateDocumentRequest>;
     if (!name?.trim()) {
       res.status(400).json({ message: 'name is required' });
       return;
@@ -65,6 +65,16 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
       ];
     }
 
+    let parentObjectId: Types.ObjectId | undefined;
+    if (parentId) {
+      const parentArtifact = await ArtifactModel.findById(parentId, { _id: 1 });
+      if (!parentArtifact) {
+        res.status(400).json({ message: 'parent artifact not found' });
+        return;
+      }
+      parentObjectId = parentArtifact._id as Types.ObjectId;
+    }
+
     // Flow 2: group admin creates an artifact for a target user
     if (targetUserId) {
       if (!groupId) {
@@ -85,6 +95,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
         type: workflowType.trim(),
         userId: targetUserId,
         groupId: groupObjectId,
+        parentId: parentObjectId,
         permissions,
         userPermissions: [{ userId: targetUserId, access: 'write' }],
         permissionManagerMode: 'group_admin',
@@ -105,6 +116,7 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
       type: workflowType.trim(),
       userId: req.userId,
       groupId: groupObjectId,
+      parentId: parentObjectId,
       permissions,
       permissionManagerMode: 'owner',
     });

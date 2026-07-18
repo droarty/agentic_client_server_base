@@ -226,6 +226,34 @@ describe('POST /api/documents — group admin flow', () => {
   });
 });
 
+// ─── POST /api/documents — parentId ───────────────────────────────────────────
+
+describe('POST /api/documents — parentId', () => {
+  it('creates document with a valid parentId', async () => {
+    const parent = await ArtifactModel.create({
+      name: 'Parent', type: 'configged-chat', userId: ownerUserId,
+      permissionManagerMode: 'owner', permissions: [], userPermissions: [],
+    });
+
+    const res = await request(app)
+      .post('/api/documents')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Child', workflowType: 'configged-chat', parentId: (parent._id as Types.ObjectId).toString() });
+
+    expect(res.status).toBe(201);
+    expect(res.body.parentId).toBe((parent._id as Types.ObjectId).toString());
+  });
+
+  it('returns 400 when parentId does not reference an existing artifact', async () => {
+    const res = await request(app)
+      .post('/api/documents')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Child', workflowType: 'configged-chat', parentId: new Types.ObjectId().toString() });
+
+    expect(res.status).toBe(400);
+  });
+});
+
 // ─── PATCH /api/documents/:id/user-permissions ────────────────────────────────
 
 describe('PATCH /api/documents/:id/user-permissions', () => {

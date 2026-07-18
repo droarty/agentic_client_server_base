@@ -3,11 +3,12 @@ import { Button } from '@/components/ui/button';
 
 interface Props {
   availableTypes?: string[];
-  onCreate?: (payload: { name: string; documentType: string }) => void;
+  parentId?: string;
+  onCreate?: (payload: { name: string; documentType: string; parentId?: string }) => void;
   [key: string]: unknown;
 }
 
-export function NewDocument({ availableTypes = [], onCreate }: Props) {
+export function NewDocument({ availableTypes = [], onCreate, parentId }: Props) {
   const types = availableTypes as string[];
   const [name, setName] = useState('');
   const [documentType, setDocumentType] = useState(types[0] ?? 'configged-chat');
@@ -16,7 +17,7 @@ export function NewDocument({ availableTypes = [], onCreate }: Props) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
-    onCreate?.({ name: trimmed, documentType });
+    onCreate?.({ name: trimmed, documentType, ...(parentId ? { parentId } : {}) });
     setName('');
   };
 

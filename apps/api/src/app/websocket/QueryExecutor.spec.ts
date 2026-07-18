@@ -259,6 +259,51 @@ describe('create-document', () => {
     const docs = result['documents'] as Array<Record<string, unknown>>;
     expect(docs.every((d) => d['userId'] === USER_ID)).toBe(true);
   });
+
+  test('creates document with parentId when parent exists', async () => {
+    const parent = await insertArtifact({ name: 'Parent' });
+    const execute = makeExecutor();
+    const result = await execute('create-document', makeContext(USER_ID, { name: 'Child', parentId: String(parent._id) }));
+    const doc = result['document'] as Record<string, unknown>;
+    expect(doc['parentId']).toBe(String(parent._id));
+    const persisted = await client.db().collection('artifacts').findOne({ name: 'Child' });
+    expect(String(persisted!['parentId'])).toBe(String(parent._id));
+  });
+
+  test('does not create when parentId does not reference an existing artifact', async () => {
+    const execute = makeExecutor();
+    const bogusParentId = '507f1f77bcf86cd799439011';
+    const result = await execute('create-document', makeContext(USER_ID, { name: 'Orphan', parentId: bogusParentId }));
+    expect(result['document']).toBeNull();
+    const persisted = await client.db().collection('artifacts').findOne({ name: 'Orphan' });
+    expect(persisted).toBeNull();
+  });
+});
+
+// ─── get-child-documents ────────────────────────────────────────────────────
+
+describe('get-child-documents', () => {
+  test('returns empty array when userId or parentId missing', async () => {
+    const parent = await insertArtifact({ name: 'Parent' });
+    const execute = makeExecutor();
+    const noUser = await execute('get-child-documents', makeContext(undefined, { parentId: String(parent._id) }));
+    expect(noUser['documents']).toEqual([]);
+    const noParent = await execute('get-child-documents', makeContext(USER_ID, {}));
+    expect(noParent['documents']).toEqual([]);
+  });
+
+  test('returns only the caller\'s children of the given parent', async () => {
+    const parent = await insertArtifact({ name: 'Parent' });
+    await insertArtifact({ name: 'Mine Child', userId: USER_ID, parentId: parent._id });
+    await insertArtifact({ name: 'Their Child', userId: OTHER_USER_ID, parentId: parent._id });
+    await insertArtifact({ name: 'Unrelated', userId: USER_ID });
+    const execute = makeExecutor();
+    const result = await execute('get-child-documents', makeContext(USER_ID, { parentId: String(parent._id) }));
+    const docs = result['documents'] as Array<Record<string, unknown>>;
+    expect(docs).toHaveLength(1);
+    expect(docs[0]['name']).toBe('Mine Child');
+    expect(docs[0]['currentChannelId']).toBeTruthy();
+  });
 });
 
 // ─── get-channel-log-tree ──────────────────────────────────────────────────────

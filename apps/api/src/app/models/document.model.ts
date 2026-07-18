@@ -16,6 +16,7 @@ export interface IArtifact extends Document {
   type: string;
   userId?: string;
   groupId?: Types.ObjectId;
+  parentId?: Types.ObjectId;
   permissions: IArtifactPermission[];
   userPermissions: IUserArtifactPermission[];
   permissionManagerMode: ArtifactPermissionMode;
@@ -46,6 +47,7 @@ const artifactSchema = new Schema<IArtifact>(
     type: { type: String, required: true },
     userId: { type: String },
     groupId: { type: Schema.Types.ObjectId, ref: 'Group' },
+    parentId: { type: Schema.Types.ObjectId, ref: 'Artifact' },
     permissions: { type: [artifactPermissionSchema], default: [] },
     userPermissions: { type: [userArtifactPermissionSchema], default: [] },
     permissionManagerMode: { type: String, enum: ['owner', 'group_admin'], default: 'owner' },
@@ -57,5 +59,6 @@ const artifactSchema = new Schema<IArtifact>(
 artifactSchema.index({ 'permissions.groupId': 1 });
 artifactSchema.index({ 'userPermissions.userId': 1 });
 artifactSchema.index({ groupId: 1 });
+artifactSchema.index({ parentId: 1 });
 
 export const ArtifactModel = mongoose.model<IArtifact>('Artifact', artifactSchema);
