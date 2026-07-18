@@ -151,6 +151,10 @@ function applyAction(next: Record<string, unknown>, action: ActionItem): Record<
       const existing = (getAtPath(next, resolvedPath) as unknown[]) ?? [];
       return setAtPath(next, resolvedPath, existing.slice(action.start, action.end));
     }
+    case 'defaults': {
+      const existing = (getAtPath(next, resolvedPath) as Record<string, unknown>) ?? {};
+      return setAtPath(next, resolvedPath, { ...(value as Record<string, unknown>), ...existing });
+    }
     default:
       return next;
   }

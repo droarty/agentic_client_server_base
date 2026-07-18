@@ -134,6 +134,14 @@ export function createDatabasePersistor(deps: DatabasePersistorDeps) {
           );
           break;
         }
+        case 'defaults': {
+          const fieldRef = `$${mongoPath}`;
+          await db.collection('artifacts').updateOne(
+            { _id: artifactId },
+            [{ $set: { [mongoPath]: { $mergeObjects: [value, { $ifNull: [fieldRef, {}] }] } } }] as any
+          );
+          break;
+        }
       }
     }
 

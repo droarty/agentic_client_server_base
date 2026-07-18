@@ -13,6 +13,7 @@
 @import './progress-bar.css';
 @import './dialog.css';
 @import './writing-area.css';
+@import './ai-observer-panel.css';
 
 :root {
   --background: 0 0% 100%;
