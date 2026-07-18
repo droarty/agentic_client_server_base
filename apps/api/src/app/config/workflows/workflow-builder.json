@@ -148,20 +148,53 @@
     "ai-handlers-view-render": {
       "steps": [
         {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "defaults",
+                "path": "$state.tests",
+                "value": "~{ $merge($each(message.document.state.draftConfig.handlers, function($v, $k){ $v.steps[route='ai' or ($type(route)='array' and 'ai' in route)] ? {($k): []} : {} })) }"
+              }
+            ]
+          }
+        },
+        {
           "route": "client",
           "transform": {
             "clientMessageType": "initialize-view",
             "viewHandler": "aiHandlersView",
             "layoutConfig": [
               {
-                "componentType": "logTreePanel",
-                "props": {
-                  "treeData": {
-                    "$map": "$message.document.state.draftConfig.handlers",
-                    "$where": "~{ item.steps[route='ai' or ($type(route)='array' and 'ai' in route)] }",
-                    "$using": { "id": "$key", "name": "$key", "rawData": "$item", "children": [] }
-                  }
-                }
+                "componentType": "aiObserverPanel",
+                "props": { "tests": "@state.tests" },
+                "emits": { "addTest": "add-test" }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "add-test": {
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-handler-test-skeleton", "responseType": "handler-test-skeleton-ready" }
+        }
+      ]
+    },
+    "handler-test-skeleton-ready": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "~{ '$state.tests.' & message.handlerName }",
+                "value": "$message.skeleton"
               }
             ]
           }

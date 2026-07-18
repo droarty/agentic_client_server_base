@@ -96,6 +96,36 @@ Props: `treeData` — array of tree nodes as returned by `get-log-tree`.
 
 ---
 
+### `aiObserverPanel`
+
+A tree/detail panel for authoring per-handler tests against a workflow config's
+`ai`-routed handlers. Left side lists the keys of a `tests` object (one per handler,
+each holding an array of test objects); clicking a handler or test node selects it
+locally (no server round trip). Selecting any node shows that handler's name and an
+"Add Test" button on the right; clicking it emits `addTest` so the workflow can
+scaffold a new test object (seeded from the `state.*`/`message.*` paths the handler
+references) and append it — the newly created test is then auto-selected once it
+appears in `tests`. A test node's data renders in an editable JSON editor (local edits
+only for now — persisting them is separate follow-up work).
+
+```json
+{
+  "componentType": "aiObserverPanel",
+  "props": { "tests": "@state.tests" },
+  "emits": { "addTest": "add-test" }
+}
+```
+
+Props:
+| Prop | Type | Description |
+|---|---|---|
+| `tests` | `Record<string, TestEntry[]>` | Object keyed by handler name; each value is that handler's array of test objects (`{ createdAt: string, ...state/message skeleton }`). |
+
+Emits `addTest` with payload `{ handlerName: string }` when the "Add Test" button is
+clicked for the currently selected handler/test.
+
+---
+
 ### `smartTab` and `smartTabs`
 
 A tabbed workspace. `smartTabs` is the container; `smartTab` is each individual tab. Must be used together.

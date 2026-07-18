@@ -223,6 +223,47 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           type: phase === 'building-config' ? 'run-config-ai-step' : 'run-requirements-ai-step',
         };
       }
+      if (queryName === 'get-handler-test-skeleton') {
+        const channel = context.message['channel'] as string | undefined;
+        const handlerName = context.message['handlerName'] as string | undefined;
+        const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
+        const doc = artifactId ? await db.collection('artifacts').findOne({ _id: artifactId }, { projection: { state: 1 } }) : null;
+        const state = (doc?.['state'] as Record<string, unknown> | undefined) ?? {};
+        const draftConfig = state['draftConfig'] as
+          | { handlers?: Record<string, { steps?: Record<string, unknown>[] }> }
+          | null
+          | undefined;
+        const handler = handlerName ? draftConfig?.handlers?.[handlerName] : undefined;
+
+        const skeleton: Record<string, unknown> = { createdAt: new Date().toISOString() };
+        const scanTargets = (handler?.steps ?? []).map((s) => ({
+          transform: s['transform'],
+          condition: s['condition'],
+          query: s['query'],
+        }));
+        const text = JSON.stringify(scanTargets);
+        const pattern = /\$?(state|message)\.([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/g;
+        const seen = new Set<string>();
+        let m: RegExpExecArray | null;
+        while ((m = pattern.exec(text))) {
+          const [, root, subPath] = m;
+          const key = `${root}.${subPath}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          skeleton[root] = skeleton[root] ?? {};
+          let curr = skeleton[root] as Record<string, unknown>;
+          const parts = subPath.split('.');
+          parts.forEach((p, i) => {
+            if (i === parts.length - 1) curr[p] = '';
+            else {
+              curr[p] = curr[p] ?? {};
+              curr = curr[p] as Record<string, unknown>;
+            }
+          });
+        }
+
+        return { skeleton, handlerName };
+      }
       if (queryName === 'publish-workflow-config') {
         const channel = context.message['channel'] as string | undefined;
         const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
