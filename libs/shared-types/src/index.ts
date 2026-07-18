@@ -14,6 +14,7 @@ export interface ArtifactSummary {
   type: string;
   userId?: string;
   groupId?: string;
+  parentId?: string;
   currentChannelId: string;
   permissions: import('./group.types').ArtifactPermission[];
   userPermissions: import('./group.types').UserArtifactPermission[];
@@ -27,6 +28,7 @@ export interface Artifact {
   name: string;
   type: string;
   groupId?: string;
+  parentId?: string;
   currentChannelId: string;
   permissions: import('./group.types').ArtifactPermission[];
   userPermissions: import('./group.types').UserArtifactPermission[];
@@ -41,6 +43,7 @@ export interface CreateDocumentRequest {
   workflowType: string;
   groupId?: string;
   targetUserId?: string;
+  parentId?: string;
 }
 
 export interface SetUserPermissionRequest {
