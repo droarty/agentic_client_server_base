@@ -6,6 +6,7 @@ import { GroupRole } from '../models/membership.model';
 import * as groupService from '../services/group.service';
 import { ArtifactModel } from '../models/document.model';
 import { ChannelModel } from '../models/channel.model';
+import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-configs';
 
 const VALID_ROLES: GroupRole[] = ['owner', 'admin', 'member'];
 
@@ -127,7 +128,7 @@ export async function getGroupDashboard(req: AuthRequest, res: Response, next: N
     }
     let doc = await ArtifactModel.findOne({ type: workflowType, userId: req.userId, groupId });
     if (!doc) {
-      const configPath = path.join(__dirname, '..', 'config', 'workflows', `${workflowType}.json`);
+      const configPath = path.join(WORKFLOW_CONFIG_DIR, `${workflowType}.json`);
       const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
       doc = await ArtifactModel.create({
         name: workflowType,

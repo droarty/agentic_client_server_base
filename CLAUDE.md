@@ -13,29 +13,38 @@ Full-stack Nx monorepo — a base for agentic client-server applications built i
 - **Database:** MongoDB + Mongoose
 - **Cache / PubSub:** Redis + ioredis
 - **Auth:** JWT (email + userId in payload) + bcryptjs + Google OAuth 2.0
-- **WebSockets:** `ws` library — EventManager (client), UserEventManager (server)
-- **Worker threads:** EventProcessorWorker runs in a separate thread; owns the full Redis-publish pipeline
-- **Shared types:** `libs/shared-types/src/` — imported by both api and web via path alias `@agentic-client-server-base/shared-types`
+- **WebSockets:** `ws` library — EventManager (client), UserEventManager (server, in the `api` gateway)
+- **Event processing:** `apps/event-processor/` — a separate long-running service that owns `WorkflowEngine`, all Mongo queries/persistence, and the Anthropic API calls; the gateway hands it inbound messages over HTTP (`POST /internal/events`, bearer-token authenticated), and it replies asynchronously via Redis pub/sub
+- **Shared types:** `libs/shared-types/src/` — imported by api, event-processor, and web via path alias `@agentic-client-server-base/shared-types`
+- **Also shared:** `libs/access-control/` (permission levels, used by both `api` and `event-processor`), `libs/workflow-configs/` (the JSON workflow definitions, read by both)
 
 ## Projects
 | Name | Path | Purpose |
 |------|------|---------|
-| `api` | `apps/api/` | Express backend + WebSocket server |
+| `api` | `apps/api/` | Express gateway: REST routes + WebSocket connection handling |
+| `event-processor` | `apps/event-processor/` | Workflow engine, persistence, AI calls — receives events from `api` over HTTP |
 | `web` | `apps/web/` | React SPA |
 | `shared-types` | `libs/shared-types/` | Shared TypeScript interfaces |
+| `access-control` | `libs/access-control/` | Access-level types + cache, shared by `api` and `event-processor` |
+| `workflow-configs` | `libs/workflow-configs/` | JSON workflow definitions, shared by `api` and `event-processor` |
 | `api-e2e` | `apps/api-e2e/` | Jest + supertest integration tests |
+| `event-processor-e2e` | `apps/event-processor-e2e/` | Jest integration tests for the workflow engine |
 | `web-e2e` | `apps/web-e2e/` | WebdriverIO e2e tests |
 
 ## Key commands
 ```bash
-pnpm install           # install / update dependencies (npm install conflicts with pnpm layout)
-npx nx serve api       # API dev server on :3000 (nodemon + ts-node)
-npx nx serve web       # Web dev server on :4200 (esbuild watch)
-npx nx build api       # Production build → dist/apps/api
-npx nx build web       # Production build → dist/apps/web
-npx nx test api        # Jest unit tests
-npx nx test api-e2e    # Supertest integration tests (requires MongoDB)
-npx nx e2e web-e2e     # WebdriverIO e2e tests (requires running servers)
+pnpm install                    # install / update dependencies (npm install conflicts with pnpm layout)
+npx nx serve api                # gateway dev server on :3000 (nodemon + ts-node)
+npx nx serve event-processor    # event-processor dev server on :3001 (nodemon + ts-node)
+npx nx serve web                # Web dev server on :4200 (esbuild watch)
+npx nx build api                # Production build → dist/apps/api
+npx nx build event-processor    # Production build → dist/apps/event-processor
+npx nx build web                # Production build → dist/apps/web
+npx nx test api                 # Jest unit tests
+npx nx test event-processor     # Jest unit tests
+npx nx test api-e2e             # Supertest integration tests (requires MongoDB)
+npx nx test event-processor-e2e # Workflow engine integration tests (requires MongoDB)
+npx nx e2e web-e2e              # WebdriverIO e2e tests (requires running servers)
 ```
 
 ## Starting / restarting servers
@@ -43,21 +52,24 @@ npx nx e2e web-e2e     # WebdriverIO e2e tests (requires running servers)
 Always use the pnpm scripts — they kill the old process, start the new one, and verify it is responding before returning:
 
 ```bash
-pnpm run restart:api    # restart API on :3000 (waits up to 30s for HTTP response)
-pnpm run restart:web    # restart web on :4200 (waits up to 20s for HTTP response)
-pnpm run restart:both   # restart both in parallel, verifies both
+pnpm run restart:api         # restart gateway on :3000 (waits up to 30s for HTTP response)
+pnpm run restart:processor   # restart event-processor on :3001 (waits up to 30s for HTTP response)
+pnpm run restart:web         # restart web on :4200 (waits up to 20s for HTTP response)
+pnpm run restart:all         # restart all three in parallel, verifies all
 ```
 
-**These scripts are pre-approved — call them without asking the user for confirmation**, both when the user requests a restart and when one is needed (e.g. after shared-types changes, after API code changes). Never run the underlying `lsof`/`kill`/`npx nx serve` commands directly.
+**These scripts are pre-approved — call them without asking the user for confirmation**, both when the user requests a restart and when one is needed (e.g. after shared-types changes, after gateway or event-processor code changes). Never run the underlying `lsof`/`kill`/`npx nx serve` commands directly.
 
 ## Architecture
 
 ### Message flow
 1. Client sends `WsClientMessage` (`auth` → `subscribe` → `channel-message`)
-2. `UserEventManager` authenticates socket, injects `senderEmail` from JWT into inbound message
-3. `EventProcessor` posts to worker thread (fire-and-forget)
-4. `EventProcessorWorker` transforms inbound → outbound, looks up channel sockets in Redis, persists outbound message to MongoDB, publishes `DeliveryInstruction` to Redis pub/sub
-5. All servers' `redisSub` receive the instruction and deliver frames to their local sockets
+2. `UserEventManager` (gateway, `apps/api`) authenticates socket, injects `senderEmail` from JWT into inbound message
+3. Gateway's `processor.client.ts` posts the message to `event-processor`'s `POST /internal/events` (bearer-token authenticated, fire-and-forget — the gateway does not await the workflow's completion)
+4. `event-processor`'s `handleInboundEvent` runs `WorkflowEngine`, which transforms inbound → outbound, looks up channel sockets in Redis, persists outbound message to MongoDB, and publishes a `DeliveryInstruction` to Redis pub/sub
+5. All gateway instances' `redisSub` receive the instruction and deliver frames to their local sockets
+
+An AI-triggered follow-up (the `ai` step) re-enters `handleInboundEvent` via a direct in-process function call inside `event-processor` once the Anthropic response resolves — not a second HTTP round-trip back through the gateway.
 
 ### Key message types (`libs/shared-types/src/message.types.ts`)
 - **`initialize-client`** (server → client): carries `layoutConfig` (component tree for a view) and/or `initialState` (document state seed)
@@ -71,7 +83,7 @@ pnpm run restart:both   # restart both in parallel, verifies both
 - Subscribing/unsubscribing updates Redis SETs: `channel:<uuid>` (socketIds) and `socket:<id>:channels`
 
 ### Workflow engine
-Artifact behavior is fully driven by JSON workflow configs in `apps/api/src/app/config/workflows/` — one file per artifact type (`user-dashboard.json`, `configged-chat.json`, `log-review.json`).
+Artifact behavior is fully driven by JSON workflow configs in `libs/workflow-configs/src/workflows/` — one file per artifact type (`user-dashboard.json`, `workflow-builder.json`, `log-review.json`). Both `api` and `event-processor` read this shared directory (resolved via `WORKFLOW_CONFIG_DIR` from `@agentic-client-server-base/workflow-configs`).
 
 Each config has:
 - `initialState` — seeded into MongoDB when the artifact is created
@@ -85,7 +97,7 @@ Step route values:
 | `database-query` | Run a named query, recursively invoke another handler with the result |
 | `ai` | Send text to Claude for moderation; response type triggers another handler |
 
-`WorkflowEngine` (`apps/api/src/app/websocket/WorkflowEngine.ts`) executes handlers. `EventProcessorWorker` (`apps/api/src/app/websocket/EventProcessorWorker.ts`) owns all queries, persistence, and Redis publishing.
+`WorkflowEngine` (`apps/event-processor/src/app/WorkflowEngine.ts`) executes handlers. `apps/event-processor/src/main.ts` wires up all queries, persistence, and Redis publishing, and exposes `handleInboundEvent` — the single entry point invoked both by `POST /internal/events` and by the AI re-entry path.
 
 **Transforms** use simple dot-path references: `$message.*`, `$state.*`, `$temp.*`, `$document.*`. `$state.*` paths are persisted; `$temp.*` are ephemeral.
 
@@ -123,7 +135,8 @@ When `LayoutDocumentView` mounts on a channel it sends **two independent message
 - **PR merges**: Never merge a PR into main. Only the user can merge via GitHub.
 
 ## Key conventions
-- **Shared-types changes** require an API server restart (nodemon only watches `apps/api/src/`) — run `pnpm run restart:api` automatically, no confirmation needed
+- **Shared-types / access-control / workflow-configs changes** require restarting both `api` and `event-processor` (nodemon only watches each app's own `src/`) — run `pnpm run restart:all` automatically, no confirmation needed
+- **`INTERNAL_SERVICE_TOKEN`** must be set to the same value in both `api` and `event-processor`'s env — it authenticates the gateway's calls to `POST /internal/events`. Empty in production is refused at boot.
 - **senderEmail** is injected server-side by `UserEventManager` — clients never set it
 - **One-time OAuth codes**: 64-char hex, 60s TTL, single-use (stored in Redis)
 - **React 19 ref pattern**: all `components/ui/` components accept `ref` as a regular prop — no `forwardRef`. For Radix UI wrappers use `ComponentPropsWithRef<T>` (includes `ref`); for HTML wrappers add `ref?: React.Ref<Element>` to the props interface

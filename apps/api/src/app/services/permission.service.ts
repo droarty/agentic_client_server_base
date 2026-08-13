@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { Group } from '../models/group.model';
 import { Membership } from '../models/membership.model';
 import { ArtifactModel, IArtifact } from '../models/document.model';
-import { AccessLevel, ACCESS_RANK } from '../websocket/access-level';
+import { AccessLevel, ACCESS_RANK } from '@agentic-client-server-base/access-control';
 
 export type { AccessLevel };
 

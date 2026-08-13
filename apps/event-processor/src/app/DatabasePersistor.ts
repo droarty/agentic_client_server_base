@@ -1,7 +1,7 @@
 import { MongoClient, ObjectId } from 'mongodb';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
-import { ACCESS_RANK } from './access-level';
+import { ACCESS_RANK } from '@agentic-client-server-base/access-control';
 
 interface DatabasePersistorDeps {
   mongoClient: MongoClient;

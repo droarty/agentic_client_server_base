@@ -1,9 +1,8 @@
-import { ValidateTextMessage, AiResponse } from '@agentic-client-server-base/shared-types';
+import { ValidateTextMessage, AiResponse, EventProcessorRequest } from '@agentic-client-server-base/shared-types';
 import { AiService } from './AiService';
-import { EventProcessor } from './EventProcessor';
 import { AiStepConfig, WorkflowLogEntry } from './WorkflowEngine';
 import { resolveTools } from './tools/registry';
-import { env } from '../config/env';
+import { env } from './config/env';
 
 const DEFAULT_AI_CONFIG: AiStepConfig = {
   model: 'claude-haiku-4-5-20251001',
@@ -21,8 +20,13 @@ const DEFAULT_AI_CONFIG: AiStepConfig = {
 
 const aiService = new AiService();
 
+export interface AIEventManagerDeps {
+  logWorkflowStep?: (entry: WorkflowLogEntry) => void;
+  handleInboundEvent: (input: EventProcessorRequest) => Promise<void>;
+}
+
 export class AIEventManager {
-  constructor(private deps: { logWorkflowStep?: (entry: WorkflowLogEntry) => void } = {}) { }
+  constructor(private deps: AIEventManagerDeps) { }
 
   publish(request: ValidateTextMessage, config: AiStepConfig = DEFAULT_AI_CONFIG, user?: { id: string; email: string }): void {
     this.process(request, config, user).catch((err) =>
@@ -148,8 +152,11 @@ export class AIEventManager {
         ...(textToForward !== undefined ? { text: textToForward } : {}),
       } as AiResponse;
 
-      const eventProcessor = new EventProcessor();
-      eventProcessor.process(response, user);
+      // Re-enter the same handling path a fresh inbound event would take (correlationId
+      // parsing happens at the top of handleInboundEvent) — a plain in-process call now
+      // that AI dispatch and workflow execution live in the same process, not a second
+      // worker/process spawn like the old worker_threads-based design used.
+      await this.deps.handleInboundEvent({ message: response as unknown as Record<string, unknown>, user });
     } catch (err) {
       this.deps.logWorkflowStep?.({
         createdAt: new Date(),

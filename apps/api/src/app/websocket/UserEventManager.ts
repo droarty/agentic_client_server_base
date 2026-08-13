@@ -5,13 +5,18 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import { WsClientMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
+import {
+  WsClientMessage,
+  WsServerMessage,
+  PUBSUB_CHANNEL,
+  DeliveryInstruction,
+} from '@agentic-client-server-base/shared-types';
+import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-configs';
 import { env } from '../config/env';
 import { redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';
 import { addSocketToChannel, removeSocketFromChannel } from '../redis/channel.registry';
-import { EventProcessor } from './EventProcessor';
-import { PUBSUB_CHANNEL, DeliveryInstruction } from './EventProcessorTypes';
+import { submitEvent } from '../services/processor.client';
 import { ArtifactModel } from '../models/document.model';
 import { ChannelModel } from '../models/channel.model';
 
@@ -27,7 +32,6 @@ interface AuthenticatedSocket extends WebSocket {
 export class UserEventManager {
   private wss: WebSocketServer;
   private localSockets = new Map<string, AuthenticatedSocket>();
-  private eventProcessor = new EventProcessor();
 
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server });
@@ -71,7 +75,7 @@ export class UserEventManager {
             void removeSocketFromChannel(socketId, msg.channel);
           } else if (msg.type === 'channel-message') {
             void addSocketToChannel(socketId, msg.message.channel);
-            this.eventProcessor.process(
+            submitEvent(
               { ...msg.message, senderEmail: ws.userEmail! },
               { id: ws.userId!, email: ws.userEmail! }
             );
@@ -114,7 +118,7 @@ export class UserEventManager {
   }
 
   private async ensureDashboardDocument(userId: string): Promise<string> {
-    const configPath = path.join(__dirname, '..', 'config', 'workflows', 'user-dashboard.json');
+    const configPath = path.join(WORKFLOW_CONFIG_DIR, 'user-dashboard.json');
     let initialState: Record<string, unknown> | undefined;
     if (fs.existsSync(configPath)) {
       const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
@@ -144,10 +148,6 @@ export class UserEventManager {
     }
 
     return channel.channelId;
-  }
-
-  shutdown(): void {
-    this.eventProcessor.shutdown();
   }
 
   private send(ws: WebSocket, msg: WsServerMessage): void {

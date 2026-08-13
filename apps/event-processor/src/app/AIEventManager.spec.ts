@@ -1,13 +1,13 @@
 jest.mock('./AiService');
-jest.mock('./EventProcessor');
 
 import { AiService } from './AiService';
-import { EventProcessor } from './EventProcessor';
 import { AIEventManager } from './AIEventManager';
 import { AiStepConfig } from './WorkflowEngine';
 import { ValidateTextMessage } from '@agentic-client-server-base/shared-types';
 
 const flushPromises = () => new Promise(setImmediate);
+
+const handleInboundEvent = jest.fn().mockResolvedValue(undefined);
 
 function makeRequest(overrides: Partial<ValidateTextMessage> = {}): ValidateTextMessage {
   return {
@@ -30,14 +30,14 @@ beforeEach(() => {
 // ─── valid-text response ──────────────────────────────────────────────────────
 
 describe('valid-text response', () => {
-  test('fires valid-text AiResponse to EventProcessor with text and correlationId', async () => {
+  test('fires valid-text AiResponse to handleInboundEvent with text and correlationId', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"valid-text"}');
-    new AIEventManager().publish(makeRequest({ text: 'safe text', correlationId: 'c-1' }));
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest({ text: 'safe text', correlationId: 'c-1' }));
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'valid-text', text: 'safe text', channel: 'ch-1', correlationId: 'c-1' }),
-      undefined
-    );
+    expect(handleInboundEvent).toHaveBeenCalledWith({
+      message: expect.objectContaining({ type: 'valid-text', text: 'safe text', channel: 'ch-1', correlationId: 'c-1' }),
+      user: undefined,
+    });
   });
 });
 
@@ -46,11 +46,11 @@ describe('valid-text response', () => {
 describe('inappropriate-text response', () => {
   test('fires inappropriate-text AiResponse without text field', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"inappropriate-text"}');
-    new AIEventManager().publish(makeRequest());
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest());
     await flushPromises();
-    const [response] = (EventProcessor.prototype.process as jest.Mock).mock.calls[0];
-    expect(response.type).toBe('inappropriate-text');
-    expect(response.text).toBeUndefined();
+    const [{ message }] = handleInboundEvent.mock.calls[0];
+    expect(message.type).toBe('inappropriate-text');
+    expect(message.text).toBeUndefined();
   });
 });
 
@@ -59,40 +59,40 @@ describe('inappropriate-text response', () => {
 describe('markdown code fence stripping', () => {
   test('strips ```json fences before parsing', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('```json\n{"type":"valid-text"}\n```');
-    new AIEventManager().publish(makeRequest());
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest());
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'valid-text' }),
-      undefined
-    );
+    expect(handleInboundEvent).toHaveBeenCalledWith({
+      message: expect.objectContaining({ type: 'valid-text' }),
+      user: undefined,
+    });
   });
 
   test('strips plain ``` fences before parsing', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('```\n{"type":"inappropriate-text"}\n```');
-    new AIEventManager().publish(makeRequest());
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest());
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'inappropriate-text' }),
-      undefined
-    );
+    expect(handleInboundEvent).toHaveBeenCalledWith({
+      message: expect.objectContaining({ type: 'inappropriate-text' }),
+      user: undefined,
+    });
   });
 
   test('recovers a JSON object even when the model prepends explanatory prose before it', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue(
       'This feature is not currently supported by this system.\n\n{"type":"valid-text"}'
     );
-    new AIEventManager().publish(makeRequest());
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest());
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'valid-text' }),
-      undefined
-    );
+    expect(handleInboundEvent).toHaveBeenCalledWith({
+      message: expect.objectContaining({ type: 'valid-text' }),
+      user: undefined,
+    });
   });
 
   test('still throws when no JSON object is present at all', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('Sorry, I cannot help with that.');
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => new AIEventManager().publish(makeRequest())).not.toThrow();
+    expect(() => new AIEventManager({ handleInboundEvent }).publish(makeRequest())).not.toThrow();
     await flushPromises();
     expect(spy).toHaveBeenCalledWith('AIEventManager error:', expect.objectContaining({ message: expect.stringContaining('invalid JSON') }));
     spy.mockRestore();
@@ -106,7 +106,7 @@ describe('error paths — swallowed by publish()', () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('not-json');
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const logWorkflowStep = jest.fn();
-    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest())).not.toThrow();
+    expect(() => new AIEventManager({ logWorkflowStep, handleInboundEvent }).publish(makeRequest())).not.toThrow();
     await flushPromises();
     expect(spy).toHaveBeenCalled();
     expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
@@ -117,7 +117,7 @@ describe('error paths — swallowed by publish()', () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"banana"}');
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const logWorkflowStep = jest.fn();
-    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest())).not.toThrow();
+    expect(() => new AIEventManager({ logWorkflowStep, handleInboundEvent }).publish(makeRequest())).not.toThrow();
     await flushPromises();
     expect(spy).toHaveBeenCalled();
     expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
@@ -138,29 +138,29 @@ describe('responseSchema validation', () => {
     },
   };
 
-  test('field with wrong type → publish() does not throw, EventProcessor never called, logged as logType: error', async () => {
+  test('field with wrong type → publish() does not throw, handleInboundEvent never called, logged as logType: error', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue(
       '{"type":"requirements-reply-with-summary","reply":"ok","requirementsSummary":{"type":0,"data":{"0":0}},"ready":true}'
     );
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const logWorkflowStep = jest.fn();
-    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest(), config)).not.toThrow();
+    expect(() => new AIEventManager({ logWorkflowStep, handleInboundEvent }).publish(makeRequest(), config)).not.toThrow();
     await flushPromises();
-    expect(EventProcessor.prototype.process).not.toHaveBeenCalled();
+    expect(handleInboundEvent).not.toHaveBeenCalled();
     expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
     spy.mockRestore();
   });
 
-  test('matching schema → EventProcessor called with parsed fields', async () => {
+  test('matching schema → handleInboundEvent called with parsed fields', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue(
       '{"type":"requirements-reply-with-summary","reply":"ok","requirementsSummary":"a summary","ready":true}'
     );
-    new AIEventManager().publish(makeRequest(), config);
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest(), config);
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
-      expect.objectContaining({ requirementsSummary: 'a summary', ready: true }),
-      undefined
-    );
+    expect(handleInboundEvent).toHaveBeenCalledWith({
+      message: expect.objectContaining({ requirementsSummary: 'a summary', ready: true }),
+      user: undefined,
+    });
   });
 });
 
@@ -182,15 +182,15 @@ describe('plain-prose fallback when the model omits the JSON envelope entirely',
     (AiService.prototype.complete as jest.Mock).mockResolvedValue(
       'That sounds like a new requirement rather than a config tweak — want me to send this back to the requirements step?'
     );
-    new AIEventManager().publish(makeRequest(), config);
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest(), config);
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(handleInboundEvent).toHaveBeenCalledWith({
+      message: expect.objectContaining({
         type: 'chat-reply',
         reply: 'That sounds like a new requirement rather than a config tweak — want me to send this back to the requirements step?',
       }),
-      undefined
-    );
+      user: undefined,
+    });
   });
 
   test('still throws when the first responseType schema needs more than a bare string reply', async () => {
@@ -201,9 +201,9 @@ describe('plain-prose fallback when the model omits the JSON envelope entirely',
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('Sorry, I cannot help with that.');
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const logWorkflowStep = jest.fn();
-    expect(() => new AIEventManager({ logWorkflowStep }).publish(makeRequest(), draftFirstConfig)).not.toThrow();
+    expect(() => new AIEventManager({ logWorkflowStep, handleInboundEvent }).publish(makeRequest(), draftFirstConfig)).not.toThrow();
     await flushPromises();
-    expect(EventProcessor.prototype.process).not.toHaveBeenCalled();
+    expect(handleInboundEvent).not.toHaveBeenCalled();
     expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', errorMessage: 'AI step failed' }));
     spy.mockRestore();
   });
@@ -212,12 +212,12 @@ describe('plain-prose fallback when the model omits the JSON envelope entirely',
 // ─── user context ─────────────────────────────────────────────────────────────
 
 describe('user context', () => {
-  test('user forwarded to EventProcessor.process as second argument', async () => {
+  test('user forwarded to handleInboundEvent', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"valid-text"}');
     const user = { id: 'u-1', email: 'u@test.com' };
-    new AIEventManager().publish(makeRequest(), undefined, user);
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest(), undefined, user);
     await flushPromises();
-    expect(EventProcessor.prototype.process).toHaveBeenCalledWith(expect.anything(), user);
+    expect(handleInboundEvent).toHaveBeenCalledWith(expect.objectContaining({ user }));
   });
 });
 
@@ -232,7 +232,7 @@ describe('tools wiring', () => {
       systemPrompt: 'sys',
       tools: ['get_reference_section'],
     };
-    new AIEventManager().publish(makeRequest(), config);
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest(), config);
     await flushPromises();
     const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
     expect(options.tools).toEqual([expect.objectContaining({ name: 'get_reference_section' })]);
@@ -240,7 +240,7 @@ describe('tools wiring', () => {
 
   test('config without tools passes tools: undefined (unchanged single-shot behavior)', async () => {
     (AiService.prototype.complete as jest.Mock).mockResolvedValue('{"type":"valid-text"}');
-    new AIEventManager().publish(makeRequest());
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest());
     await flushPromises();
     const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
     expect(options.tools).toBeUndefined();
@@ -255,7 +255,7 @@ describe('tools wiring', () => {
       systemPrompt: 'sys',
       tools: ['get_reference_section'],
     };
-    new AIEventManager().publish(makeRequest(), config);
+    new AIEventManager({ handleInboundEvent }).publish(makeRequest(), config);
     await flushPromises();
     const [, , , options] = (AiService.prototype.complete as jest.Mock).mock.calls[0];
     expect(options.maxTurns).toBe(20);
@@ -273,7 +273,7 @@ describe('tools wiring', () => {
       systemPrompt: 'sys',
       tools: ['get_reference_section'],
     };
-    new AIEventManager({ logWorkflowStep }).publish(makeRequest({ correlationId: 'exec-1:2' }), config);
+    new AIEventManager({ logWorkflowStep, handleInboundEvent }).publish(makeRequest({ correlationId: 'exec-1:2' }), config);
     await flushPromises();
     expect(logWorkflowStep).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -297,7 +297,7 @@ describe('tools wiring', () => {
       systemPrompt: 'sys',
       tools: ['get_reference_section'],
     };
-    new AIEventManager({ logWorkflowStep }).publish(makeRequest(), config);
+    new AIEventManager({ logWorkflowStep, handleInboundEvent }).publish(makeRequest(), config);
     await flushPromises();
     expect(logWorkflowStep).toHaveBeenCalledWith(
       expect.objectContaining({ logType: 'error', errorMessage: 'tool "get_reference_section" failed', errorDetail: expect.stringContaining('boom') })

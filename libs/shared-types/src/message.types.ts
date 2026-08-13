@@ -223,3 +223,24 @@ export type WsServerMessage =
   | { type: 'auth_success'; dashboardChannelId: string }
   | { type: 'auth_error'; message: string }
   | { type: 'channel-message'; message: OutboundMessage };
+
+// ── Gateway ↔ event-processor internal messages ───────────────────────────
+
+// Redis pub/sub channel the event-processor publishes delivery instructions
+// on; the gateway's redisSub subscribes to forward frames to local sockets.
+export const PUBSUB_CHANNEL = 'multiplayer:chat';
+
+export interface DeliveryInstruction {
+  frame: Buffer;
+  socketIds: string[];
+}
+
+// Body shape for the gateway's POST to the event-processor's /internal/events.
+export interface EventProcessorRequest {
+  message: Record<string, unknown>;
+  user?: { id: string; email: string };
+}
+
+export interface InternalEventResponse {
+  accepted: boolean;
+}

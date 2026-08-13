@@ -1,0 +1,17 @@
+{
+  "name": "event-processor-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/event-processor-e2e/src",
+  "projectType": "application",
+  "implicitDependencies": ["event-processor"],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/event-processor-e2e/jest.config.ts"
+      }
+    }
+  },
+  "tags": ["type:e2e", "scope:event-processor"]
+}

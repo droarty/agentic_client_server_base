@@ -1,10 +1,10 @@
 import * as path from 'path';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongoClient, Document } from 'mongodb';
-import { WorkflowEngine, WorkflowEngineDeps } from '../../api/src/app/websocket/WorkflowEngine';
-import { createDatabasePersistor } from '../../api/src/app/websocket/DatabasePersistor';
+import { WorkflowEngine, WorkflowEngineDeps } from '../../event-processor/src/app/WorkflowEngine';
+import { createDatabasePersistor } from '../../event-processor/src/app/DatabasePersistor';
 
-const CONFIG_DIR = path.resolve(__dirname, '../../api/src/app/config/workflows');
+const CONFIG_DIR = path.resolve(__dirname, '../../../libs/workflow-configs/src/workflows');
 const CHANNEL = 'persist-ch-1';
 const USER_ID = 'u-persist-1';
 

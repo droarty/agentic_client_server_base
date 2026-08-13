@@ -1,7 +1,7 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { WorkflowEngine, WorkflowEngineDeps } from '../../api/src/app/websocket/WorkflowEngine';
+import { WorkflowEngine, WorkflowEngineDeps } from '../../event-processor/src/app/WorkflowEngine';
 
 const CHANNEL = 'ai-ch-1';
 const USER = { id: 'u-ai-1', email: 'ai@example.com' };

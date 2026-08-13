@@ -1,12 +1,12 @@
 export default {
-  displayName: 'api',
+  displayName: 'event-processor',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
     '^.+\\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: '../../coverage/apps/api',
+  coverageDirectory: '../../coverage/apps/event-processor',
   moduleNameMapper: {
     '^@agentic-client-server-base/shared-types$': '<rootDir>/../../libs/shared-types/src/index.ts',
     '^@agentic-client-server-base/access-control$': '<rootDir>/../../libs/access-control/src/index.ts',

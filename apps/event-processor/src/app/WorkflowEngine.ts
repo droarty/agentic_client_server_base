@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import jsonata from 'jsonata';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
-import { AccessLevel, ACCESS_RANK } from './access-level';
+import { AccessLevel, ACCESS_RANK } from '@agentic-client-server-base/access-control';
 
 export interface AiStepConfig {
   model: string;

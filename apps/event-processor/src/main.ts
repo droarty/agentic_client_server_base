@@ -1,38 +1,37 @@
-import { parentPort } from 'worker_threads';
-import * as path from 'path';
-import * as fs from 'fs';
+import 'dotenv/config';
 import { pack } from 'msgpackr';
 import Redis from 'ioredis';
 import { MongoClient, ObjectId } from 'mongodb';
-import { OutboundMessage, ValidateTextMessage, WsServerMessage } from '@agentic-client-server-base/shared-types';
-import { PUBSUB_CHANNEL, WorkerInput, DeliveryInstruction } from './EventProcessorTypes';
-import { AIEventManager } from './AIEventManager';
-import { WorkflowEngine, AiStepConfig, WorkflowLogEntry, ChannelContext } from './WorkflowEngine';
-import { createQueryExecutor } from './QueryExecutor';
-import { createDatabasePersistor } from './DatabasePersistor';
-import { AccessLevel, ACCESS_RANK } from './access-level';
-import { createAccessLevelCache } from './access-level-cache';
+import {
+  OutboundMessage,
+  ValidateTextMessage,
+  WsServerMessage,
+  PUBSUB_CHANNEL,
+  DeliveryInstruction,
+  EventProcessorRequest,
+} from '@agentic-client-server-base/shared-types';
+import { AccessLevel, ACCESS_RANK, createAccessLevelCache } from '@agentic-client-server-base/access-control';
+import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-configs';
+import { env } from './app/config/env';
+import { createApp } from './app/app';
+import { AIEventManager } from './app/AIEventManager';
+import { WorkflowEngine, AiStepConfig, WorkflowLogEntry, ChannelContext } from './app/WorkflowEngine';
+import { createQueryExecutor } from './app/QueryExecutor';
+import { createDatabasePersistor } from './app/DatabasePersistor';
 
 const accessLevelCache = createAccessLevelCache(10 * 60 * 1000);
 
-const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379', {
-  enableReadyCheck: false,
-});
-redis.on('error', (err) => console.error('EventProcessorWorker Redis error:', err.message));
+const redis = new Redis(env.REDIS_URL, { enableReadyCheck: false });
+redis.on('error', (err) => console.error('event-processor Redis error:', err.message));
 
-const mongoUri = process.env['MONGODB_URI'] || 'mongodb://localhost:27017/agentic_client_server_base';
-const mongoClient = new MongoClient(mongoUri);
+const mongoClient = new MongoClient(env.MONGODB_URI);
 const dbReady = mongoClient.connect();
-dbReady.catch((err) => console.error('EventProcessorWorker MongoDB error:', err.message));
+dbReady.catch((err) => console.error('event-processor MongoDB error:', err.message));
 
 dbReady.then(() =>
   mongoClient.db().collection('workflowlogs')
     .createIndex({ createdAt: 1 }, { expireAfterSeconds: 604800 })
 ).catch(console.error);
-
-const aiEventManager = new AIEventManager({ logWorkflowStep });
-
-const configDir = path.join(__dirname, '..', 'config', 'workflows');
 
 function logWorkflowStep(entry: WorkflowLogEntry): void {
   mongoClient.db().collection('workflowlogs')
@@ -163,11 +162,13 @@ const cacheInvalidator: { fn?: (name: string) => void } = {};
 const executeQuery = createQueryExecutor({
   mongoClient,
   dbReady,
-  configDir,
+  configDir: WORKFLOW_CONFIG_DIR,
   logWorkflowStep,
   invalidateWorkflowConfig: (name) => cacheInvalidator.fn?.(name),
 });
 const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
+
+const aiEventManager = new AIEventManager({ logWorkflowStep, handleInboundEvent });
 
 const engine = new WorkflowEngine(
   {
@@ -193,11 +194,15 @@ const engine = new WorkflowEngine(
     executeQuery,
     fetchCustomWorkflowConfig,
   },
-  configDir
+  WORKFLOW_CONFIG_DIR
 );
 cacheInvalidator.fn = (name) => engine.invalidateConfig(name);
 
-parentPort!.on('message', async (input: WorkerInput) => {
+// Single entry point into workflow execution — called both from the gateway's
+// POST /internal/events and, in-process, when an AI response needs to re-enter
+// the pipeline (see AIEventManager). Replaces the old worker_threads
+// parentPort.on('message', ...) listener with a plain reusable function.
+async function handleInboundEvent(input: EventProcessorRequest): Promise<void> {
   const { message, user } = input;
   const correlationId = message['correlationId'] as string | undefined;
   let parentExecutionId: string | undefined;
@@ -218,4 +223,19 @@ parentPort!.on('message', async (input: WorkerInput) => {
   } catch (err) {
     logWorkflowStep({ createdAt: new Date(), channel: (message['channel'] as string) || '', docType: '', handlerName: (message['type'] as string) || '', logType: 'error', errorMessage: 'WorkflowEngine execution error', errorDetail: String(err) });
   }
+}
+
+const app = createApp(handleInboundEvent);
+
+const server = app.listen(env.PROCESSOR_PORT, () => {
+  console.log(`event-processor listening on port ${env.PROCESSOR_PORT}`);
 });
+
+function shutdown(): void {
+  server.close();
+  void mongoClient.close();
+  redis.disconnect();
+}
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

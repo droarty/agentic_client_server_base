@@ -1,8 +1,8 @@
 import * as path from 'path';
-import { WorkflowEngine, WorkflowEngineDeps } from '../../api/src/app/websocket/WorkflowEngine';
+import { WorkflowEngine, WorkflowEngineDeps } from '../../event-processor/src/app/WorkflowEngine';
 import { OutboundMessage } from '@agentic-client-server-base/shared-types';
 
-const CONFIG_DIR = path.resolve(__dirname, '../../api/src/app/config/workflows');
+const CONFIG_DIR = path.resolve(__dirname, '../../../libs/workflow-configs/src/workflows');
 const UD_CHANNEL = 'ud-ch-1';
 const LR_CHANNEL = 'lr-ch-1';
 
