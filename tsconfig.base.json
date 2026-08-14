@@ -19,7 +19,8 @@
     "paths": {
       "@agentic-client-server-base/shared-types": ["libs/shared-types/src/index.ts"],
       "@agentic-client-server-base/access-control": ["libs/access-control/src/index.ts"],
-      "@agentic-client-server-base/workflow-configs": ["libs/workflow-configs/src/index.ts"]
+      "@agentic-client-server-base/workflow-configs": ["libs/workflow-configs/src/index.ts"],
+      "@agentic-client-server-base/db-schema": ["libs/db-schema/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
