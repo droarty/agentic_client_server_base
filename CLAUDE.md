@@ -10,13 +10,13 @@ Full-stack Nx monorepo — a base for agentic client-server applications built i
 - **Monorepo:** Nx 20.x with pnpm workspaces
 - **Backend:** Node.js + Express + TypeScript (ts-node in dev, nodemon watch)
 - **Frontend:** React 19 + React Router v6, bundled with esbuild
-- **Database:** MongoDB + Mongoose
+- **Database:** PostgreSQL + Drizzle ORM (`node-postgres` driver)
 - **Cache / PubSub:** Redis + ioredis
 - **Auth:** JWT (email + userId in payload) + bcryptjs + Google OAuth 2.0
 - **WebSockets:** `ws` library — EventManager (client), UserEventManager (server, in the `api` gateway)
-- **Event processing:** `apps/event-processor/` — a separate long-running service that owns `WorkflowEngine`, all Mongo queries/persistence, and the Anthropic API calls; the gateway hands it inbound messages over HTTP (`POST /internal/events`, bearer-token authenticated), and it replies asynchronously via Redis pub/sub
+- **Event processing:** `apps/event-processor/` — a separate long-running service that owns `WorkflowEngine`, all Postgres queries/persistence, and the Anthropic API calls; the gateway hands it inbound messages over HTTP (`POST /internal/events`, bearer-token authenticated), and it replies asynchronously via Redis pub/sub
 - **Shared types:** `libs/shared-types/src/` — imported by api, event-processor, and web via path alias `@agentic-client-server-base/shared-types`
-- **Also shared:** `libs/access-control/` (permission levels, used by both `api` and `event-processor`), `libs/workflow-configs/` (the JSON workflow definitions, read by both)
+- **Also shared:** `libs/access-control/` (permission levels, used by both `api` and `event-processor`), `libs/workflow-configs/` (the JSON workflow definitions, read by both), `libs/db-schema/` (shared Drizzle schema + migrations, used by both)
 
 ## Projects
 | Name | Path | Purpose |
@@ -27,6 +27,7 @@ Full-stack Nx monorepo — a base for agentic client-server applications built i
 | `shared-types` | `libs/shared-types/` | Shared TypeScript interfaces |
 | `access-control` | `libs/access-control/` | Access-level types + cache, shared by `api` and `event-processor` |
 | `workflow-configs` | `libs/workflow-configs/` | JSON workflow definitions, shared by `api` and `event-processor` |
+| `db-schema` | `libs/db-schema/` | Shared Drizzle schema, migrations, and Postgres test helpers (`embedded-postgres`), used by both `api` and `event-processor` |
 | `api-e2e` | `apps/api-e2e/` | Jest + supertest integration tests |
 | `event-processor-e2e` | `apps/event-processor-e2e/` | Jest integration tests for the workflow engine |
 | `web-e2e` | `apps/web-e2e/` | WebdriverIO e2e tests |
@@ -42,8 +43,8 @@ npx nx build event-processor    # Production build → dist/apps/event-processor
 npx nx build web                # Production build → dist/apps/web
 npx nx test api                 # Jest unit tests
 npx nx test event-processor     # Jest unit tests
-npx nx test api-e2e             # Supertest integration tests (requires MongoDB)
-npx nx test event-processor-e2e # Workflow engine integration tests (requires MongoDB)
+npx nx test api-e2e             # Supertest integration tests (spins up embedded-postgres)
+npx nx test event-processor-e2e # Workflow engine integration tests (spins up embedded-postgres)
 npx nx e2e web-e2e              # WebdriverIO e2e tests (requires running servers)
 ```
 
@@ -66,7 +67,7 @@ pnpm run restart:all         # restart all three in parallel, verifies all
 1. Client sends `WsClientMessage` (`auth` → `subscribe` → `channel-message`)
 2. `UserEventManager` (gateway, `apps/api`) authenticates socket, injects `senderEmail` from JWT into inbound message
 3. Gateway's `processor.client.ts` posts the message to `event-processor`'s `POST /internal/events` (bearer-token authenticated, fire-and-forget — the gateway does not await the workflow's completion)
-4. `event-processor`'s `handleInboundEvent` runs `WorkflowEngine`, which transforms inbound → outbound, looks up channel sockets in Redis, persists outbound message to MongoDB, and publishes a `DeliveryInstruction` to Redis pub/sub
+4. `event-processor`'s `handleInboundEvent` runs `WorkflowEngine`, which transforms inbound → outbound, looks up channel sockets in Redis, persists outbound message to Postgres, and publishes a `DeliveryInstruction` to Redis pub/sub
 5. All gateway instances' `redisSub` receive the instruction and deliver frames to their local sockets
 
 An AI-triggered follow-up (the `ai` step) re-enters `handleInboundEvent` via a direct in-process function call inside `event-processor` once the Anthropic response resolves — not a second HTTP round-trip back through the gateway.
@@ -78,22 +79,22 @@ An AI-triggered follow-up (the `ai` step) re-enters `handleInboundEvent` via a d
 - **`WsServerMessage`**: auth_success / auth_error / channel-message envelopes sent by the server
 
 ### Document / Channel model
-- Each artifact (MongoDB) has a unique `currentChannelId` (UUID) — this is the WebSocket channel
-- State is stored on the artifact as `state` (persisted via `$state.*` paths) and kept ephemerally as `temp` (`$temp.*` paths, never written to DB)
+- Each artifact (`artifacts` table) is joined to its WebSocket channel via a separate `channels` row (`channels.artifact_id` FK, `ON DELETE CASCADE`); the channel's public `channel_id` (UUID) is what the client subscribes to
+- State is stored on the artifact as JSONB `state` (persisted via `$state.*` paths) and kept ephemerally as `temp` (`$temp.*` paths, never written to DB)
 - Subscribing/unsubscribing updates Redis SETs: `channel:<uuid>` (socketIds) and `socket:<id>:channels`
 
 ### Workflow engine
-Artifact behavior is fully driven by JSON workflow configs in `libs/workflow-configs/src/workflows/` — one file per artifact type (`user-dashboard.json`, `workflow-builder.json`, `log-review.json`). Both `api` and `event-processor` read this shared directory (resolved via `WORKFLOW_CONFIG_DIR` from `@agentic-client-server-base/workflow-configs`).
+Artifact behavior is fully driven by JSON workflow configs in `libs/workflow-configs/src/workflows/` — one file per artifact type (`user-dashboard.json`, `workflow-builder.json`, `log-review.json`). Both `api` and `event-processor` read this shared directory (resolved via `WORKFLOW_CONFIG_DIR` from `@agentic-client-server-base/workflow-configs`). Custom/seeded configs not on the filesystem fall back to the Postgres `workflow_configs` table.
 
 Each config has:
-- `initialState` — seeded into MongoDB when the artifact is created
+- `initialState` — seeded into Postgres when the artifact is created
 - `handlers` map — keyed by message type; each handler is a sequence of steps
 
 Step route values:
 | Route | Effect |
 |-------|--------|
 | `client` | Send outbound message to all channel subscribers |
-| `database` | Persist `update-state` actions to MongoDB |
+| `database` | Persist `update-state` actions to Postgres (JSONB `state` column, via `libs/db-schema`'s `jsonb_array_*` SQL functions for array-mutating action types) |
 | `database-query` | Run a named query, recursively invoke another handler with the result |
 | `ai` | Send text to Claude for moderation; response type triggers another handler |
 
@@ -135,7 +136,8 @@ When `LayoutDocumentView` mounts on a channel it sends **two independent message
 - **PR merges**: Never merge a PR into main. Only the user can merge via GitHub.
 
 ## Key conventions
-- **Shared-types / access-control / workflow-configs changes** require restarting both `api` and `event-processor` (nodemon only watches each app's own `src/`) — run `pnpm run restart:all` automatically, no confirmation needed
+- **Shared-types / access-control / workflow-configs / db-schema changes** require restarting both `api` and `event-processor` (nodemon only watches each app's own `src/`) — run `pnpm run restart:all` automatically, no confirmation needed
+- **`libs/db-schema` schema changes** need a migration: `pnpm run db:generate` (writes a new file under `libs/db-schema/drizzle/`) then `pnpm run db:migrate` (applies it to the local Postgres) — migrations are never applied automatically on app boot
 - **`INTERNAL_SERVICE_TOKEN`** must be set to the same value in both `api` and `event-processor`'s env — it authenticates the gateway's calls to `POST /internal/events`. Empty in production is refused at boot.
 - **senderEmail** is injected server-side by `UserEventManager` — clients never set it
 - **One-time OAuth codes**: 64-char hex, 60s TTL, single-use (stored in Redis)

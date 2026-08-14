@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { MongoClient } from 'mongodb';
+import { Client } from 'pg';
 
 const SS_DIR = path.join(__dirname, '../../../../.claude/skills/run-agentic-client-server-base/screenshots');
 const EMAIL = `wfb-chat-${Date.now()}@example.com`;
 const PASSWORD = 'password123';
-const MONGODB_URI = 'mongodb://localhost:27017/agentic_client_server_base';
+const DATABASE_URL = 'postgres://postgres:postgres@localhost:5433/agentic_client_server_base';
 
 async function screenshot(name: string) {
   fs.mkdirSync(SS_DIR, { recursive: true });
@@ -85,7 +85,7 @@ describe('workflow builder chat: ack, history, bubbles, auto-grow', () => {
     await screenshot('wfb-04-bubble-styles');
   });
 
-  it('ack bubble is never persisted to MongoDB (client-only)', async () => {
+  it('ack bubble is never persisted to Postgres (client-only)', async () => {
     const ackCountInUi = await countBubbles('.chat-message--ai-ack');
     expect(ackCountInUi).toBeGreaterThanOrEqual(1);
 
@@ -96,19 +96,19 @@ describe('workflow builder chat: ack, history, bubbles, auto-grow', () => {
         .then((body) => done(body._id));
     }, token as string);
 
-    const client = new MongoClient(MONGODB_URI);
+    const client = new Client({ connectionString: DATABASE_URL });
     await client.connect();
     try {
-      const artifact = await client
-        .db()
-        .collection('artifacts')
-        .findOne({ userId: me, type: 'workflow-builder' });
-      const chatMessages = (artifact?.['state']?.['chatMessages'] ?? []) as Array<{ messageType: string }>;
+      const { rows: [artifact] } = await client.query(
+        "SELECT state FROM artifacts WHERE user_id = $1 AND type = 'workflow-builder'",
+        [me]
+      );
+      const chatMessages = (artifact?.state?.chatMessages ?? []) as Array<{ messageType: string }>;
       expect(chatMessages.length).toBeGreaterThan(0);
       const persistedAckMessages = chatMessages.filter((m) => m.messageType === 'ai-ack');
       expect(persistedAckMessages).toHaveLength(0);
     } finally {
-      await client.close();
+      await client.end();
     }
   });
 

@@ -29,7 +29,7 @@ The handler for the emitted message type receives this payload as `context.messa
 
 | Namespace | Where used | Persisted to DB | Description |
 |---|---|---|---|
-| `$state.*` in `action.path` | `transform` → `actions[].path` | Yes | DB path target. Tells the persistor which MongoDB field to write. Prefix is stripped before the update. |
+| `$state.*` in `action.path` | `transform` → `actions[].path` | Yes | DB path target. Tells the persistor which JSONB path within the artifact's `state` column to write. Prefix is stripped before the update. |
 | `$temp.*` in `action.path` | `transform` → `actions[].path` | No | Ephemeral path target. Persistor skips these. Client applies the mutation to `DocState.temp.*`. |
 | `@state.*` | `layoutConfig` props only | N/A | Client-side binding. LayoutRenderer resolves at render time to `DocState.state.*`. |
 | `@temp.*` | `layoutConfig` props only | N/A | Client-side binding. LayoutRenderer resolves at render time to `DocState.temp.*`. |

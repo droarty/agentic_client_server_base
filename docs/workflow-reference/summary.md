@@ -1,6 +1,6 @@
 # Workflow Configuration Reference — Summary
 
-This is a condensed cheat-sheet for writing workflow JSON configuration files in this project (`apps/api/src/app/config/workflows/<name>.json`). It covers the shape of every field at a glance. **Full detail for any topic below — exact schemas, every option, worked examples — is one `get_reference_section` tool call away.** Call it whenever you need more than this summary gives you; don't guess at exact field names or option lists.
+This is a condensed cheat-sheet for writing workflow JSON configuration files in this project (`libs/workflow-configs/src/workflows/<name>.json`). It covers the shape of every field at a glance. **Full detail for any topic below — exact schemas, every option, worked examples — is one `get_reference_section` tool call away.** Call it whenever you need more than this summary gives you; don't guess at exact field names or option lists.
 
 A workflow config is a JSON file that defines how an artifact type behaves when it receives WebSocket messages. The engine matches inbound `message.type` to a handler by name and executes the handler's steps in order.
 
@@ -25,7 +25,7 @@ Four levels, ascending: `none`(0) < `read`(1) < `write`(2) < `admin`(3). A handl
 
 Each step: `{ "route": "client" | "database" | ["client","database"] | "database-query" | "ai", ... }`
 - **`client`** — sends an outbound message (a `transform`) to all channel subscribers.
-- **`database`** — persists an `update-state` message's `actions` to MongoDB (only `$state.*` paths).
+- **`database`** — persists an `update-state` message's `actions` to Postgres (only `$state.*` paths).
 - **`["client","database"]`** — both at once; the common case.
 - **`database-query`** — runs a named query (`query: { name, responseType }`), then invokes the handler named by `responseType` with the result merged in.
 - **`ai`** — sends `message.text` to Claude; fire-and-forget. The AI's JSON response `type` field triggers another handler.
@@ -43,11 +43,11 @@ Each step: `{ "route": "client" | "database" | ["client","database"] | "database
 
 ## Action types (`update-state` actions array)
 
-`update` (set field) · `merge` (merge object keys) · `append` / `prepend` (array insert) · `upsert` (replace-or-append by `keys`) · `remove` (delete by `keys`, uses `$pull`) · `update-in` (`findKey`/`findValue`/`subPath` — update nested field in a matched array element) · `slice` (`start`/`end` — trim array).
+`update` (set field) · `merge` (merge object keys) · `append` / `prepend` (array insert) · `upsert` (replace-or-append by `keys`) · `remove` (delete by `keys`) · `update-in` (`findKey`/`findValue`/`subPath` — update nested field in every matched array element) · `slice` (`start`/`end` — trim array).
 
 ## Named queries (`database-query`)
 
-`get-document`, `get-document-summary`, `get-user-documents`, `get-reviewable-documents`, `get-available-types`, `get-users`, `create-document`, `get-workflow-logs`, `get-log-tree`, `rehydrate-workflow-logs`, `rehydrate-log-tree`. Each has its own required context fields and return shape — see the detail section for exact shapes before using an unfamiliar one.
+`get-available-types`, `get-user-documents`, `get-document`, `get-document-summary`, `get-users`, `create-workflow-builder-document`, `create-document`, `get-workflow-builder-context`, `publish-workflow-config`, `get-channel-log-tree`, `get-user-groups`, `get-subgroups`, `get-channel-document`, `get-or-create-workflow-channel`, `create-subgroup-with-permission`, `get-group-members`, `add-group-member`, `update-group-member-role`, `remove-group-member`, `get-recent-user-documents`, `get-group-documents`, `get-child-documents`, `rename-artifact`, `delete-artifact`. Each has its own required context fields and return shape — see the detail section for exact shapes before using an unfamiliar one.
 
 ## AI step configuration
 
@@ -73,7 +73,7 @@ Two distinct messages: `initialize-state` (`initialState`, seeds `DocState.state
 
 ## Emit system & state namespaces
 
-`emits: { eventName: "handler-name" }` becomes an `onEventName` prop; calling it sends a WebSocket message with that handler name plus the payload spread in. `$state.*` paths persist to Mongo; `$temp.*` paths are ephemeral (client-only). `@state.*`/`@temp.*`/`@item.*` are client-side render bindings only.
+`emits: { eventName: "handler-name" }` becomes an `onEventName` prop; calling it sends a WebSocket message with that handler name plus the payload spread in. `$state.*` paths persist to Postgres; `$temp.*` paths are ephemeral (client-only). `@state.*`/`@temp.*`/`@item.*` are client-side render bindings only.
 
 ## Standard handler patterns
 

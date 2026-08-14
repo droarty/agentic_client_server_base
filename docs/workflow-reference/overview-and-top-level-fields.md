@@ -8,10 +8,10 @@ A workflow config is a JSON file that defines how an artifact type behaves when 
 
 | Location | Purpose |
 |---|---|
-| `apps/api/src/app/config/workflows/<name>.json` | **System** configs — shipped with the codebase; always loaded first |
-| MongoDB `workflowconfigs` collection | **Custom / seed** configs — created by `scripts/seed-workflow-configs.js` or the API |
+| `libs/workflow-configs/src/workflows/<name>.json` | **System** configs — shipped with the codebase; always loaded first |
+| Postgres `workflow_configs` table | **Custom / seed** configs — created by `scripts/seed-workflow-configs.js` or the API |
 
-**Precedence:** filesystem is checked first. If no filesystem config matches the artifact's `type`, the engine falls back to the MongoDB `workflowconfigs` collection. A filesystem config **cannot** be overridden by a DB config with the same name.
+**Precedence:** filesystem is checked first. If no filesystem config matches the artifact's `type`, the engine falls back to the Postgres `workflow_configs` table. A filesystem config **cannot** be overridden by a DB config with the same name.
 
 ### System types (reserved)
 
@@ -19,7 +19,7 @@ A workflow config is a JSON file that defines how an artifact type behaves when 
 
 ### Artifact and channel
 
-Each artifact document in MongoDB has a `currentChannelId` (UUID). When a browser connects and subscribes to that channel, the engine looks up the artifact's `type`, loads the matching workflow config, and routes every inbound message through it.
+Each artifact row lives in the `artifacts` table; its channel is a separate row in the `channels` table, joined by `channels.artifact_id`, whose public `channel_id` (UUID) is what the client subscribes to. When a browser connects and subscribes to that channel, the engine looks up the artifact's `type`, loads the matching workflow config, and routes every inbound message through it.
 
 ## Top-Level Fields
 
