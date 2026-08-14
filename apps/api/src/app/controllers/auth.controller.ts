@@ -21,9 +21,9 @@ export async function register(req: Request, res: Response, next: NextFunction):
     }
 
     const user = await registerUser(email, password);
-    const token = generateToken(user._id.toString(), user.email);
+    const token = generateToken(user.id, user.email);
 
-    res.status(201).json({ token, user: serializeUser(user) });
+    res.status(201).json({ token, user: await serializeUser(user) });
   } catch (err) {
     next(err);
   }
@@ -39,9 +39,9 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     }
 
     const user = await loginUser(email, password);
-    const token = generateToken(user._id.toString(), user.email);
+    const token = generateToken(user.id, user.email);
 
-    res.json({ token, user: serializeUser(user) });
+    res.json({ token, user: await serializeUser(user) });
   } catch (err) {
     next(err);
   }

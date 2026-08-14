@@ -1,6 +1,8 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { User } from '../models/user.model';
+import { eq, and } from 'drizzle-orm';
+import { users, ssoProviders } from '@agentic-client-server-base/db-schema';
+import { getDb } from '../db/connect';
 import { env } from './env';
 
 export function configurePassport() {
@@ -13,54 +15,48 @@ export function configurePassport() {
       },
       async (_accessToken, _refreshToken, profile, done) => {
         try {
+          const db = getDb();
           const googleEmail = profile.emails?.[0]?.value?.toLowerCase();
           const displayName = profile.displayName;
 
           // Check if a user already has this Google provider linked
-          let user = await User.findOne({
-            ssoProviders: {
-              $elemMatch: { provider: 'google', providerId: profile.id },
-            },
-          });
-
-          if (user) {
-            return done(null, user);
+          const [linkedProvider] = await db
+            .select()
+            .from(ssoProviders)
+            .where(and(eq(ssoProviders.provider, 'google'), eq(ssoProviders.providerId, profile.id)));
+          if (linkedProvider) {
+            const [user] = await db.select().from(users).where(eq(users.id, linkedProvider.userId));
+            if (user) return done(null, user);
           }
 
-          // Check if a user exists with the same email (link the provider)
-          if (googleEmail) {
-            user = await User.findOne({ email: googleEmail });
-            if (user) {
-              user.ssoProviders.push({
-                provider: 'google',
-                providerId: profile.id,
-                email: googleEmail,
-                displayName,
-              });
-              await user.save();
-              return done(null, user);
-            }
-          }
-
-          // Cannot create a user without an email
+          // Cannot create/link a user without an email
           if (!googleEmail) {
             return done(null, false);
           }
 
+          // Check if a user exists with the same email (link the provider)
+          const [existingUser] = await db.select().from(users).where(eq(users.email, googleEmail));
+          if (existingUser) {
+            await db.insert(ssoProviders).values({
+              userId: existingUser.id,
+              provider: 'google',
+              providerId: profile.id,
+              email: googleEmail,
+              displayName,
+            });
+            return done(null, existingUser);
+          }
+
           // Create a new user
-          user = new User({
+          const [newUser] = await db.insert(users).values({ email: googleEmail }).returning();
+          await db.insert(ssoProviders).values({
+            userId: newUser.id,
+            provider: 'google',
+            providerId: profile.id,
             email: googleEmail,
-            ssoProviders: [
-              {
-                provider: 'google',
-                providerId: profile.id,
-                email: googleEmail,
-                displayName,
-              },
-            ],
+            displayName,
           });
-          await user.save();
-          return done(null, user);
+          return done(null, newUser);
         } catch (err) {
           return done(err as Error);
         }

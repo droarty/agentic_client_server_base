@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
-import { IUser } from '../models/user.model';
-import { generateToken } from '../services/auth.service';
+import { UserRecord, generateToken } from '../services/auth.service';
 import { createOAuthCode, redeemOAuthCode } from '../services/oauth-code.service';
 import { env } from '../config/env';
 
 export function googleCallback(req: Request, res: Response): void {
-  const user = req.user as IUser;
-  const token = generateToken(user._id.toString(), user.email);
+  const user = req.user as UserRecord;
+  const token = generateToken(user.id, user.email);
   const code = createOAuthCode(token);
   res.redirect(`${env.CLIENT_URL}/auth/callback?code=${code}`);
 }

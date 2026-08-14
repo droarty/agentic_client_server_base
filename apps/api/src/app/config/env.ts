@@ -1,7 +1,7 @@
 export const env = {
   NODE_ENV: process.env['NODE_ENV'] || 'development',
   PORT: parseInt(process.env['PORT'] || '3000', 10),
-  MONGODB_URI: process.env['MONGODB_URI'] || 'mongodb://localhost:27017/agentic_client_server_base',
+  DATABASE_URL: process.env['DATABASE_URL'] || 'postgres://postgres:postgres@localhost:5433/agentic_client_server_base',
   JWT_SECRET: process.env['JWT_SECRET'] || 'dev-secret-change-in-production',
   JWT_EXPIRES_IN: process.env['JWT_EXPIRES_IN'] || '7d',
   CORS_ORIGIN: process.env['CORS_ORIGIN'] || 'http://localhost:4200',

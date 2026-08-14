@@ -19,7 +19,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
       res.status(404).json({ message: 'User not found' });
       return;
     }
-    res.json(serializeUser(user));
+    res.json(await serializeUser(user));
   } catch (err) {
     next(err);
   }
@@ -29,7 +29,7 @@ export async function updateMe(req: AuthRequest, res: Response, next: NextFuncti
   try {
     const { email, currentPassword, newPassword } = req.body;
     const user = await updateUser(req.userId!, { email, currentPassword, newPassword });
-    res.json(serializeUser(user));
+    res.json(await serializeUser(user));
   } catch (err) {
     next(err);
   }

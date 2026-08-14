@@ -2,10 +2,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { GroupRole } from '../models/membership.model';
+import type { GroupRole } from '@agentic-client-server-base/shared-types';
 import * as groupService from '../services/group.service';
-import { ArtifactModel } from '../models/document.model';
-import { ChannelModel } from '../models/channel.model';
+import { ensureDashboardChannel } from '../services/dashboard.service';
 import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-configs';
 
 const VALID_ROLES: GroupRole[] = ['owner', 'admin', 'member'];
@@ -126,28 +125,16 @@ export async function getGroupDashboard(req: AuthRequest, res: Response, next: N
       res.status(400).json({ message: 'workflowType query parameter is required' });
       return;
     }
-    let doc = await ArtifactModel.findOne({ type: workflowType, userId: req.userId, groupId });
-    if (!doc) {
-      const configPath = path.join(WORKFLOW_CONFIG_DIR, `${workflowType}.json`);
-      const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
-      doc = await ArtifactModel.create({
-        name: workflowType,
-        type: workflowType,
-        userId: req.userId,
-        groupId,
-        state: wfConfig.initialState ?? {},
-      });
-    }
-    let channel = await ChannelModel.findOne({ artifactId: doc._id });
-    if (!channel) {
-      channel = await ChannelModel.create({
-        workflowType,
-        userId: req.userId,
-        artifactId: doc._id,
-        groupId: doc.groupId,
-      });
-    }
-    res.json({ channelId: channel.channelId });
+    const configPath = path.join(WORKFLOW_CONFIG_DIR, `${workflowType}.json`);
+    const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+    const channelId = await ensureDashboardChannel({
+      workflowType,
+      userId: req.userId!,
+      groupId,
+      artifactName: workflowType,
+      initialState: wfConfig.initialState ?? {},
+    });
+    res.json({ channelId });
   } catch (err) {
     next(err);
   }

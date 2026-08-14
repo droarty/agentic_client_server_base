@@ -1,50 +1,26 @@
-import mongoose from 'mongoose';
+import { createDb, type Database } from '@agentic-client-server-base/db-schema';
+import type { Pool } from 'pg';
 import { env } from '../config/env';
 
-export async function connectDB(): Promise<void> {
-  // Use in-memory MongoDB when MONGODB_URI is set to 'memory' or when in dev and connection fails
-  if (env.MONGODB_URI === 'memory') {
-    const { MongoMemoryServer } = await import('mongodb-memory-server');
-    const mongod = await MongoMemoryServer.create();
-    const uri = mongod.getUri();
-    process.env['MONGODB_URI'] = uri;
-    await mongoose.connect(uri);
-    console.log('MongoDB (in-memory) connected at', uri);
-    await syncIndexes();
-    return;
-  }
+// A lazy accessor (rather than a bare exported constant) so tests can point
+// this at a per-file embedded-postgres instance via their own connectDB(url)
+// call before any service code runs — the connection string isn't known
+// until after that instance starts, which happens after this module loads.
+let current: { db: Database; pool: Pool } | undefined;
 
-  try {
-    await mongoose.connect(env.MONGODB_URI);
-    console.log('MongoDB connected');
-    await syncIndexes();
-  } catch (err) {
-    if (env.NODE_ENV === 'development') {
-      console.warn('MongoDB connection failed, falling back to in-memory server...');
-      const { MongoMemoryServer } = await import('mongodb-memory-server');
-      const mongod = await MongoMemoryServer.create();
-      const uri = mongod.getUri();
-      process.env['MONGODB_URI'] = uri;
-      await mongoose.connect(uri);
-      console.log('MongoDB (in-memory) connected at', uri);
-      await syncIndexes();
-    } else {
-      console.error('MongoDB connection error:', err);
-      throw err;
-    }
-  }
+export function getDb(): Database {
+  if (!current) throw new Error('Database not connected — call connectDB() first');
+  return current.db;
 }
 
-// Reconciles every registered model's indexes with what's actually in MongoDB — creates
-// missing ones and drops indexes no longer declared in the schema. Without this, changing an
-// index definition (e.g. renaming/adding a compound-index field) leaves the old index behind
-// forever, since Mongoose's default autoIndex only ever adds, never removes (see #225).
-async function syncIndexes(): Promise<void> {
-  for (const model of Object.values(mongoose.connection.models)) {
-    await model.syncIndexes();
-  }
+export async function connectDB(connectionString: string = env.DATABASE_URL): Promise<void> {
+  const created = createDb(connectionString);
+  await created.pool.query('SELECT 1');
+  current = created;
+  console.log('Postgres connected');
 }
 
 export async function disconnectDB(): Promise<void> {
-  await mongoose.disconnect();
+  await current?.pool.end();
+  current = undefined;
 }

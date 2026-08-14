@@ -15,6 +15,9 @@
     "src/**/*.ts",
     "../../libs/shared-types/src/**/*.ts",
     "../../libs/access-control/src/**/*.ts",
-    "../../libs/workflow-configs/src/index.ts"
+    "../../libs/workflow-configs/src/index.ts",
+    "../../libs/db-schema/src/index.ts",
+    "../../libs/db-schema/src/schema/**/*.ts",
+    "../../libs/db-schema/src/pg-array.ts"
   ]
 }

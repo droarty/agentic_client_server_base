@@ -17,8 +17,7 @@ import { redisSub } from '../redis/redis.client';
 import { registerSocket, unregisterSocket } from '../redis/socket.registry';
 import { addSocketToChannel, removeSocketFromChannel } from '../redis/channel.registry';
 import { submitEvent } from '../services/processor.client';
-import { ArtifactModel } from '../models/document.model';
-import { ChannelModel } from '../models/channel.model';
+import { ensureDashboardChannel } from '../services/dashboard.service';
 
 const serverId = randomUUID();
 
@@ -127,27 +126,12 @@ export class UserEventManager {
       initialState = wfConfig.initialState;
     }
 
-    let doc = await ArtifactModel.findOne({ type: 'user-dashboard', userId });
-
-    if (!doc) {
-      doc = await ArtifactModel.create({
-        name: 'Dashboard',
-        type: 'user-dashboard',
-        userId,
-        ...(initialState !== undefined ? { state: initialState } : {}),
-      });
-    }
-
-    let channel = await ChannelModel.findOne({ artifactId: doc._id });
-    if (!channel) {
-      channel = await ChannelModel.create({
-        workflowType: 'user-dashboard',
-        userId,
-        artifactId: doc._id,
-      });
-    }
-
-    return channel.channelId;
+    return ensureDashboardChannel({
+      workflowType: 'user-dashboard',
+      userId,
+      artifactName: 'Dashboard',
+      initialState,
+    });
   }
 
   private send(ws: WebSocket, msg: WsServerMessage): void {

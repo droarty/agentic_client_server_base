@@ -1,33 +1,41 @@
 import 'dotenv/config';
+import * as path from 'path';
 import request from 'supertest';
-import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { createApp } from '../../api/src/app/app';
 import { Application } from 'express';
+import { sql } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import type { Pool } from 'pg';
+import { createDb, type Database } from '@agentic-client-server-base/db-schema';
+import { startTestPostgres, type TestPostgresHandle } from '@agentic-client-server-base/db-schema/test-helpers';
+import { createApp } from '../../api/src/app/app';
+import { connectDB, disconnectDB } from '../../api/src/app/db/connect';
 
 let app: Application;
-let mongod: MongoMemoryServer;
+let pgHandle: TestPostgresHandle;
+let db: Database;
+let fixturePool: Pool;
 let authToken: string;
 
 beforeAll(async () => {
-  mongod = await MongoMemoryServer.create();
-  process.env['MONGODB_URI'] = mongod.getUri();
   process.env['JWT_SECRET'] = 'test-secret';
 
-  await mongoose.connect(mongod.getUri());
+  pgHandle = await startTestPostgres('api_users_test');
+  const created = createDb(pgHandle.connectionString);
+  db = created.db;
+  fixturePool = created.pool;
+  await migrate(db, { migrationsFolder: path.join(__dirname, '../../../libs/db-schema/drizzle') });
+  await connectDB(pgHandle.connectionString);
   app = createApp();
-});
+}, 60000);
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongod.stop();
-});
+  await fixturePool?.end();
+  await disconnectDB();
+  await pgHandle?.stop();
+}, 30000);
 
 beforeEach(async () => {
-  const collections = mongoose.connection.collections;
-  for (const key in collections) {
-    await collections[key].deleteMany({});
-  }
+  await db.execute(sql`TRUNCATE TABLE users, sso_providers RESTART IDENTITY CASCADE`);
 
   const res = await request(app)
     .post('/api/auth/register')
