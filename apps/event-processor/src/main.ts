@@ -1,7 +1,18 @@
 import 'dotenv/config';
 import { pack } from 'msgpackr';
 import Redis from 'ioredis';
-import { MongoClient, ObjectId } from 'mongodb';
+import { eq, and, inArray, lt } from 'drizzle-orm';
+import {
+  createDb,
+  channels,
+  artifacts,
+  artifactGroupPermissions,
+  artifactUserPermissions,
+  groups,
+  memberships,
+  workflowConfigs,
+  workflowLogs,
+} from '@agentic-client-server-base/db-schema';
 import {
   OutboundMessage,
   ValidateTextMessage,
@@ -24,18 +35,40 @@ const accessLevelCache = createAccessLevelCache(10 * 60 * 1000);
 const redis = new Redis(env.REDIS_URL, { enableReadyCheck: false });
 redis.on('error', (err) => console.error('event-processor Redis error:', err.message));
 
-const mongoClient = new MongoClient(env.MONGODB_URI);
-const dbReady = mongoClient.connect();
-dbReady.catch((err) => console.error('event-processor MongoDB error:', err.message));
+const { db, pool } = createDb(env.DATABASE_URL);
 
-dbReady.then(() =>
-  mongoClient.db().collection('workflowlogs')
-    .createIndex({ createdAt: 1 }, { expireAfterSeconds: 604800 })
-).catch(console.error);
+// No TTL-index equivalent in Postgres — prune old workflow_logs rows on a
+// periodic app-level job instead of relying on DB-side expiry.
+const WORKFLOW_LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+async function pruneOldWorkflowLogs(): Promise<void> {
+  try {
+    await db.delete(workflowLogs).where(lt(workflowLogs.createdAt, new Date(Date.now() - WORKFLOW_LOG_RETENTION_MS)));
+  } catch (err) {
+    console.error('pruneOldWorkflowLogs error:', err);
+  }
+}
+void pruneOldWorkflowLogs();
+const pruneInterval = setInterval(pruneOldWorkflowLogs, 60 * 60 * 1000);
 
 function logWorkflowStep(entry: WorkflowLogEntry): void {
-  mongoClient.db().collection('workflowlogs')
-    .insertOne(entry)
+  db.insert(workflowLogs)
+    .values({
+      channel: entry.channel,
+      docType: entry.docType,
+      handlerName: entry.handlerName,
+      logType: entry.logType,
+      executionId: entry.executionId,
+      parentExecutionId: entry.parentExecutionId,
+      stepIndex: entry.stepIndex,
+      message: entry.message,
+      user: entry.user,
+      handlerConfig: entry.handlerConfig as object | undefined,
+      route: entry.route,
+      resolvedMessage: entry.resolvedMessage,
+      errorMessage: entry.errorMessage,
+      errorDetail: entry.errorDetail as object | undefined,
+      createdAt: entry.createdAt,
+    })
     .catch((err) => console.error('logWorkflowStep error:', err));
 }
 
@@ -48,20 +81,16 @@ async function publishToClient(outbound: OutboundMessage): Promise<void> {
 
 async function getChannelContext(channel: string): Promise<ChannelContext | null> {
   try {
-    await dbReady;
-    const doc = await mongoClient
-      .db()
-      .collection('channels')
-      .findOne({ channelId: channel });
+    const [doc] = await db.select().from(channels).where(eq(channels.channelId, channel));
     if (!doc) return null;
     return {
-      workflowType: doc['workflowType'] as string,
-      artifactId: doc['artifactId'] ? String(doc['artifactId']) : undefined,
-      groupId: doc['groupId'] ? String(doc['groupId']) : undefined,
-      userId: doc['userId'] as string | undefined,
-      parentChannelId: doc['parentChannelId'] as string | undefined,
-      responseHandler: doc['responseHandler'] as string | undefined,
-      targetChannelId: doc['targetChannelId'] as string | undefined,
+      workflowType: doc.workflowType,
+      artifactId: doc.artifactId ?? undefined,
+      groupId: doc.groupId ?? undefined,
+      userId: doc.userId,
+      parentChannelId: doc.parentChannelId ?? undefined,
+      responseHandler: doc.responseHandler ?? undefined,
+      targetChannelId: doc.targetChannelId ?? undefined,
     };
   } catch {
     return null;
@@ -70,10 +99,8 @@ async function getChannelContext(channel: string): Promise<ChannelContext | null
 
 async function getArtifactState(artifactId: string): Promise<Record<string, unknown> | null> {
   try {
-    await dbReady;
-    const doc = await mongoClient.db().collection('artifacts')
-      .findOne({ _id: new ObjectId(artifactId) }, { projection: { state: 1 } });
-    return (doc?.['state'] as Record<string, unknown> | undefined) ?? null;
+    const [doc] = await db.select({ state: artifacts.state }).from(artifacts).where(eq(artifacts.id, artifactId));
+    return (doc?.state as Record<string, unknown> | undefined) ?? null;
   } catch {
     return null;
   }
@@ -81,45 +108,36 @@ async function getArtifactState(artifactId: string): Promise<Record<string, unkn
 
 async function fetchCustomWorkflowConfig(docType: string) {
   try {
-    await dbReady;
-    const row = await mongoClient.db().collection('workflowconfigs').findOne({ name: docType });
+    const [row] = await db.select().from(workflowConfigs).where(eq(workflowConfigs.name, docType));
     if (!row) return null;
-    return { name: row['name'] as string, version: row['version'] as string, handlers: row['handlers'] as Record<string, never> };
+    return { name: row.name, version: row.version, handlers: row.handlers as Record<string, never> };
   } catch {
     return null;
   }
 }
 
-async function getEffectiveGroupIds(userId: string): Promise<ObjectId[]> {
-  await dbReady;
-  const db = mongoClient.db();
-  const memberships = await db.collection('memberships')
-    .find({ userId: new ObjectId(userId) }, { projection: { groupId: 1 } })
-    .toArray();
-  if (memberships.length === 0) return [];
-  const directIds = memberships.map((m) => m['groupId'] as ObjectId);
-  const groups = await db.collection('groups')
-    .find({ _id: { $in: directIds } }, { projection: { ancestors: 1 } })
-    .toArray();
-  const allIds = new Set<string>(directIds.map((id) => id.toString()));
-  for (const g of groups) {
-    for (const anc of (g['ancestors'] as ObjectId[] | undefined) ?? []) {
-      allIds.add(anc.toString());
-    }
+async function getEffectiveGroupIds(userId: string): Promise<string[]> {
+  const membershipRows = await db.select({ groupId: memberships.groupId }).from(memberships).where(eq(memberships.userId, userId));
+  if (membershipRows.length === 0) return [];
+  const directIds = membershipRows.map((m) => m.groupId);
+  const groupRows = await db.select({ ancestors: groups.ancestors }).from(groups).where(inArray(groups.id, directIds));
+  const allIds = new Set<string>(directIds);
+  for (const g of groupRows) {
+    for (const anc of g.ancestors) allIds.add(anc);
   }
-  return [...allIds].map((id) => new ObjectId(id));
+  return [...allIds];
 }
 
 async function computeGroupAccessLevel(
   userId: string,
-  permissions: Array<{ groupId: ObjectId; access: string }>
+  permissions: Array<{ groupId: string; access: string }>
 ): Promise<AccessLevel> {
   const effectiveIds = await getEffectiveGroupIds(userId);
   if (effectiveIds.length === 0) return 'none';
-  const effectiveSet = new Set(effectiveIds.map((id) => id.toString()));
+  const effectiveSet = new Set(effectiveIds);
   let best: AccessLevel = 'none';
   for (const perm of permissions) {
-    if (effectiveSet.has(perm.groupId.toString())) {
+    if (effectiveSet.has(perm.groupId)) {
       const rank = ACCESS_RANK[perm.access as AccessLevel] ?? 0;
       if (rank > ACCESS_RANK[best]) best = perm.access as AccessLevel;
     }
@@ -128,45 +146,45 @@ async function computeGroupAccessLevel(
 }
 
 async function computeChannelAccessLevel(userId: string, channel: string): Promise<AccessLevel> {
-  await dbReady;
-  const db = mongoClient.db();
-
-  const channelDoc = await db.collection('channels').findOne({ channelId: channel });
+  const [channelDoc] = await db.select().from(channels).where(eq(channels.channelId, channel));
   if (!channelDoc) return 'none';
 
   // Stateless channel (no artifact): only the channel owner has access
-  if (!channelDoc['artifactId']) {
-    return channelDoc['userId'] === userId ? 'read' : 'none';
+  if (!channelDoc.artifactId) {
+    return channelDoc.userId === userId ? 'read' : 'none';
   }
 
-  const artifact = await db.collection('artifacts').findOne(
-    { _id: channelDoc['artifactId'] },
-    { projection: { userId: 1, permissions: 1, userPermissions: 1, permissionManagerMode: 1 } }
-  );
+  const [artifact] = await db
+    .select({ userId: artifacts.userId, permissionManagerMode: artifacts.permissionManagerMode })
+    .from(artifacts)
+    .where(eq(artifacts.id, channelDoc.artifactId));
   if (!artifact) return 'none';
 
-  if (artifact['permissionManagerMode'] !== 'group_admin' && artifact['userId'] === userId) return 'admin';
+  if (artifact.permissionManagerMode !== 'group_admin' && artifact.userId === userId) return 'admin';
 
-  const userPerms = (artifact['userPermissions'] as Array<{ userId: string; access: string }> | undefined) ?? [];
-  const userLevel: AccessLevel = (userPerms.find((p) => p.userId === userId)?.access as AccessLevel) ?? 'none';
+  const [userPerm] = await db
+    .select({ access: artifactUserPermissions.access })
+    .from(artifactUserPermissions)
+    .where(and(eq(artifactUserPermissions.artifactId, channelDoc.artifactId), eq(artifactUserPermissions.userId, userId)));
+  const userLevel: AccessLevel = userPerm?.access ?? 'none';
 
-  const groupLevel = await computeGroupAccessLevel(
-    userId,
-    (artifact['permissions'] as Array<{ groupId: ObjectId; access: string }> | undefined) ?? []
-  );
+  const groupPerms = await db
+    .select({ groupId: artifactGroupPermissions.groupId, access: artifactGroupPermissions.access })
+    .from(artifactGroupPermissions)
+    .where(eq(artifactGroupPermissions.artifactId, channelDoc.artifactId));
+  const groupLevel = await computeGroupAccessLevel(userId, groupPerms);
 
   return ACCESS_RANK[userLevel] >= ACCESS_RANK[groupLevel] ? userLevel : groupLevel;
 }
 
 const cacheInvalidator: { fn?: (name: string) => void } = {};
 const executeQuery = createQueryExecutor({
-  mongoClient,
-  dbReady,
+  db,
   configDir: WORKFLOW_CONFIG_DIR,
   logWorkflowStep,
   invalidateWorkflowConfig: (name) => cacheInvalidator.fn?.(name),
 });
-const persistToDatabase = createDatabasePersistor({ mongoClient, dbReady, logWorkflowStep });
+const persistToDatabase = createDatabasePersistor({ db, logWorkflowStep });
 
 const aiEventManager = new AIEventManager({ logWorkflowStep, handleInboundEvent });
 
@@ -233,7 +251,8 @@ const server = app.listen(env.PROCESSOR_PORT, () => {
 
 function shutdown(): void {
   server.close();
-  void mongoClient.close();
+  clearInterval(pruneInterval);
+  void pool.end();
   redis.disconnect();
 }
 

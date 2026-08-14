@@ -53,7 +53,7 @@ function makeDeps(overrides: Partial<WorkflowEngineDeps> = {}): WorkflowEngineDe
     publishToClient: jest.fn().mockResolvedValue(undefined),
     persistToDatabase: jest.fn().mockResolvedValue(undefined),
     sendToAi: jest.fn(),
-    getDocumentType: jest.fn().mockResolvedValue('test-ai-workflow'),
+    getChannelContext: jest.fn().mockResolvedValue({ workflowType: 'test-ai-workflow' }),
     ...overrides,
   };
 }

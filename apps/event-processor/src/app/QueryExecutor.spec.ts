@@ -1,19 +1,33 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { MongoClient } from 'mongodb';
+import { randomUUID } from 'crypto';
+import { eq } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import type { Pool } from 'pg';
+import { createDb, artifacts, channels, users, workflowLogs, type Database } from '@agentic-client-server-base/db-schema';
+import { startTestPostgres, type TestPostgresHandle } from '@agentic-client-server-base/db-schema/test-helpers';
 import { createQueryExecutor } from './QueryExecutor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 
-let mongod: MongoMemoryServer;
-let client: MongoClient;
+let pgHandle: TestPostgresHandle;
+let db: Database;
+let pool: Pool;
 let configDir: string;
 let logWorkflowStep: jest.Mock;
+let USER_ID: string;
+let OTHER_USER_ID: string;
 
-const USER_ID = 'u-1';
-const OTHER_USER_ID = 'u-2';
-const CHANNEL = 'ch-1';
+// makeContext() always sets message.channel to CHANNEL unless the caller
+// overrides it — so any insertArtifact() call relying on that default
+// channel lookup (get-document/get-workflow-builder-context/
+// get-channel-log-tree) must keep using CHANNEL. Tests that create several
+// artifacts without ever querying by channel pass explicit, distinct
+// channel ids instead, since channels.channel_id is uniquely constrained.
+const CHANNEL = '11111111-1111-1111-1111-111111111111';
+const CHANNEL_SPECIAL = '22222222-2222-2222-2222-222222222222';
+const CHANNEL_SUM = '33333333-3333-3333-3333-333333333333';
+const NONEXISTENT_UUID = '99999999-9999-9999-9999-999999999999';
 
 function makeContext(userId: string | undefined, message: Record<string, unknown> = {}, targetChannelId?: string): WorkflowContext {
   return {
@@ -24,75 +38,77 @@ function makeContext(userId: string | undefined, message: Record<string, unknown
 }
 
 async function insertArtifact(overrides: Record<string, unknown> = {}, channelId = CHANNEL) {
-  const { currentChannelId: _ignored, ...rest } = overrides as { currentChannelId?: string; [k: string]: unknown };
-  const doc = {
+  const values = {
     name: 'Test Doc',
     type: 'configged-chat',
     userId: USER_ID,
     state: { title: 'hello' },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...rest,
-  };
-  const result = await client.db().collection('artifacts').insertOne(doc as any);
-  await client.db().collection('channels').insertOne({
-    channelId,
-    workflowType: (doc.type as string) ?? 'configged-chat',
-    userId: doc.userId,
-    artifactId: result.insertedId,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  return { ...doc, _id: result.insertedId };
-}
-
-async function insertLog(overrides: Record<string, unknown> = {}) {
-  const doc = {
-    createdAt: new Date(),
-    channel: CHANNEL,
-    docType: 'configged-chat',
-    handlerName: 'testHandler',
-    logType: 'handler',
-    executionId: 'exec-1',
-    parentExecutionId: null,
-    stepIndex: 0,
     ...overrides,
   };
-  const result = await client.db().collection('workflowlogs').insertOne(doc as any);
-  return { ...doc, _id: result.insertedId };
+  const [artifact] = await db.insert(artifacts).values(values as typeof artifacts.$inferInsert).returning();
+  await db.insert(channels).values({
+    channelId,
+    workflowType: (values.type as string) ?? 'configged-chat',
+    userId: values.userId as string,
+    artifactId: artifact.id,
+  });
+  return artifact;
+}
+
+async function insertLog(overrides: Partial<typeof workflowLogs.$inferInsert> = {}) {
+  const [log] = await db
+    .insert(workflowLogs)
+    .values({
+      createdAt: new Date(),
+      channel: CHANNEL,
+      docType: 'configged-chat',
+      handlerName: 'testHandler',
+      logType: 'handler',
+      executionId: randomUUID(),
+      parentExecutionId: null,
+      stepIndex: 0,
+      ...overrides,
+    })
+    .returning();
+  return log;
 }
 
 function makeExecutor() {
   return createQueryExecutor({
-    mongoClient: client,
-    dbReady: Promise.resolve(client),
+    db,
     configDir,
     logWorkflowStep: logWorkflowStep as unknown as (entry: WorkflowLogEntry) => void,
   });
 }
 
 beforeAll(async () => {
-  mongod = await MongoMemoryServer.create();
-  client = new MongoClient(mongod.getUri());
-  await client.connect();
+  pgHandle = await startTestPostgres('query_executor_test');
+  const created = createDb(pgHandle.connectionString);
+  db = created.db;
+  pool = created.pool;
+  await migrate(db, { migrationsFolder: path.join(__dirname, '../../../../libs/db-schema/drizzle') });
 
   configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qe-test-'));
   fs.writeFileSync(path.join(configDir, 'configged-chat.json'), JSON.stringify({ initialState: { messages: [] } }));
   fs.writeFileSync(path.join(configDir, 'log-review.json'), JSON.stringify({}));
   fs.writeFileSync(path.join(configDir, 'user-dashboard.json'), JSON.stringify({}));
-}, 30000);
+}, 60000);
 
 afterAll(async () => {
-  await client.close();
-  await mongod.stop();
+  await pool?.end();
+  await pgHandle?.stop();
   fs.rmSync(configDir, { recursive: true, force: true });
-});
+}, 30000);
 
 beforeEach(async () => {
-  await client.db().collection('artifacts').deleteMany({});
-  await client.db().collection('channels').deleteMany({});
-  await client.db().collection('workflowlogs').deleteMany({});
-  await client.db().collection('users').deleteMany({});
+  await db.delete(workflowLogs);
+  await db.delete(channels);
+  await db.delete(artifacts);
+  await db.delete(users);
+  const [u1] = await db.insert(users).values({ email: `u1-${randomUUID()}@test.com` }).returning();
+  const [u2] = await db.insert(users).values({ email: `u2-${randomUUID()}@test.com` }).returning();
+  USER_ID = u1.id;
+  OTHER_USER_ID = u2.id;
   logWorkflowStep = jest.fn();
 });
 
@@ -119,9 +135,9 @@ describe('get-user-documents', () => {
   });
 
   test('returns only the user\'s non-dashboard documents', async () => {
-    await insertArtifact({ name: 'Mine', userId: USER_ID, type: 'configged-chat' });
-    await insertArtifact({ name: 'Dashboard', userId: USER_ID, type: 'user-dashboard' });
-    await insertArtifact({ name: 'Theirs', userId: OTHER_USER_ID, type: 'configged-chat' });
+    await insertArtifact({ name: 'Mine', userId: USER_ID, type: 'configged-chat' }, randomUUID());
+    await insertArtifact({ name: 'Dashboard', userId: USER_ID, type: 'user-dashboard' }, randomUUID());
+    await insertArtifact({ name: 'Theirs', userId: OTHER_USER_ID, type: 'configged-chat' }, randomUUID());
     const execute = makeExecutor();
     const result = await execute('get-user-documents', makeContext(USER_ID));
     const docs = result['documents'] as Array<Record<string, unknown>>;
@@ -143,21 +159,21 @@ describe('get-document', () => {
   test('finds document by documentId', async () => {
     const artifact = await insertArtifact({ name: 'ById' });
     const execute = makeExecutor();
-    const result = await execute('get-document', makeContext(USER_ID, { documentId: String(artifact._id) }));
+    const result = await execute('get-document', makeContext(USER_ID, { documentId: artifact.id }));
     expect((result['document'] as Record<string, unknown>)['name']).toBe('ById');
   });
 
   test('finds document by channel', async () => {
-    await insertArtifact({ name: 'ByChannel' }, 'ch-special');
+    await insertArtifact({ name: 'ByChannel' }, CHANNEL_SPECIAL);
     const execute = makeExecutor();
-    const result = await execute('get-document', makeContext(USER_ID, { channel: 'ch-special' }));
+    const result = await execute('get-document', makeContext(USER_ID, { channel: CHANNEL_SPECIAL }));
     expect((result['document'] as Record<string, unknown>)['name']).toBe('ByChannel');
   });
 
   test('returns null when userId does not match', async () => {
     const artifact = await insertArtifact();
     const execute = makeExecutor();
-    const result = await execute('get-document', makeContext(OTHER_USER_ID, { documentId: String(artifact._id) }));
+    const result = await execute('get-document', makeContext(OTHER_USER_ID, { documentId: artifact.id }));
     expect(result['document']).toBeNull();
   });
 
@@ -181,23 +197,23 @@ describe('get-document-summary', () => {
   test('finds by documentId and excludes state from result', async () => {
     const artifact = await insertArtifact({ name: 'Summary' });
     const execute = makeExecutor();
-    const result = await execute('get-document-summary', makeContext(USER_ID, { documentId: String(artifact._id) }));
+    const result = await execute('get-document-summary', makeContext(USER_ID, { documentId: artifact.id }));
     const doc = result['document'] as Record<string, unknown>;
     expect(doc['name']).toBe('Summary');
     expect(doc['state']).toBeUndefined();
   });
 
   test('finds by channel', async () => {
-    await insertArtifact({ name: 'SumByChannel' }, 'ch-sum');
+    await insertArtifact({ name: 'SumByChannel' }, CHANNEL_SUM);
     const execute = makeExecutor();
-    const result = await execute('get-document-summary', makeContext(USER_ID, { channel: 'ch-sum' }));
+    const result = await execute('get-document-summary', makeContext(USER_ID, { channel: CHANNEL_SUM }));
     expect((result['document'] as Record<string, unknown>)['name']).toBe('SumByChannel');
   });
 
   test('returns null on ownership mismatch', async () => {
     const artifact = await insertArtifact();
     const execute = makeExecutor();
-    const result = await execute('get-document-summary', makeContext(OTHER_USER_ID, { documentId: String(artifact._id) }));
+    const result = await execute('get-document-summary', makeContext(OTHER_USER_ID, { documentId: artifact.id }));
     expect(result['document']).toBeNull();
   });
 });
@@ -206,13 +222,11 @@ describe('get-document-summary', () => {
 
 describe('get-users', () => {
   test('returns all users regardless of caller', async () => {
-    await client.db().collection('users').insertMany([
-      { email: 'a@test.com', roles: [] },
-      { email: 'b@test.com', roles: ['admin'] },
-    ]);
+    await db.insert(users).values([{ email: 'a@test.com' }, { email: 'b@test.com' }]);
     const execute = makeExecutor();
     const result = await execute('get-users', makeContext(undefined));
-    expect((result['users'] as unknown[]).length).toBe(2);
+    const emails = (result['users'] as Array<{ email: string }>).map((u) => u.email);
+    expect(emails).toEqual(expect.arrayContaining(['a@test.com', 'b@test.com']));
   });
 });
 
@@ -232,8 +246,8 @@ describe('create-document', () => {
     const doc = result['document'] as Record<string, unknown>;
     expect(doc['name']).toBe('New Chat');
     expect(doc['type']).toBe('configged-chat');
-    const persisted = await client.db().collection('artifacts').findOne({ name: 'New Chat' });
-    expect(persisted!['state']).toEqual({ messages: [] });
+    const [persisted] = await db.select().from(artifacts).where(eqName('New Chat'));
+    expect(persisted!.state).toEqual({ messages: [] });
   });
 
   test('creates document without state when config has no initialState', async () => {
@@ -241,19 +255,19 @@ describe('create-document', () => {
     const result = await execute('create-document', makeContext(USER_ID, { name: 'Log', documentType: 'log-review' }));
     const doc = result['document'] as Record<string, unknown>;
     expect(doc['name']).toBe('Log');
-    const persisted = await client.db().collection('artifacts').findOne({ name: 'Log' });
-    expect(persisted!['state']).toBeUndefined();
+    const [persisted] = await db.select().from(artifacts).where(eqName('Log'));
+    expect(persisted!.state).toBeNull();
   });
 
   test('defaults type to configged-chat when documentType not provided', async () => {
     const execute = makeExecutor();
     await execute('create-document', makeContext(USER_ID, { name: 'Default Type' }));
-    const persisted = await client.db().collection('artifacts').findOne({ name: 'Default Type' });
-    expect(persisted!['type']).toBe('configged-chat');
+    const [persisted] = await db.select().from(artifacts).where(eqName('Default Type'));
+    expect(persisted!.type).toBe('configged-chat');
   });
 
   test('returned documents list only includes the creating user\'s non-excluded docs', async () => {
-    await insertArtifact({ userId: OTHER_USER_ID });
+    await insertArtifact({ userId: OTHER_USER_ID }, randomUUID());
     const execute = makeExecutor();
     const result = await execute('create-document', makeContext(USER_ID, { name: 'Mine' }));
     const docs = result['documents'] as Array<Record<string, unknown>>;
@@ -263,20 +277,19 @@ describe('create-document', () => {
   test('creates document with parentId when parent exists', async () => {
     const parent = await insertArtifact({ name: 'Parent' });
     const execute = makeExecutor();
-    const result = await execute('create-document', makeContext(USER_ID, { name: 'Child', parentId: String(parent._id) }));
+    const result = await execute('create-document', makeContext(USER_ID, { name: 'Child', parentId: parent.id }));
     const doc = result['document'] as Record<string, unknown>;
-    expect(doc['parentId']).toBe(String(parent._id));
-    const persisted = await client.db().collection('artifacts').findOne({ name: 'Child' });
-    expect(String(persisted!['parentId'])).toBe(String(parent._id));
+    expect(doc['parentId']).toBe(parent.id);
+    const [persisted] = await db.select().from(artifacts).where(eqName('Child'));
+    expect(persisted!.parentId).toBe(parent.id);
   });
 
   test('does not create when parentId does not reference an existing artifact', async () => {
     const execute = makeExecutor();
-    const bogusParentId = '507f1f77bcf86cd799439011';
-    const result = await execute('create-document', makeContext(USER_ID, { name: 'Orphan', parentId: bogusParentId }));
+    const result = await execute('create-document', makeContext(USER_ID, { name: 'Orphan', parentId: NONEXISTENT_UUID }));
     expect(result['document']).toBeNull();
-    const persisted = await client.db().collection('artifacts').findOne({ name: 'Orphan' });
-    expect(persisted).toBeNull();
+    const [persisted] = await db.select().from(artifacts).where(eqName('Orphan'));
+    expect(persisted).toBeUndefined();
   });
 });
 
@@ -286,19 +299,19 @@ describe('get-child-documents', () => {
   test('returns empty array when userId or parentId missing', async () => {
     const parent = await insertArtifact({ name: 'Parent' });
     const execute = makeExecutor();
-    const noUser = await execute('get-child-documents', makeContext(undefined, { parentId: String(parent._id) }));
+    const noUser = await execute('get-child-documents', makeContext(undefined, { parentId: parent.id }));
     expect(noUser['documents']).toEqual([]);
     const noParent = await execute('get-child-documents', makeContext(USER_ID, {}));
     expect(noParent['documents']).toEqual([]);
   });
 
   test('returns only the caller\'s children of the given parent', async () => {
-    const parent = await insertArtifact({ name: 'Parent' });
-    await insertArtifact({ name: 'Mine Child', userId: USER_ID, parentId: parent._id });
-    await insertArtifact({ name: 'Their Child', userId: OTHER_USER_ID, parentId: parent._id });
-    await insertArtifact({ name: 'Unrelated', userId: USER_ID });
+    const parent = await insertArtifact({ name: 'Parent' }, randomUUID());
+    await insertArtifact({ name: 'Mine Child', userId: USER_ID, parentId: parent.id }, randomUUID());
+    await insertArtifact({ name: 'Their Child', userId: OTHER_USER_ID, parentId: parent.id }, randomUUID());
+    await insertArtifact({ name: 'Unrelated', userId: USER_ID }, randomUUID());
     const execute = makeExecutor();
-    const result = await execute('get-child-documents', makeContext(USER_ID, { parentId: String(parent._id) }));
+    const result = await execute('get-child-documents', makeContext(USER_ID, { parentId: parent.id }));
     const docs = result['documents'] as Array<Record<string, unknown>>;
     expect(docs).toHaveLength(1);
     expect(docs[0]['name']).toBe('Mine Child');
@@ -318,7 +331,7 @@ describe('get-channel-log-tree', () => {
 
   test('returns empty treeData when channel not found', async () => {
     const execute = makeExecutor();
-    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, 'no-such-channel'));
+    const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, NONEXISTENT_UUID));
     expect(result['treeData']).toEqual([]);
   });
 
@@ -340,9 +353,9 @@ describe('get-channel-log-tree', () => {
     await insertArtifact();
     const older = new Date('2024-01-01');
     const newer = new Date('2024-06-01');
-    await insertLog({ channel: CHANNEL, createdAt: older, handlerName: 'older', executionId: 'exec-older', parentExecutionId: null, logType: 'handler' });
-    await insertLog({ channel: CHANNEL, createdAt: newer, handlerName: 'newer', executionId: 'exec-newer', parentExecutionId: null, logType: 'handler' });
-    await insertLog({ channel: CHANNEL, parentExecutionId: 'exec-parent', logType: 'handler' });
+    await insertLog({ channel: CHANNEL, createdAt: older, handlerName: 'older', executionId: randomUUID(), parentExecutionId: null, logType: 'handler' });
+    await insertLog({ channel: CHANNEL, createdAt: newer, handlerName: 'newer', executionId: randomUUID(), parentExecutionId: null, logType: 'handler' });
+    await insertLog({ channel: CHANNEL, parentExecutionId: randomUUID(), logType: 'handler' });
     const execute = makeExecutor();
     const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     const treeData = result['treeData'] as Array<Record<string, unknown>>;
@@ -353,16 +366,11 @@ describe('get-channel-log-tree', () => {
 
   test('nests route and sub-handler children correctly for each root', async () => {
     await insertArtifact();
-    await insertLog({ handlerName: 'root', executionId: 'exec-root' });
-    await client.db().collection('workflowlogs').insertOne({
-      channel: CHANNEL, executionId: 'exec-root', logType: 'route', stepIndex: 0,
-      route: 'database-query', createdAt: new Date(),
-    } as any);
-    await client.db().collection('workflowlogs').insertOne({
-      channel: CHANNEL, parentExecutionId: 'exec-root', stepIndex: 0,
-      logType: 'handler', handlerName: 'childHandler', executionId: 'exec-child',
-      createdAt: new Date(),
-    } as any);
+    const execRoot = randomUUID();
+    const execChild = randomUUID();
+    await insertLog({ handlerName: 'root', executionId: execRoot });
+    await insertLog({ executionId: execRoot, logType: 'route', stepIndex: 0, route: 'database-query' });
+    await insertLog({ parentExecutionId: execRoot, stepIndex: 0, logType: 'handler', handlerName: 'childHandler', executionId: execChild });
     const execute = makeExecutor();
     const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     const treeData = result['treeData'] as Array<Record<string, unknown>>;
@@ -372,47 +380,38 @@ describe('get-channel-log-tree', () => {
     expect(routeChildren[0]['name']).toBe('handler: childHandler');
   });
 
-  test('rawData._id is stringified (not a raw ObjectId) on root, route, tool, and sub-handler nodes', async () => {
+  test('rawData.id is a string on root, route, tool, and sub-handler nodes', async () => {
     await insertArtifact();
-    await insertLog({ handlerName: 'root', executionId: 'exec-root' });
-    await client.db().collection('workflowlogs').insertOne({
-      channel: CHANNEL, executionId: 'exec-root', logType: 'route', stepIndex: 0,
-      route: 'database-query', createdAt: new Date(),
-    } as any);
-    await client.db().collection('workflowlogs').insertOne({
-      channel: CHANNEL, executionId: 'exec-root', stepIndex: 0,
-      logType: 'tool', message: { tool: 'get_reference_section' }, createdAt: new Date(),
-    } as any);
-    await client.db().collection('workflowlogs').insertOne({
-      channel: CHANNEL, parentExecutionId: 'exec-root', stepIndex: 0,
-      logType: 'handler', handlerName: 'childHandler', executionId: 'exec-child',
-      createdAt: new Date(),
-    } as any);
+    const execRoot = randomUUID();
+    const execChild = randomUUID();
+    await insertLog({ handlerName: 'root', executionId: execRoot });
+    await insertLog({ executionId: execRoot, logType: 'route', stepIndex: 0, route: 'database-query' });
+    await insertLog({ executionId: execRoot, stepIndex: 0, logType: 'tool', message: { tool: 'get_reference_section' } });
+    await insertLog({ parentExecutionId: execRoot, stepIndex: 0, logType: 'handler', handlerName: 'childHandler', executionId: execChild });
     const execute = makeExecutor();
     const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     const treeData = result['treeData'] as Array<Record<string, unknown>>;
 
     const rootRawData = treeData[0]['rawData'] as Record<string, unknown>;
-    expect(typeof rootRawData['_id']).toBe('string');
+    expect(typeof rootRawData['id']).toBe('string');
 
     const rootChildren = treeData[0]['children'] as Array<Record<string, unknown>>;
     const routeRawData = rootChildren[0]['rawData'] as Record<string, unknown>;
-    expect(typeof routeRawData['_id']).toBe('string');
+    expect(typeof routeRawData['id']).toBe('string');
 
     const routeChildren = rootChildren[0]['children'] as Array<Record<string, unknown>>;
     const toolNode = routeChildren.find((c) => (c['name'] as string).startsWith('tool:'))!;
-    expect(typeof (toolNode['rawData'] as Record<string, unknown>)['_id']).toBe('string');
+    expect(typeof (toolNode['rawData'] as Record<string, unknown>)['id']).toBe('string');
 
     const subHandlerNode = routeChildren.find((c) => (c['name'] as string).startsWith('handler:'))!;
-    expect(typeof (subHandlerNode['rawData'] as Record<string, unknown>)['_id']).toBe('string');
+    expect(typeof (subHandlerNode['rawData'] as Record<string, unknown>)['id']).toBe('string');
   });
 
   test('returns logs for a stateless channel (no artifactId), owned via channel.userId', async () => {
-    await client.db().collection('channels').insertOne({
+    await db.insert(channels).values({
       channelId: CHANNEL, workflowType: 'workflow-builder', userId: USER_ID, isSessionChannel: true,
-      createdAt: new Date(), updatedAt: new Date(),
-    } as any);
-    await insertLog({ handlerName: 'statelessRoot', executionId: 'exec-stateless' });
+    });
+    await insertLog({ handlerName: 'statelessRoot', executionId: randomUUID() });
     const execute = makeExecutor();
     const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     const treeData = result['treeData'] as Array<Record<string, unknown>>;
@@ -422,10 +421,9 @@ describe('get-channel-log-tree', () => {
   });
 
   test('returns empty treeData when a stateless channel belongs to another user', async () => {
-    await client.db().collection('channels').insertOne({
+    await db.insert(channels).values({
       channelId: CHANNEL, workflowType: 'workflow-builder', userId: OTHER_USER_ID, isSessionChannel: true,
-      createdAt: new Date(), updatedAt: new Date(),
-    } as any);
+    });
     const execute = makeExecutor();
     const result = await execute('get-channel-log-tree', makeContext(USER_ID, {}, CHANNEL));
     expect(result['treeData']).toEqual([]);
@@ -484,10 +482,13 @@ describe('unknown query name', () => {
 
 describe('error handling', () => {
   test('calls logWorkflowStep and returns {} when an error is thrown', async () => {
-    const badClient = { db: () => { throw new Error('db exploded'); } } as unknown as MongoClient;
+    const badDb = {
+      select: () => {
+        throw new Error('db exploded');
+      },
+    } as unknown as Database;
     const execute = createQueryExecutor({
-      mongoClient: badClient,
-      dbReady: Promise.resolve(badClient),
+      db: badDb,
       configDir,
       logWorkflowStep: logWorkflowStep as unknown as (entry: WorkflowLogEntry) => void,
     });
@@ -496,3 +497,7 @@ describe('error handling', () => {
     expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error' }));
   });
 });
+
+function eqName(name: string) {
+  return eq(artifacts.name, name);
+}

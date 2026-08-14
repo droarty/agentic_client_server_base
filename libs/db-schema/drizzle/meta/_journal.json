@@ -15,6 +15,13 @@
       "when": 1786721828647,
       "tag": "0001_jsonb_array_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786724800637,
+      "tag": "0002_jsonb_array_remove",
+      "breakpoints": true
     }
   ]
 }

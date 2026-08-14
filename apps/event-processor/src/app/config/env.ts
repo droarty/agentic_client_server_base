@@ -1,7 +1,7 @@
 export const env = {
   NODE_ENV: process.env['NODE_ENV'] || 'development',
   PROCESSOR_PORT: parseInt(process.env['PROCESSOR_PORT'] || '3001', 10),
-  MONGODB_URI: process.env['MONGODB_URI'] || 'mongodb://localhost:27017/agentic_client_server_base',
+  DATABASE_URL: process.env['DATABASE_URL'] || 'postgres://postgres:postgres@localhost:5433/agentic_client_server_base',
   REDIS_URL: process.env['REDIS_URL'] || 'redis://localhost:6379',
   AI_SERVICE_TYPE: (process.env['AI_SERVICE_TYPE'] || 'anthropic') as 'anthropic' | 'openai',
   ANTHROPIC_API_KEY: process.env['ANTHROPIC_API_KEY'] || '',

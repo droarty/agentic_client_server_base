@@ -9,12 +9,14 @@
     "jest.config.ts",
     "src/**/*.spec.ts",
     "src/**/*.test.ts",
-    "../../libs/access-control/src/**/*.spec.ts"
+    "../../libs/access-control/src/**/*.spec.ts",
+    "../../libs/db-schema/src/**/*.spec.ts"
   ],
   "include": [
     "src/**/*.ts",
     "../../libs/shared-types/src/**/*.ts",
     "../../libs/access-control/src/**/*.ts",
-    "../../libs/workflow-configs/src/index.ts"
+    "../../libs/workflow-configs/src/index.ts",
+    "../../libs/db-schema/src/**/*.ts"
   ]
 }
