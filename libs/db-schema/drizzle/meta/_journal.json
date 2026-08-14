@@ -8,6 +8,13 @@
       "when": 1786670258118,
       "tag": "0000_purple_squadron_supreme",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786721828647,
+      "tag": "0001_jsonb_array_functions",
+      "breakpoints": true
     }
   ]
 }
