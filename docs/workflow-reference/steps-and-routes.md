@@ -28,9 +28,9 @@ Required: a `transform` object. The `clientMessageType` key is renamed to `type`
 }
 ```
 
-### `"database"` — persist state to MongoDB
+### `"database"` — persist state to Postgres
 
-Writes an `update-state` message's `actions` to the artifact document in the `artifacts` collection. Only actions with `path` starting with `$state.` are persisted; `$temp.*` paths are silently skipped.
+Writes an `update-state` message's `actions` to the artifact row in the `artifacts` table. Only actions with `path` starting with `$state.` are persisted; `$temp.*` paths are silently skipped.
 
 Requires `clientMessageType` to be `"update-state"` and an `actions` array. Usually combined with `"client"`.
 
@@ -46,7 +46,7 @@ Requires `clientMessageType` to be `"update-state"` and an `actions` array. Usua
 
 ### `["client", "database"]` — send and persist simultaneously
 
-The most common combination. The same `update-state` message is sent to the client **and** persisted to MongoDB in parallel.
+The most common combination. The same `update-state` message is sent to the client **and** persisted to Postgres in parallel.
 
 ```json
 {
@@ -60,7 +60,7 @@ The most common combination. The same `update-state` message is sent to the clie
 
 ### `"database-query"` — run a named query, invoke next handler
 
-Executes a named query against MongoDB, then recursively invokes the handler named by `responseType` with the query result merged into the message context. Blocks until the query completes. The query result is spread into a new message:
+Executes a named query against Postgres, then recursively invokes the handler named by `responseType` with the query result merged into the message context. Blocks until the query completes. The query result is spread into a new message:
 
 ```
 { type: responseType, channel, timestamp, ...queryResult }

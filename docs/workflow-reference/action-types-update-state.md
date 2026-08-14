@@ -1,14 +1,14 @@
 # Action Types (update-state)
 
-Actions appear in the `actions` array of an `update-state` message. Each action mutates one path in the client's DocState and (when route includes `"database"`) also in MongoDB.
+Actions appear in the `actions` array of an `update-state` message. Each action mutates one path in the client's DocState and (when route includes `"database"`) also in Postgres.
 
 **Path rules for `action.path`:**
-- `"$state.xxx"` — persisted to MongoDB. The `$state.` prefix is stripped to derive the MongoDB dot-path. Client state at `DocState.state.xxx` is updated.
+- `"$state.xxx"` — persisted to Postgres. The `$state.` prefix is stripped to derive the JSONB path within the artifact's `state` column. Client state at `DocState.state.xxx` is updated.
 - `"$temp.xxx"` — **not** persisted. Persistor skips these. Client state at `DocState.temp.xxx` is updated ephemerally.
 
 ### `update` — set a field
 
-Sets the field at `path` to `value`. Equivalent to `$set`.
+Sets the field at `path` to `value`. Implemented via `jsonb_set`.
 
 ```json
 { "actionType": "update", "path": "$state.title", "value": "$message.text" }
@@ -18,7 +18,7 @@ Sets the field at `path` to `value`. Equivalent to `$set`.
 
 ### `merge` — merge object fields
 
-Merges the keys of `value` (an object) into the object at `path`. Each key-value pair is written with `$set` using dot notation.
+Merges the keys of `value` (an object) into the object at `path`. Implemented via `jsonb_set` combined with the `||` JSONB concatenation operator.
 
 ```json
 { "actionType": "merge", "path": "$state.config", "value": { "color": "blue", "count": 3 } }
@@ -26,7 +26,7 @@ Merges the keys of `value` (an object) into the object at `path`. Each key-value
 
 ### `append` — add to end of array
 
-Appends `value` (a single item or array of items) to the end of the array at `path`. Uses MongoDB `$push` with `$each`.
+Appends `value` (a single item or array of items) to the end of the array at `path`. Implemented via `jsonb_set` concatenating the existing array with `value` using `||`.
 
 ```json
 { "actionType": "append", "path": "$state.chatMessages", "value": { "messageType": "display-text", "text": "$message.text" } }
@@ -35,7 +35,7 @@ Appends `value` (a single item or array of items) to the end of the array at `pa
 
 ### `prepend` — add to start of array
 
-Inserts `value` (single item or array) at position 0 of the array at `path`. Uses MongoDB `$push` with `$position: 0`.
+Inserts `value` (single item or array) at position 0 of the array at `path`. Implemented via `jsonb_set` concatenating `value` before the existing array using `||`.
 
 ```json
 { "actionType": "prepend", "path": "$state.notifications", "value": { "text": "New message" } }
@@ -43,7 +43,7 @@ Inserts `value` (single item or array) at position 0 of the array at `path`. Use
 
 ### `upsert` — update-or-append by key
 
-Finds the array element at `path` where all fields named in `keys` match the corresponding fields in `value`. If found, replaces that element; if not found, appends. `keys` must be a non-empty array.
+Finds the array element at `path` where all fields named in `keys` match the corresponding fields in `value`. If found, replaces that element; if not found, appends. `keys` must be a non-empty array. Implemented via the `jsonb_array_upsert` SQL function.
 
 ```json
 {
@@ -61,7 +61,7 @@ Multi-key example:
 
 ### `remove` — remove array element(s) by key
 
-Removes all elements from the array at `path` where all fields named in `keys` match the corresponding fields in `value`. Uses MongoDB `$pull`.
+Removes all elements from the array at `path` where all fields named in `keys` match the corresponding fields in `value`. Implemented via the `jsonb_array_remove_by_keys` SQL function.
 
 ```json
 {
@@ -74,7 +74,7 @@ Removes all elements from the array at `path` where all fields named in `keys` m
 
 ### `update-in` — update a nested field within an array element
 
-Finds the first element in the array at `path` where `findKey === findValue`, then sets `subPath` on that element to `value`. Uses MongoDB `arrayFilters` with a positional operator.
+Finds every element in the array at `path` where `findKey === findValue`, then sets `subPath` on each matched element to `value`. Implemented via the `jsonb_array_update_in` SQL function.
 
 ```json
 {
@@ -96,7 +96,7 @@ Finds the first element in the array at `path` where `findKey === findValue`, th
 
 ### `slice` — trim an array to a range
 
-Slices the array at `path` to keep elements from `start` to `end`. Uses MongoDB aggregation `$slice` semantics (same as JavaScript `Array.prototype.slice`). Omit `end` to slice from `start` to the end of the array. Negative `start` keeps the last N elements.
+Slices the array at `path` to keep elements from `start` to `end`, matching JavaScript `Array.prototype.slice` semantics. Implemented via the `jsonb_array_slice` SQL function. Omit `end` to slice from `start` to the end of the array. Negative `start` keeps the last N elements.
 
 ```json
 { "actionType": "slice", "path": "$state.openDocs", "start": -5 }
