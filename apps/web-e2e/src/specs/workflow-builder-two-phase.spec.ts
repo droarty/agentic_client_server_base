@@ -25,13 +25,17 @@ async function sendChat(text: string) {
   await browser.keys(['Enter']);
 }
 
+async function aiReplyCount(): Promise<number> {
+  return (await $$('.chat-message--ai-reply')).length;
+}
+
 async function latestAiReplyText(): Promise<string> {
   const bubbles = await $$('.chat-message--ai-reply');
   const last = bubbles[bubbles.length - 1];
   return last.getText();
 }
 
-describe('workflow builder: two-phase requirements → config-building flow', () => {
+describe('workflow builder: chat -> planning -> config flow', () => {
   before(async () => {
     await browser.url('/register');
     await browser.waitUntil(async () => (await $('#email').isDisplayed()), { timeout: 8000 });
@@ -49,16 +53,22 @@ describe('workflow builder: two-phase requirements → config-building flow', ()
     await link.waitForClickable({ timeout: 8000 });
     await link.click();
     await waitForText('Tell me what kind of workflow', 8000);
-    await waitForText('Requirements', 4000);
+    await waitForText('Plan', 4000);
     await screenshot('2ph-01-opened');
   });
 
-  it('requirements phase: a detailed description produces a persisted summary with no tool calls needed', async function () {
-    this.timeout(150000);
+  it('there is no Generate Workflow button anywhere in the panel', async () => {
+    expect(await $$('button*=Generate Workflow')).toHaveLength(0);
+  });
+
+  it('a detailed description produces a persisted plan and a chat-agent summary reply', async function () {
+    // The chat agent deciding to hand off to planning, the planning agent actually updating the
+    // plan, and the chat agent summarizing that update are three sequential real Claude calls.
+    this.timeout(280000);
     await sendChat(
       'I want to build a workflow called coin-flip-logger. It tracks a running count of heads and tails in state, ' +
         'has a button that flips a virtual coin and updates the count, and displays the current counts and flip ' +
-        'history in a simple text display. That is the complete spec.'
+        'history in a simple text display. That is the complete spec — please put together a plan for this now.'
     );
 
     await browser.waitUntil(async () => (await $$('.chat-message--ai-ack')).length >= 1, {
@@ -66,32 +76,46 @@ describe('workflow builder: two-phase requirements → config-building flow', ()
       timeoutMsg: 'expected an immediate ai-ack bubble to appear',
     });
 
-    await browser.waitUntil(async () => (await $$('.chat-message--ai-reply')).length >= 1, {
-      timeout: 140000,
-      timeoutMsg: 'expected an ai-reply bubble to eventually appear',
-    });
-    await screenshot('2ph-02-first-reply');
+    // The chat agent should decide to hand off to planning given a complete, explicit spec.
+    // Nudge explicitly if it doesn't within the first reply cycle.
+    const planStarted = await browser
+      .waitUntil(async () => (await bodyText()).includes('Updating the plan'), { timeout: 60000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!planStarted) {
+      await sendChat('Please put together a plan from what I described.');
+      await waitForText('Updating the plan', 60000);
+    }
+    await screenshot('2ph-02-plan-started');
 
-    // The requirements summary panel should now hold real content, not the empty placeholder.
+    // The plan panel should populate — placeholder text replaced by real content.
     await browser.waitUntil(
-      async () => !(await bodyText()).includes('Describe the workflow you want — a requirements summary'),
-      { timeout: 10000, timeoutMsg: 'expected the placeholder text to be replaced by a real requirements summary' }
+      async () => !(await bodyText()).includes("I'll build up a plan here as we chat"),
+      { timeout: 60000, timeoutMsg: 'expected the plan panel placeholder to be replaced by a real plan' }
     );
+    await screenshot('2ph-03-plan-populated');
+
+    // The chat agent should follow up with its own summary once planning finishes.
+    await browser.waitUntil(async () => (await aiReplyCount()) >= 2, {
+      timeout: 60000,
+      timeoutMsg: 'expected a chat-agent summary ai-reply after the plan was updated',
+    });
+    await screenshot('2ph-04-summary-reply');
+
     const text = await bodyText();
     expect(text.toLowerCase()).toContain('coin');
-    await screenshot('2ph-03-summary-populated');
   });
 
   it('rejects a request for a non-existent feature instead of pretending it is possible', async function () {
     this.timeout(150000);
-    const replyCountBefore = (await $$('.chat-message--ai-reply')).length;
+    const replyCountBefore = await aiReplyCount();
     await sendChat('Can you also make it text me an SMS every time I get 10 heads in a row?');
 
-    await browser.waitUntil(async () => (await $$('.chat-message--ai-reply')).length > replyCountBefore, {
+    await browser.waitUntil(async () => (await aiReplyCount()) > replyCountBefore, {
       timeout: 140000,
       timeoutMsg: 'expected a new ai-reply bubble responding to the SMS request',
     });
-    await screenshot('2ph-04-sms-reply');
+    await screenshot('2ph-05-sms-reply');
 
     const reply = (await latestAiReplyText()).toLowerCase();
     const declinePhrases = [
@@ -115,40 +139,19 @@ describe('workflow builder: two-phase requirements → config-building flow', ()
     expect(matched).toBe(true);
   });
 
-  it('shows a "Generate Workflow" button once requirements are ready, and clicking it produces a draft config', async function () {
-    // Config-building legitimately makes several get_reference_section round trips
-    // (confirmed via workflowlogs: distinct sections fetched sequentially, not a stuck loop)
-    // before producing the final ~8K-token draft — give it real headroom.
+  it('asking to generate the config produces a draft and offers to publish, with no Generate Workflow button involved', async function () {
+    // The chat agent handing off to config, the config agent's tool-use loop + draft generation,
+    // and the chat agent summarizing the draft are three sequential real Claude calls.
     this.timeout(320000);
 
-    const generateButtonAppeared = await browser
-      .waitUntil(
-        async () => (await $$('button*=Generate Workflow')).length >= 1,
-        { timeout: 10000 }
-      )
-      .then(() => true)
-      .catch(() => false);
+    const replyCountBefore = await aiReplyCount();
+    await sendChat('That all looks right — please generate the workflow configuration now.');
 
-    if (!generateButtonAppeared) {
-      // Nudge explicitly if the model didn't mark itself ready from the first message alone.
-      await sendChat('That covers everything — I am ready, please let me generate the workflow now.');
-      await browser.waitUntil(async () => (await $$('button*=Generate Workflow')).length >= 1, {
-        timeout: 140000,
-        timeoutMsg: 'expected the Generate Workflow button to appear after nudging readiness',
-      });
-    }
-    await screenshot('2ph-05-generate-button-visible');
+    await waitForText('Drafting the configuration', 60000);
+    await screenshot('2ph-06-drafting');
 
-    const generateButton = await $('button*=Generate Workflow');
-    await generateButton.click();
-
-    await waitForText('Generating your workflow configuration', 8000);
-    await screenshot('2ph-06-generating');
-
-    // Real Claude Sonnet 5 call with the full schema summary + get_reference_section tool loop
-    // + full JSON draft generation — give it real headroom (matches existing workflow-builder timing).
     await browser.waitUntil(
-      async () => !(await bodyText()).includes('Once you click Generate Workflow, a draft will appear here'),
+      async () => !(await bodyText()).includes("I'll draft a config here once we've worked out a plan together"),
       { timeout: 280000, timeoutMsg: 'expected a draft config to appear in the right panel' }
     );
     await screenshot('2ph-07-draft-appeared');
@@ -156,10 +159,18 @@ describe('workflow builder: two-phase requirements → config-building flow', ()
     const draftText = await (await $('.json-view')).getText();
     expect(draftText).toContain('"handlers"');
 
+    // Both the hand-off acknowledgment and the post-draft chat-agent summary should have landed.
+    await browser.waitUntil(async () => (await aiReplyCount()) > replyCountBefore + 1, {
+      timeout: 60000,
+      timeoutMsg: 'expected both the config hand-off ack and the chat-agent summary ai-reply to appear',
+    });
+
     await browser.waitUntil(async () => (await $$('button*=Publish Workflow')).length >= 1, {
       timeout: 10000,
       timeoutMsg: 'expected the Publish Workflow button to appear once a draft exists',
     });
     await screenshot('2ph-08-publish-button-visible');
+
+    expect(await $$('button*=Generate Workflow')).toHaveLength(0);
   });
 });

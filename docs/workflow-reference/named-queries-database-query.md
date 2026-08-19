@@ -98,7 +98,7 @@ Creates a new artifact (and its channel). The new document's `state` is seeded f
 
 ### `get-workflow-builder-context`
 
-Reads the workflow-builder artifact's current `state` (resolved via `context.message.channel`) and derives which AI step to route to next based on `state.phase`.
+Reads the workflow-builder artifact's current `plan` and `draftConfig` (resolved via `context.message.channel`). Used as a plain context fetcher before each of the workflow-builder's three AI steps (`run-chat-step`, `run-planning-step`, `run-config-step`) — each call site declares its own static `responseType`; this query does not decide routing.
 
 **Required context:** `context.message.channel`
 
@@ -106,10 +106,8 @@ Reads the workflow-builder artifact's current `state` (resolved via `context.mes
 ```json
 {
   "text": "...", "senderEmail": "...",
-  "draftConfig": null,
-  "requirementsSummary": "...", "requirementsReady": false,
-  "phase": "gathering-requirements|building-config",
-  "type": "run-requirements-ai-step|run-config-ai-step"
+  "plan": "...",
+  "draftConfig": null
 }
 ```
 
