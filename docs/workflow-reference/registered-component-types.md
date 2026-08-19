@@ -381,7 +381,7 @@ A button that emits a message with an empty payload when clicked — the standar
 
 Props: `label` (string) — button text.
 
-Emits `click` with an empty payload `{}` when clicked. Wire it to whichever handler name should run (e.g. `"publish-workflow"`, `"generate-workflow"`).
+Emits `click` with an empty payload `{}` when clicked. Wire it to whichever handler name should run (e.g. `"publish-workflow"`).
 
 ---
 
@@ -436,9 +436,9 @@ Conditional-rendering pseudo-components. They are not looked up in the component
 ```json
 {
   "componentType": "showIf",
-  "props": { "source": "@state.requirementsReady" },
+  "props": { "source": "@state.draftConfig" },
   "children": [
-    { "componentType": "actionButton", "props": { "label": "Generate Workflow" }, "emits": { "click": "generate-workflow" } }
+    { "componentType": "actionButton", "props": { "label": "Publish Workflow" }, "emits": { "click": "publish-workflow" } }
   ]
 }
 ```

@@ -234,15 +234,11 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
         const [artifact] = artifactId ? await db.select({ state: artifacts.state }).from(artifacts).where(eq(artifacts.id, artifactId)) : [];
         const state = (artifact?.state as Record<string, unknown> | undefined) ?? {};
-        const phase = (state['phase'] as string | undefined) ?? 'gathering-requirements';
         return {
           text: context.message['text'],
           senderEmail: context.message['senderEmail'],
+          plan: state['plan'] ?? '',
           draftConfig: state['draftConfig'] ?? null,
-          requirementsSummary: state['requirementsSummary'] ?? '',
-          requirementsReady: state['requirementsReady'] ?? false,
-          phase,
-          type: phase === 'building-config' ? 'run-config-ai-step' : 'run-requirements-ai-step',
         };
       }
 

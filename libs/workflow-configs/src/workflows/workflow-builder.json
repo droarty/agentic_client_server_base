@@ -5,12 +5,10 @@
     "chatMessages": [
       {
         "messageType": "system",
-        "text": "Tell me what kind of workflow you'd like to build! I'll ask clarifying questions to nail down the requirements — once we've got enough detail, click \"Generate Workflow\" on the right to produce a draft JSON config, which you can then Publish."
+        "text": "Tell me what kind of workflow you'd like to build! I'll ask clarifying questions to understand what you need — once we've nailed down enough detail, I'll put together a plan, and once that looks good, I'll draft the JSON configuration for you to review and publish."
       }
     ],
-    "phase": "gathering-requirements",
-    "requirementsSummary": "",
-    "requirementsReady": false,
+    "plan": "",
     "draftConfig": null
   },
   "handlers": {
@@ -72,25 +70,14 @@
                             "children": [
                               {
                                 "componentType": "textDisplay",
-                                "props": { "text": "Requirements" }
+                                "props": { "text": "Plan" }
                               },
                               {
                                 "componentType": "textDisplay",
                                 "props": {
-                                  "text": "@state.requirementsSummary",
-                                  "placeholder": "Describe the workflow you want — a requirements summary will build up here as we chat."
+                                  "text": "@state.plan",
+                                  "placeholder": "Describe the workflow you want — I'll build up a plan here as we chat."
                                 }
-                              },
-                              {
-                                "componentType": "showIf",
-                                "props": { "source": "@state.requirementsReady" },
-                                "children": [
-                                  {
-                                    "componentType": "actionButton",
-                                    "props": { "label": "Generate Workflow" },
-                                    "emits": { "click": "generate-workflow" }
-                                  }
-                                ]
                               },
                               {
                                 "componentType": "textDisplay",
@@ -100,7 +87,7 @@
                                 "componentType": "jsonView",
                                 "props": {
                                   "config": "@state.draftConfig",
-                                  "emptyMessage": "Once you click Generate Workflow, a draft will appear here."
+                                  "emptyMessage": "I'll draft a config here once we've worked out a plan together."
                                 }
                               },
                               {
@@ -207,122 +194,24 @@
         },
         {
           "route": "database-query",
-          "query": { "name": "get-workflow-builder-context", "responseType": "run-requirements-ai-step" }
+          "query": { "name": "get-workflow-builder-context", "responseType": "run-chat-step" }
         }
       ]
     },
-    "generate-workflow": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              { "actionType": "update", "path": "$state.phase", "value": "building-config" },
-              {
-                "actionType": "append",
-                "path": "$state.chatMessages",
-                "value": [
-                  { "messageType": "user-text", "text": "Please generate the complete workflow configuration now.", "authorEmail": "$message.senderEmail" },
-                  { "messageType": "system", "text": "Generating your workflow configuration…" }
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "route": "database-query",
-          "query": { "name": "get-workflow-builder-context", "responseType": "run-requirements-ai-step" }
-        }
-      ]
-    },
-    "run-requirements-ai-step": {
+    "run-chat-step": {
       "steps": [
         {
           "route": "ai",
           "ai": {
             "model": "claude-sonnet-5",
-            "maxTokens": 4096,
-            "referenceDocs": [
-              "docs/workflow-reference/registered-component-types.md",
-              "docs/workflow-reference/ai-step-configuration.md"
-            ],
+            "maxTokens": 1024,
             "historyPath": "state.chatMessages",
-            "systemPrompt": "CRITICAL OUTPUT RULE — read this first: your LAST message must be ONLY one of these two JSON objects, with no other text before or after it, no markdown, no code fences:\n  {\"type\":\"requirements-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"requirements-reply-with-summary\",\"reply\":\"<your conversational response>\",\"requirementsSummary\":\"<full current text summary of the workflow's purpose, state, user actions, and desired UI/layout>\",\"ready\":<true|false>}\nUse the second shape whenever you have new or updated understanding of the requirements to record; use the first shape when you're only asking a question with nothing new to persist yet. Always include the FULL current summary (not a diff) in requirementsSummary when using the second shape. Set \"ready\" to true once you believe you have enough detail (purpose, state fields, user actions/events, and rough UI/layout) for someone to build a complete config from your summary — the user will see a \"Generate Workflow\" button appear once ready is true. Whenever ready is true, mention in `reply` that they can click \"Generate Workflow\" once they're happy with the summary, to move on to drafting the config — especially the first time you set it to true. You may keep chatting and refining the summary even after ready is true if the user has more to add; keep ready true unless something becomes unresolved again. Never end a turn with plain conversational text outside these JSON shapes — if you have a lot to say (multiple clarifying questions, an explanation of options), put ALL of it inside the `reply` string; never write so much as a single sentence before or after the JSON object itself. Keep `reply` short whenever you're also writing a new `requirementsSummary`: `reply` is a brief conversational acknowledgment or question (a sentence or two), never a restatement of the plan. The user sees `requirementsSummary` directly in its own panel, so never duplicate summary/plan content inside `reply` — all substantive plan detail belongs in `requirementsSummary` only.\n\nYou are a requirements-gathering assistant for a JSON-driven workflow engine. The reference material above this message lists every client-rendered layout component type (with its props/emits) and every `ai`-step capability (model/tools/history/response-type options) that actually exists in this system — use it ONLY to understand what's buildable and to ask relevant clarifying questions (e.g. which UI components would fit, what state to track, what user actions to support). Do NOT attempt to write actual JSON workflow config here — that happens in a later phase.\n\nIf the user asks for something that isn't achievable with the building blocks described above (e.g. a component type, integration, or behavior that doesn't exist), you must STILL respond using one of the two JSON shapes from the CRITICAL OUTPUT RULE above — put the explanation inside the `reply` field, say so plainly, and suggest they request it as a new feature from the site developers. Never break out of the JSON output format to explain this in plain text, no matter how much explanation it takes — don't pretend it's possible and don't silently drop it from the summary.\n\nRules:\n- Ask clarifying questions about the workflow's purpose, what state it needs to track, what user actions/events it should handle, and what the layout/UI should look like.\n- It's fine to propose a rough summary early and refine it collaboratively rather than interrogating the user up front.\n- Current summary (if any): {{message.requirementsSummary}}",
-            "responseTypes": ["requirements-reply", "requirements-reply-with-summary"],
-            "responseSchema": {
-              "requirements-reply": { "reply": "string" },
-              "requirements-reply-with-summary": { "reply": "string", "requirementsSummary": "string", "ready": "boolean" }
-            }
-          }
-        }
-      ]
-    },
-    "requirements-reply": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "append",
-                "path": "$state.chatMessages",
-                "value": [
-                  { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" }
-                ]
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "requirements-reply-with-summary": {
-      "steps": [
-        {
-          "route": ["client", "database"],
-          "transform": {
-            "clientMessageType": "update-state",
-            "actions": [
-              {
-                "actionType": "append",
-                "path": "$state.chatMessages",
-                "value": [
-                  { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" }
-                ]
-              },
-              {
-                "actionType": "update",
-                "path": "$state.requirementsSummary",
-                "value": "$message.requirementsSummary"
-              },
-              {
-                "actionType": "update",
-                "path": "$state.requirementsReady",
-                "value": "$message.ready"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "run-config-ai-step": {
-      "steps": [
-        {
-          "route": "ai",
-          "ai": {
-            "model": "claude-sonnet-5",
-            "maxTokens": 16000,
-            "maxTurns": 20,
-            "referenceDocs": ["docs/workflow-reference/summary.md"],
-            "tools": ["get_reference_section"],
-            "historyPath": "state.chatMessages",
-            "systemPrompt": "CRITICAL OUTPUT RULE — read this first: no matter what you do in this turn — including calling the `get_reference_section` tool — your LAST message must be ONLY one of these three JSON objects, with no other text before or after it, no markdown, no code fences:\n  {\"type\":\"chat-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"chat-reply-with-draft\",\"reply\":\"<your conversational response>\",\"workflowConfig\":{\"name\":\"...\",\"displayName\":\"...\",\"initialState\":{...},\"handlers\":{...}}}\n  {\"type\":\"chat-reply-revert-to-requirements\",\"reply\":\"<brief acknowledgment>\",\"requirementsSummary\":\"<FULL updated requirements summary, not a diff>\"}\nUse the second shape whenever you are proposing a new or updated draft; use the first shape when you're only asking a question or making conversation with no draft change. Tool calls are an internal step, invisible to the user — after your last tool call finishes, immediately produce the JSON object as your very next message. Never end a turn with plain conversational text. Keep `reply` short — a sentence or two acknowledging the draft — never repeat the `workflowConfig` contents inside `reply`.\n\nYou are a workflow config-building assistant. The user already completed a requirements-gathering conversation; treat the requirements summary below as the source-of-truth spec — build a complete, valid workflow JSON config from it rather than re-deriving requirements from scratch. Only ask a follow-up question if the summary is genuinely ambiguous or incomplete for something you need to decide.\n\nRequirements summary:\n{{message.requirementsSummary}}\n\nA condensed summary of the schema and conventions is provided above this message — follow it exactly. It only covers the shape of things at a glance; call the `get_reference_section` tool (see the summary's \"Getting more detail\" list for valid section names) only for the specific sections you actually need — an exact schema, a full option list, or a worked example for something you're not fully sure of. Fetch efficiently: request only what you're missing, avoid re-fetching a section you've already seen this conversation, and move on to producing output once you have enough information rather than continuing to explore.\n\nRules:\n- Once you and the user settle on a workflow name, keep using that SAME name (kebab-case, e.g. \"coin-flip-logger\") for the rest of the conversation, unless the user explicitly asks to start over with a different workflow.\n- Whenever you propose or update a draft, include the FULL current config object in `workflowConfig` (not a diff) — always `name`, `displayName`, `initialState`, and `handlers` together, reflecting the complete current state of the draft (not just what changed this turn).\n- Current draft (if any): {{message.draftConfig}}\n- If the user's request would change the underlying purpose, scope, tracked state, or user actions/events — not just how the config is structured — first ask whether they'd like to go back to the requirements step to update the summary before you touch the draft. This ask is STILL just a normal chat-reply — output nothing but {\"type\":\"chat-reply\",\"reply\":\"<your question, e.g. 'That sounds like a new requirement rather than a config tweak — want me to send this back to the requirements step to fold it in first?'>\"}, exactly like every other turn; never write the question as bare text outside the JSON envelope. If they've already confirmed this (in this message or an earlier one), skip straight to the chat-reply-revert-to-requirements shape instead of asking again. When you do revert, `requirementsSummary` must be the full current summary with the new change folded in, matching the same \"full summary, not a diff\" convention used in the requirements-gathering step.\n- Once you produce a workflowConfig you believe is complete and ready to use, mention in `reply` that the user can click \"Publish Workflow\" to publish it.\n\nReminder: your final message must be ONLY the JSON object described at the top — no markdown, no code fences, no explanation outside the JSON.",
-            "responseTypes": ["chat-reply", "chat-reply-with-draft", "chat-reply-revert-to-requirements"],
+            "systemPrompt": "CRITICAL OUTPUT RULE — read this first: your LAST message must be ONLY one of these three JSON objects, with no other text before or after it, no markdown, no code fences:\n  {\"type\":\"chat-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"chat-invoke-planning\",\"reply\":\"<a brief one-sentence acknowledgment that you're about to update the plan>\"}\n  {\"type\":\"chat-invoke-config\",\"reply\":\"<a brief one-sentence acknowledgment that you're about to update the configuration>\"}\n\nYou are the front-of-house assistant for a JSON-driven workflow-builder chat. Every user turn passes through you first. Decide which of three things is happening this turn, and respond with exactly the matching JSON shape:\n\n1. Still gathering information, or just chatting — the user hasn't yet told you enough about the workflow's purpose, state, actions, and UI for a plan to be worth writing, or they're asking a question unrelated to changing the plan/config. Respond with `chat-reply`: ask clarifying questions, answer questions, converse normally. This is the default — stay here as long as it takes to understand what they want.\n2. Ready to produce or update the plan — you now have enough detail to write (or meaningfully revise) a plan, OR the user is asking for something that changes the workflow's underlying purpose, scope, tracked state, or actions (not just a config tweak). Respond with `chat-invoke-planning`. Do NOT write the plan yourself — that's a separate step's job; `reply` here is just a short acknowledgment (one sentence, e.g. \"Let me put together a plan for that.\") since the user will also see a separate status message telling them the plan is being updated.\n3. Ready to produce or update the JSON configuration — a plan already exists (see below) and the request is a config-level concern: generate/regenerate the config from the current plan, or tweak the existing draft config without changing the underlying plan. Respond with `chat-invoke-config`. Again, don't draft config yourself — just a short acknowledgment in `reply`.\n\nSpecial case — summarizing completed work: sometimes the most recent entry in our conversation will be a note (not something the user actually typed) telling you that the planning or config step just finished and asking you to summarize it. When that happens, your ONLY job this turn is to summarize that update for the user in a `chat-reply` — describe what the plan or draft config now covers, in a friendly conversational way. Do NOT invoke planning or config again in this same turn, even if it looks like the natural next step is ready to go — wait for the user's own next message before doing that.\n\nDeciding between planning and config:\n- No plan yet, or the request would change the workflow's purpose/state/actions → `chat-invoke-planning`.\n- A plan exists and is current, and the request is purely about generating or adjusting the config itself → `chat-invoke-config`.\n- If an earlier turn's config step flagged that a request sounded like a scope change rather than a config tweak, and the user has now confirmed they want that bigger change, route to `chat-invoke-planning` this turn so the plan gets updated first.\n\nIf the user asks for something that doesn't exist in this system, say so plainly in a `chat-reply` (suggest they request it as a new feature from the site developers) rather than pretending it's possible or invoking planning/config anyway.\n\nCurrent plan (if any): {{message.plan}}\nCurrent draft config (if any): {{message.draftConfig}}\n\nNever end a turn with plain text outside these JSON shapes — if you have a lot to say, put ALL of it inside the `reply` string.",
+            "responseTypes": ["chat-reply", "chat-invoke-planning", "chat-invoke-config"],
             "responseSchema": {
               "chat-reply": { "reply": "string" },
-              "chat-reply-with-draft": { "reply": "string", "workflowConfig": "object" },
-              "chat-reply-revert-to-requirements": { "reply": "string", "requirementsSummary": "string" }
+              "chat-invoke-planning": { "reply": "string" },
+              "chat-invoke-config": { "reply": "string" }
             }
           }
         }
@@ -347,7 +236,68 @@
         }
       ]
     },
-    "chat-reply-with-draft": {
+    "chat-invoke-planning": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" },
+                  { "messageType": "system", "text": "Updating the plan…" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "user-text", "text": "Please update the plan based on everything we've discussed so far.", "authorEmail": "$message.senderEmail" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-workflow-builder-context", "responseType": "run-planning-step" }
+        }
+      ]
+    },
+    "run-planning-step": {
+      "steps": [
+        {
+          "route": "ai",
+          "ai": {
+            "model": "claude-sonnet-5",
+            "maxTokens": 4096,
+            "referenceDocs": [
+              "docs/workflow-reference/registered-component-types.md",
+              "docs/workflow-reference/ai-step-configuration.md"
+            ],
+            "historyPath": "state.chatMessages",
+            "systemPrompt": "CRITICAL OUTPUT RULE — read this first: your LAST message must be ONLY one of these two JSON objects, with no other text before or after it, no markdown, no code fences:\n  {\"type\":\"planning-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"planning-reply-with-plan\",\"note\":\"<a short one or two sentence note describing what you just changed, for internal use only — the user will not see this directly>\",\"plan\":\"<full current text plan of the workflow's purpose, state, user actions, and desired UI/layout>\"}\nUse the second shape whenever you have new or updated understanding of the plan to record; use the first shape when you're only asking a clarifying question with nothing new to persist yet. Always include the FULL current plan (not a diff) in `plan` when using the second shape.\n\nYou are the planning assistant for a JSON-driven workflow engine. You've just been handed off to from the chat assistant because the user is ready to produce or update the workflow's plan. The reference material above this message lists every client-rendered layout component type (with its props/emits) and every `ai`-step capability that actually exists in this system — use it to ground the plan in what's actually buildable and to ask relevant clarifying questions about UI/state/actions if something is still missing. Do NOT attempt to write actual JSON workflow config here — that happens in a separate step.\n\nIf the user asks for something that isn't achievable with the building blocks described above, you must STILL respond using one of the two JSON shapes above — put the explanation inside `reply` (for the plain-question shape) or fold it into `plan`/mention it needs discussion, and say so plainly. Never break out of the JSON output format to explain this, no matter how much explanation it takes.\n\nRules:\n- Cover the workflow's purpose, what state it needs to track, what user actions/events it should handle, and what the layout/UI should look like.\n- It's fine to propose a rough plan early and refine it collaboratively rather than interrogating the user up front.\n- Keep `note` short — a sentence or two describing what changed, purely for internal handoff purposes.\n- Current plan (if any): {{message.plan}}",
+            "responseTypes": ["planning-reply", "planning-reply-with-plan"],
+            "responseSchema": {
+              "planning-reply": { "reply": "string" },
+              "planning-reply-with-plan": { "note": "string", "plan": "string" }
+            }
+          }
+        }
+      ]
+    },
+    "planning-reply": {
       "steps": [
         {
           "route": ["client", "database"],
@@ -360,18 +310,49 @@
                 "value": [
                   { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" }
                 ]
-              },
-              {
-                "actionType": "update",
-                "path": "$state.draftConfig",
-                "value": "$message.workflowConfig"
               }
             ]
           }
         }
       ]
     },
-    "chat-reply-revert-to-requirements": {
+    "planning-reply-with-plan": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.plan", "value": "$message.plan" }
+            ]
+          }
+        },
+        {
+          "route": "database",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "user-text",
+                    "text": "~{ 'The planning agent just finished updating the plan: ' & message.note & '. Please give me a short summary of what changed.' }",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-workflow-builder-context", "responseType": "run-chat-step" }
+        }
+      ]
+    },
+    "chat-invoke-config": {
       "steps": [
         {
           "route": ["client", "database"],
@@ -383,19 +364,106 @@
                 "path": "$state.chatMessages",
                 "value": [
                   { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" },
-                  { "messageType": "system", "text": "Switching back to requirements gathering…" }
+                  { "messageType": "system", "text": "Drafting the configuration…" }
                 ]
-              },
-              {
-                "actionType": "update",
-                "path": "$state.requirementsSummary",
-                "value": "$message.requirementsSummary"
-              },
-              { "actionType": "update", "path": "$state.requirementsReady", "value": false },
-              { "actionType": "update", "path": "$state.draftConfig", "value": null },
-              { "actionType": "update", "path": "$state.phase", "value": "gathering-requirements" }
+              }
             ]
           }
+        },
+        {
+          "route": "database",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "user-text", "text": "Please generate or update the workflow configuration based on the current plan.", "authorEmail": "$message.senderEmail" }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-workflow-builder-context", "responseType": "run-config-step" }
+        }
+      ]
+    },
+    "run-config-step": {
+      "steps": [
+        {
+          "route": "ai",
+          "ai": {
+            "model": "claude-sonnet-5",
+            "maxTokens": 16000,
+            "maxTurns": 20,
+            "referenceDocs": ["docs/workflow-reference/summary.md"],
+            "tools": ["get_reference_section"],
+            "historyPath": "state.chatMessages",
+            "systemPrompt": "CRITICAL OUTPUT RULE — read this first: no matter what you do in this turn — including calling the `get_reference_section` tool — your LAST message must be ONLY one of these two JSON objects, with no other text before or after it, no markdown, no code fences:\n  {\"type\":\"config-reply\",\"reply\":\"<your conversational response>\"}\n  {\"type\":\"config-reply-with-draft\",\"note\":\"<a short one or two sentence note describing what you just changed, for internal use only — the user will not see this directly>\",\"workflowConfig\":{\"name\":\"...\",\"displayName\":\"...\",\"initialState\":{...},\"handlers\":{...}}}\nUse the second shape whenever you are proposing a new or updated draft; use the first shape when you're only asking a question, making conversation, or flagging a scope concern with no draft change. Tool calls are an internal step, invisible to the user — after your last tool call finishes, immediately produce the JSON object as your very next message. Never end a turn with plain conversational text. Keep `note`/`reply` short.\n\nYou are a workflow config-building assistant. You've just been handed off to from the chat assistant because the user is ready to produce or update the JSON configuration. Treat the plan below as the source-of-truth spec — build a complete, valid workflow JSON config from it rather than re-deriving requirements from scratch. Only ask a follow-up question if the plan is genuinely ambiguous or incomplete for something you need to decide.\n\nPlan:\n{{message.plan}}\n\nA condensed summary of the schema and conventions is provided above this message — follow it exactly. It only covers the shape of things at a glance; call the `get_reference_section` tool (see the summary's \"Getting more detail\" list for valid section names) only for the specific sections you actually need — an exact schema, a full option list, or a worked example for something you're not fully sure of. Fetch efficiently: request only what you're missing, avoid re-fetching a section you've already seen this conversation, and move on to producing output once you have enough information rather than continuing to explore.\n\nRules:\n- Once you and the user settle on a workflow name, keep using that SAME name (kebab-case, e.g. \"coin-flip-logger\") for the rest of the conversation, unless the user explicitly asks to start over with a different workflow.\n- Whenever you propose or update a draft, include the FULL current config object in `workflowConfig` (not a diff) — always `name`, `displayName`, `initialState`, and `handlers` together, reflecting the complete current state of the draft (not just what changed this turn).\n- Current draft (if any): {{message.draftConfig}}\n- If the user's request would change the underlying purpose, scope, tracked state, or user actions/events — not just how the config is structured — do NOT attempt it and do NOT update the plan yourself. Instead respond with a plain `config-reply` flagging this conversationally (e.g. \"That sounds like a bigger change than a config tweak — want me to revisit the plan first?\") and stop there; the user's next message will be picked up by the chat assistant, which can route it back to the planning step if they confirm.\n- Once you produce a workflowConfig you believe is complete and ready to use, mention in `reply`/`note` that the user can click \"Publish Workflow\" to publish it.\n\nReminder: your final message must be ONLY the JSON object described at the top — no markdown, no code fences, no explanation outside the JSON.",
+            "responseTypes": ["config-reply", "config-reply-with-draft"],
+            "responseSchema": {
+              "config-reply": { "reply": "string" },
+              "config-reply-with-draft": { "note": "string", "workflowConfig": "object" }
+            }
+          }
+        }
+      ]
+    },
+    "config-reply": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  { "messageType": "ai-reply", "text": "$message.reply", "authorEmail": "Workflow Assistant" }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "config-reply-with-draft": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.draftConfig", "value": "$message.workflowConfig" }
+            ]
+          }
+        },
+        {
+          "route": "database",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              {
+                "actionType": "append",
+                "path": "$state.chatMessages",
+                "value": [
+                  {
+                    "messageType": "user-text",
+                    "text": "~{ 'The config agent just finished updating the draft configuration: ' & message.note & '. Please give me a short summary of what changed.' }",
+                    "authorEmail": "$message.senderEmail"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-workflow-builder-context", "responseType": "run-chat-step" }
         }
       ]
     },

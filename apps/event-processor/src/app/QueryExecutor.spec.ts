@@ -433,28 +433,22 @@ describe('get-channel-log-tree', () => {
 // ─── get-workflow-builder-context ──────────────────────────────────────────────
 
 describe('get-workflow-builder-context', () => {
-  test('defaults to gathering-requirements phase and routes to run-requirements-ai-step when no state exists', async () => {
+  test('defaults to an empty plan and null draftConfig when no state exists', async () => {
     await insertArtifact({ type: 'workflow-builder', state: {} });
     const execute = makeExecutor();
     const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
-    expect(result['phase']).toBe('gathering-requirements');
-    expect(result['type']).toBe('run-requirements-ai-step');
-    expect(result['requirementsSummary']).toBe('');
-    expect(result['requirementsReady']).toBe(false);
+    expect(result['plan']).toBe('');
     expect(result['draftConfig']).toBeNull();
   });
 
-  test('routes to run-config-ai-step once phase is building-config', async () => {
+  test('passes through a persisted plan', async () => {
     await insertArtifact({
       type: 'workflow-builder',
-      state: { phase: 'building-config', requirementsSummary: 'a coin-flip logger', requirementsReady: true },
+      state: { plan: 'a coin-flip logger' },
     });
     const execute = makeExecutor();
     const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
-    expect(result['phase']).toBe('building-config');
-    expect(result['type']).toBe('run-config-ai-step');
-    expect(result['requirementsSummary']).toBe('a coin-flip logger');
-    expect(result['requirementsReady']).toBe(true);
+    expect(result['plan']).toBe('a coin-flip logger');
   });
 
   test('passes through draftConfig from persisted state', async () => {
