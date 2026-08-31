@@ -5,10 +5,14 @@ import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type { Pool } from 'pg';
-import { createDb, artifacts, channels, users, workflowLogs, type Database } from '@agentic-client-server-base/db-schema';
+import { createDb, artifacts, channels, users, workflowLogs, assets, googlePhotosTokens, type Database } from '@agentic-client-server-base/db-schema';
 import { startTestPostgres, type TestPostgresHandle } from '@agentic-client-server-base/db-schema/test-helpers';
 import { createQueryExecutor } from './QueryExecutor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
+import * as googlePhotosPickerClient from './services/google-photos-picker.client';
+
+jest.mock('./services/google-photos-picker.client');
+const mockedPickerClient = jest.mocked(googlePhotosPickerClient);
 
 let pgHandle: TestPostgresHandle;
 let db: Database;
@@ -53,6 +57,37 @@ async function insertArtifact(overrides: Record<string, unknown> = {}, channelId
     artifactId: artifact.id,
   });
   return artifact;
+}
+
+async function insertAsset(overrides: Partial<typeof assets.$inferInsert> = {}) {
+  const [asset] = await db
+    .insert(assets)
+    .values({
+      userId: USER_ID,
+      assetType: 'google_photo',
+      name: 'test.jpg',
+      sourceUrl: 'https://example.com/base',
+      sourceId: randomUUID(),
+      metadata: {},
+      ...overrides,
+    })
+    .returning();
+  return asset;
+}
+
+async function insertGooglePhotosToken(overrides: Partial<typeof googlePhotosTokens.$inferInsert> = {}) {
+  const [token] = await db
+    .insert(googlePhotosTokens)
+    .values({
+      userId: USER_ID,
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      scope: 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
+      ...overrides,
+    })
+    .returning();
+  return token;
 }
 
 async function insertLog(overrides: Partial<typeof workflowLogs.$inferInsert> = {}) {
@@ -104,12 +139,16 @@ beforeEach(async () => {
   await db.delete(workflowLogs);
   await db.delete(channels);
   await db.delete(artifacts);
+  await db.delete(assets);
+  await db.delete(googlePhotosTokens);
   await db.delete(users);
   const [u1] = await db.insert(users).values({ email: `u1-${randomUUID()}@test.com` }).returning();
   const [u2] = await db.insert(users).values({ email: `u2-${randomUUID()}@test.com` }).returning();
   USER_ID = u1.id;
   OTHER_USER_ID = u2.id;
   logWorkflowStep = jest.fn();
+  jest.clearAllMocks();
+  mockedPickerClient.parsePollIntervalSeconds.mockImplementation((v) => (v ? Math.ceil(parseFloat(v)) : 5));
 });
 
 // ─── get-available-types ──────────────────────────────────────────────────────
@@ -459,6 +498,151 @@ describe('get-workflow-builder-context', () => {
     const execute = makeExecutor();
     const result = await execute('get-workflow-builder-context', makeContext(USER_ID));
     expect(result['draftConfig']).toEqual({ name: 'demo' });
+  });
+});
+
+// ─── get-user-assets ──────────────────────────────────────────────────────────
+
+describe('get-user-assets', () => {
+  test('returns only the calling user\'s assets, mapped to publicId', async () => {
+    const mine = await insertAsset({ name: 'mine.jpg' });
+    await insertAsset({ userId: OTHER_USER_ID, name: 'theirs.jpg', sourceId: randomUUID() });
+    const execute = makeExecutor();
+    const result = await execute('get-user-assets', makeContext(USER_ID));
+    const returned = result['assets'] as Array<Record<string, unknown>>;
+    expect(returned).toHaveLength(1);
+    expect(returned[0]['id']).toBe(mine.publicId);
+    expect(returned[0]['name']).toBe('mine.jpg');
+    expect(returned[0]).not.toHaveProperty('userId');
+  });
+
+  test('filters by assetType when provided', async () => {
+    await insertAsset({ assetType: 'google_photo', sourceId: randomUUID() });
+    await insertAsset({ assetType: 'google_video', sourceId: randomUUID() });
+    const execute = makeExecutor();
+    const result = await execute('get-user-assets', makeContext(USER_ID, { assetType: 'google_video' }));
+    const returned = result['assets'] as Array<Record<string, unknown>>;
+    expect(returned).toHaveLength(1);
+    expect(returned[0]['assetType']).toBe('google_video');
+  });
+
+  test('returns empty array when unauthenticated', async () => {
+    const execute = makeExecutor();
+    const result = await execute('get-user-assets', makeContext(undefined));
+    expect(result['assets']).toEqual([]);
+  });
+});
+
+// ─── create-google-photos-picker-session ─────────────────────────────────────
+
+describe('create-google-photos-picker-session', () => {
+  test('returns an error when the user has not connected Google Photos', async () => {
+    const execute = makeExecutor();
+    const result = await execute('create-google-photos-picker-session', makeContext(USER_ID));
+    expect(result['error']).toBe('Google Photos is not connected');
+    expect(mockedPickerClient.createPickerSession).not.toHaveBeenCalled();
+  });
+
+  test('creates a session and maps the poll interval when connected', async () => {
+    await insertGooglePhotosToken();
+    mockedPickerClient.getValidAccessToken.mockResolvedValue('valid-access-token');
+    mockedPickerClient.createPickerSession.mockResolvedValue({
+      id: 'session-1',
+      pickerUri: 'https://photos.google.com/picker/session-1',
+      pollingConfig: { pollInterval: '5s' },
+      expireTime: '2030-01-01T00:00:00Z',
+    });
+    const execute = makeExecutor();
+    const result = await execute('create-google-photos-picker-session', makeContext(USER_ID));
+    expect(result).toEqual({
+      sessionId: 'session-1',
+      pickerUri: 'https://photos.google.com/picker/session-1',
+      pollIntervalSeconds: 5,
+      expireTime: '2030-01-01T00:00:00Z',
+    });
+  });
+});
+
+// ─── get-picker-session-status ────────────────────────────────────────────────
+
+describe('get-picker-session-status', () => {
+  test('returns mediaItemsSet false when no session id is in state', async () => {
+    const execute = makeExecutor();
+    const result = await execute('get-picker-session-status', { message: { channel: CHANNEL }, user: { id: USER_ID } });
+    expect(result).toEqual({ mediaItemsSet: false });
+    expect(mockedPickerClient.getPickerSessionStatus).not.toHaveBeenCalled();
+  });
+
+  test('reads the session id from persisted state and reports status', async () => {
+    await insertGooglePhotosToken();
+    mockedPickerClient.getValidAccessToken.mockResolvedValue('valid-access-token');
+    mockedPickerClient.getPickerSessionStatus.mockResolvedValue({
+      id: 'session-1',
+      pickerUri: '',
+      expireTime: '2030-01-01T00:00:00Z',
+      mediaItemsSet: true,
+    });
+    const execute = makeExecutor();
+    const result = await execute('get-picker-session-status', {
+      message: { channel: CHANNEL },
+      user: { id: USER_ID },
+      state: { googlePhotosSessionId: 'session-1' },
+    });
+    expect(result).toEqual({ sessionId: 'session-1', mediaItemsSet: true });
+    expect(mockedPickerClient.getPickerSessionStatus).toHaveBeenCalledWith('valid-access-token', 'session-1');
+  });
+});
+
+// ─── save-picked-media-items ──────────────────────────────────────────────────
+
+describe('save-picked-media-items', () => {
+  test('maps picked items into assets rows', async () => {
+    await insertGooglePhotosToken();
+    mockedPickerClient.getValidAccessToken.mockResolvedValue('valid-access-token');
+    mockedPickerClient.listPickedMediaItems.mockResolvedValue([
+      {
+        id: 'media-1',
+        createTime: '2026-01-01T00:00:00Z',
+        type: 'PHOTO',
+        mediaFile: { baseUrl: 'https://example.com/1', mimeType: 'image/jpeg', filename: 'one.jpg' },
+      },
+      {
+        id: 'media-2',
+        createTime: '2026-01-01T00:00:00Z',
+        type: 'VIDEO',
+        mediaFile: { baseUrl: 'https://example.com/2', mimeType: 'video/mp4', filename: 'two.mp4' },
+      },
+    ]);
+    const execute = makeExecutor();
+    const result = await execute('save-picked-media-items', {
+      message: { channel: CHANNEL },
+      user: { id: USER_ID },
+      state: { googlePhotosSessionId: 'session-1' },
+    });
+    const saved = result['assets'] as Array<Record<string, unknown>>;
+    expect(saved).toHaveLength(2);
+    expect(saved.find((a) => a['name'] === 'one.jpg')).toMatchObject({ assetType: 'google_photo', sourceUrl: 'https://example.com/1' });
+    expect(saved.find((a) => a['name'] === 'two.mp4')).toMatchObject({ assetType: 'google_video', sourceUrl: 'https://example.com/2' });
+  });
+
+  test('re-importing the same session does not create duplicate rows', async () => {
+    await insertGooglePhotosToken();
+    mockedPickerClient.getValidAccessToken.mockResolvedValue('valid-access-token');
+    mockedPickerClient.listPickedMediaItems.mockResolvedValue([
+      {
+        id: 'media-1',
+        createTime: '2026-01-01T00:00:00Z',
+        type: 'PHOTO',
+        mediaFile: { baseUrl: 'https://example.com/1', mimeType: 'image/jpeg', filename: 'one.jpg' },
+      },
+    ]);
+    const execute = makeExecutor();
+    const context = { message: { channel: CHANNEL }, user: { id: USER_ID }, state: { googlePhotosSessionId: 'session-1' } };
+    await execute('save-picked-media-items', context);
+    const secondResult = await execute('save-picked-media-items', context);
+    expect((secondResult['assets'] as unknown[])).toHaveLength(1);
+    const allRows = await db.select().from(assets).where(eq(assets.userId, USER_ID));
+    expect(allRows).toHaveLength(1);
   });
 });
 

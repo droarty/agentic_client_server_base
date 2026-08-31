@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import passport from 'passport';
 import { authRoutes } from './routes/auth.routes';
+import { googlePhotosRoutes } from './routes/google-photos.routes';
 import { userRoutes } from './routes/user.routes';
 import { documentRoutes } from './routes/document.routes';
 import { groupRoutes } from './routes/group.routes';
@@ -25,6 +26,7 @@ export function createApp(): Application {
   });
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/google-photos', googlePhotosRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/documents', documentRoutes);
   app.use('/api/groups', groupRoutes);

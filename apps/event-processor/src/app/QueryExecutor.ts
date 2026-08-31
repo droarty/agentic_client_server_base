@@ -14,8 +14,16 @@ import {
   workflowLogs,
   artifactGroupPermissions,
   artifactUserPermissions,
+  assets,
 } from '@agentic-client-server-base/db-schema';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
+import {
+  getValidAccessToken,
+  createPickerSession,
+  getPickerSessionStatus,
+  listPickedMediaItems,
+  parsePollIntervalSeconds,
+} from './services/google-photos-picker.client';
 
 interface QueryExecutorDeps {
   db: Database;
@@ -25,6 +33,7 @@ interface QueryExecutorDeps {
 }
 
 type ArtifactRow = typeof artifacts.$inferSelect;
+type AssetRow = typeof assets.$inferSelect;
 
 // Types the workflow config JSON DSL never sets state on directly.
 const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review'];
@@ -82,6 +91,19 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       state: artifact.state ?? undefined,
       createdAt: artifact.createdAt,
       updatedAt: artifact.updatedAt,
+    };
+  }
+
+  // publicId (not the internal integer id) is what ever leaves this layer —
+  // the sequential id is a DB-internal implementation detail.
+  function toAssetDto(asset: AssetRow) {
+    return {
+      id: asset.publicId,
+      assetType: asset.assetType,
+      name: asset.name,
+      sourceUrl: asset.sourceUrl,
+      metadata: asset.metadata,
+      createdAt: asset.createdAt,
     };
   }
 
@@ -570,6 +592,83 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         // matching channel is removed automatically — no separate delete needed.
         await db.delete(artifacts).where(eq(artifacts.id, documentId));
         return { result: 'Document deleted' };
+      }
+
+      if (queryName === 'create-google-photos-picker-session') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { error: 'Not authenticated' };
+        const accessToken = await getValidAccessToken(db, userId);
+        if (!accessToken) return { error: 'Google Photos is not connected' };
+        const session = await createPickerSession(accessToken);
+        return {
+          sessionId: session.id,
+          pickerUri: session.pickerUri,
+          pollIntervalSeconds: parsePollIntervalSeconds(session.pollingConfig?.pollInterval),
+          expireTime: session.expireTime,
+        };
+      }
+
+      if (queryName === 'get-picker-session-status') {
+        const userId = context.user?.['id'] as string | undefined;
+        const sessionId = context.state?.['googlePhotosSessionId'] as string | undefined;
+        if (!userId || !sessionId) return { mediaItemsSet: false };
+        const accessToken = await getValidAccessToken(db, userId);
+        if (!accessToken) return { mediaItemsSet: false };
+        const session = await getPickerSessionStatus(accessToken, sessionId);
+        return { sessionId, mediaItemsSet: !!session.mediaItemsSet };
+      }
+
+      if (queryName === 'save-picked-media-items') {
+        const userId = context.user?.['id'] as string | undefined;
+        const sessionId = context.state?.['googlePhotosSessionId'] as string | undefined;
+        if (!userId || !sessionId) return { assets: [] };
+        const accessToken = await getValidAccessToken(db, userId);
+        if (!accessToken) return { assets: [], error: 'Google Photos is not connected' };
+
+        const pickedItems = await listPickedMediaItems(accessToken, sessionId);
+        const savedAssets: ReturnType<typeof toAssetDto>[] = [];
+
+        for (const item of pickedItems) {
+          const assetType = item.type === 'VIDEO' ? 'google_video' : 'google_photo';
+          const [inserted] = await db
+            .insert(assets)
+            .values({
+              userId,
+              assetType,
+              name: item.mediaFile.filename,
+              sourceUrl: item.mediaFile.baseUrl,
+              sourceId: item.id,
+              metadata: { mediaFile: item.mediaFile, createTime: item.createTime, type: item.type },
+            })
+            .onConflictDoNothing({
+              target: [assets.userId, assets.assetType, assets.sourceId],
+              where: sql`${assets.sourceId} IS NOT NULL`,
+            })
+            .returning();
+
+          const row =
+            inserted ??
+            (
+              await db
+                .select()
+                .from(assets)
+                .where(and(eq(assets.userId, userId), eq(assets.assetType, assetType), eq(assets.sourceId, item.id)))
+            )[0];
+          if (row) savedAssets.push(toAssetDto(row));
+        }
+
+        return { assets: savedAssets };
+      }
+
+      if (queryName === 'get-user-assets') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { assets: [] };
+        const assetTypeFilter = context.message['assetType'] as string | undefined;
+        const whereClause = assetTypeFilter
+          ? and(eq(assets.userId, userId), eq(assets.assetType, assetTypeFilter))
+          : eq(assets.userId, userId);
+        const rows = await db.select().from(assets).where(whereClause).orderBy(desc(assets.createdAt));
+        return { assets: rows.map(toAssetDto) };
       }
 
       return {};
