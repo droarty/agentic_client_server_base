@@ -11,7 +11,18 @@ import { createQueryExecutor } from './QueryExecutor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 import * as googlePhotosPickerClient from './services/google-photos-picker.client';
 
-jest.mock('./services/google-photos-picker.client');
+// hasGooglePhotosConnection is a pure DB read (like get-user-assets) — kept
+// real rather than mocked, so its test exercises the actual query against
+// the test database. Everything else in this module calls Google's real
+// HTTP APIs and stays mocked.
+jest.mock('./services/google-photos-picker.client', () => ({
+  ...jest.requireActual('./services/google-photos-picker.client'),
+  getValidAccessToken: jest.fn(),
+  createPickerSession: jest.fn(),
+  getPickerSessionStatus: jest.fn(),
+  listPickedMediaItems: jest.fn(),
+  parsePollIntervalSeconds: jest.fn(),
+}));
 const mockedPickerClient = jest.mocked(googlePhotosPickerClient);
 
 let pgHandle: TestPostgresHandle;
@@ -128,6 +139,8 @@ beforeAll(async () => {
   fs.writeFileSync(path.join(configDir, 'configged-chat.json'), JSON.stringify({ initialState: { messages: [] } }));
   fs.writeFileSync(path.join(configDir, 'log-review.json'), JSON.stringify({}));
   fs.writeFileSync(path.join(configDir, 'user-dashboard.json'), JSON.stringify({}));
+  fs.writeFileSync(path.join(configDir, 'asset-browser.json'), JSON.stringify({}));
+  fs.writeFileSync(path.join(configDir, 'google-photos-picker.json'), JSON.stringify({}));
 }, 60000);
 
 afterAll(async () => {
@@ -161,6 +174,13 @@ describe('get-available-types', () => {
     expect(result['availableTypes']).toEqual(expect.arrayContaining(['configged-chat']));
     expect((result['availableTypes'] as string[]).includes('user-dashboard')).toBe(false);
     expect((result['availableTypes'] as string[]).includes('log-review')).toBe(false);
+  });
+
+  test('excludes asset-browser and google-photos-picker (each has its own dedicated entry point, not the generic create-document flow)', async () => {
+    const execute = makeExecutor();
+    const result = await execute('get-available-types', makeContext(USER_ID));
+    expect((result['availableTypes'] as string[]).includes('asset-browser')).toBe(false);
+    expect((result['availableTypes'] as string[]).includes('google-photos-picker')).toBe(false);
   });
 });
 
@@ -531,6 +551,29 @@ describe('get-user-assets', () => {
     const execute = makeExecutor();
     const result = await execute('get-user-assets', makeContext(undefined));
     expect(result['assets']).toEqual([]);
+  });
+});
+
+// ─── get-google-photos-connection-status ─────────────────────────────────────
+
+describe('get-google-photos-connection-status', () => {
+  test('returns connected: false when the user has no token', async () => {
+    const execute = makeExecutor();
+    const result = await execute('get-google-photos-connection-status', makeContext(USER_ID));
+    expect(result).toEqual({ connected: false });
+  });
+
+  test('returns connected: true when a token row exists, regardless of expiry', async () => {
+    await insertGooglePhotosToken({ expiresAt: new Date(Date.now() - 60 * 60 * 1000) });
+    const execute = makeExecutor();
+    const result = await execute('get-google-photos-connection-status', makeContext(USER_ID));
+    expect(result).toEqual({ connected: true });
+  });
+
+  test('returns connected: false when unauthenticated', async () => {
+    const execute = makeExecutor();
+    const result = await execute('get-google-photos-connection-status', makeContext(undefined));
+    expect(result).toEqual({ connected: false });
   });
 });
 

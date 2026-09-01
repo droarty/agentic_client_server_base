@@ -32,18 +32,34 @@
                     "props": { "text": "Google Photos" }
                   },
                   {
-                    "componentType": "actionButton",
-                    "props": { "label": "Pick from Google Photos" },
-                    "emits": { "click": "startPickerSession" }
+                    "componentType": "showIfNot",
+                    "props": { "source": "@temp.hasGooglePhotosConnection" },
+                    "children": [
+                      {
+                        "componentType": "connectGooglePhotosButton",
+                        "props": { "label": "Connect Google Photos" }
+                      }
+                    ]
                   },
                   {
-                    "componentType": "openUrlButton",
-                    "props": { "url": "@temp.pickerUri", "label": "Open Google Photos Picker" }
-                  },
-                  {
-                    "componentType": "simpleTimer",
-                    "props": { "active": "@temp.pickerActive", "duration": "@temp.pollIntervalSeconds", "repeats": 120 },
-                    "emits": { "complete": "pollPickerSession" }
+                    "componentType": "showIf",
+                    "props": { "source": "@temp.hasGooglePhotosConnection" },
+                    "children": [
+                      {
+                        "componentType": "actionButton",
+                        "props": { "label": "Pick from Google Photos" },
+                        "emits": { "click": "startPickerSession" }
+                      },
+                      {
+                        "componentType": "openUrlButton",
+                        "props": { "url": "@temp.pickerUri", "label": "Open Google Photos Picker" }
+                      },
+                      {
+                        "componentType": "simpleTimer",
+                        "props": { "active": "@temp.pickerActive", "duration": "@temp.pollIntervalSeconds", "repeats": 120 },
+                        "emits": { "complete": "pollPickerSession" }
+                      }
+                    ]
                   },
                   {
                     "componentType": "textDisplay",
@@ -57,6 +73,10 @@
         {
           "route": "database-query",
           "query": { "name": "get-user-assets", "responseType": "assets-loaded" }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-google-photos-connection-status", "responseType": "connection-status-checked" }
         }
       ]
     },
@@ -73,6 +93,19 @@
         }
       ]
     },
+    "connection-status-checked": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.hasGooglePhotosConnection", "value": "$message.connected" }
+            ]
+          }
+        }
+      ]
+    },
     "startPickerSession": {
       "requiredAccess": "read",
       "steps": [
@@ -83,18 +116,17 @@
       ]
     },
     "picker-session-created": {
-      "condition": "$message.sessionId",
       "steps": [
         {
           "route": ["client", "database"],
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": "$message.sessionId" },
+              { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": "~{ message.sessionId ? message.sessionId : null }" },
               { "actionType": "update", "path": "$temp.pickerUri", "value": "$message.pickerUri" },
               { "actionType": "update", "path": "$temp.pollIntervalSeconds", "value": "$message.pollIntervalSeconds" },
-              { "actionType": "update", "path": "$temp.pickerActive", "value": true },
-              { "actionType": "update", "path": "$temp.result", "value": "" }
+              { "actionType": "update", "path": "$temp.pickerActive", "value": "~{ $exists(message.sessionId) }" },
+              { "actionType": "update", "path": "$temp.result", "value": "~{ message.sessionId ? '' : ('Failed to start Google Photos: ' & ($exists(message.error) ? message.error : 'please try again')) }" }
             ]
           }
         }

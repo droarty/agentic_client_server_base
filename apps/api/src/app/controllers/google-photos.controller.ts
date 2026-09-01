@@ -34,7 +34,7 @@ export async function googlePhotosCallback(req: Request, res: Response): Promise
   const { code, state, error } = req.query as { code?: string; state?: string; error?: string };
 
   if (error || !code || !state) {
-    res.redirect(`${env.CLIENT_URL}/settings?googlePhotosConnected=0`);
+    res.redirect(`${env.CLIENT_URL}/assets/add/google-photos?googlePhotosConnected=0`);
     return;
   }
 
@@ -42,16 +42,16 @@ export async function googlePhotosCallback(req: Request, res: Response): Promise
   try {
     userId = verifyState(state);
   } catch {
-    res.redirect(`${env.CLIENT_URL}/settings?googlePhotosConnected=0`);
+    res.redirect(`${env.CLIENT_URL}/assets/add/google-photos?googlePhotosConnected=0`);
     return;
   }
 
   try {
     const tokens = await exchangeCodeForTokens(code);
     await saveGooglePhotosTokens(userId, tokens);
-    res.redirect(`${env.CLIENT_URL}/settings?googlePhotosConnected=1`);
+    res.redirect(`${env.CLIENT_URL}/assets/add/google-photos?googlePhotosConnected=1`);
   } catch (err) {
     console.error('googlePhotosCallback failed:', err);
-    res.redirect(`${env.CLIENT_URL}/settings?googlePhotosConnected=0`);
+    res.redirect(`${env.CLIENT_URL}/assets/add/google-photos?googlePhotosConnected=0`);
   }
 }

@@ -51,6 +51,17 @@ export async function getValidAccessToken(db: Database, userId: string): Promise
   return data.access_token;
 }
 
+// Pure existence check — doesn't validate/refresh the token, just whether the
+// user has ever connected. Used to decide which UI to show (connect vs.
+// pick), not to authorize an actual API call.
+export async function hasGooglePhotosConnection(db: Database, userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: serviceTokens.id })
+    .from(serviceTokens)
+    .where(and(eq(serviceTokens.userId, userId), eq(serviceTokens.tokenType, GOOGLE_PHOTOS_TOKEN_TYPE)));
+  return !!row;
+}
+
 export interface PickerSession {
   id: string;
   pickerUri: string;

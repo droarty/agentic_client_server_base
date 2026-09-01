@@ -19,6 +19,7 @@ import {
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 import {
   getValidAccessToken,
+  hasGooglePhotosConnection,
   createPickerSession,
   getPickerSessionStatus,
   listPickedMediaItems,
@@ -137,7 +138,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
   return async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
     try {
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow', 'workflow-builder']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow', 'workflow-builder', 'asset-browser', 'google-photos-picker']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -592,6 +593,12 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         // matching channel is removed automatically — no separate delete needed.
         await db.delete(artifacts).where(eq(artifacts.id, documentId));
         return { result: 'Document deleted' };
+      }
+
+      if (queryName === 'get-google-photos-connection-status') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { connected: false };
+        return { connected: await hasGooglePhotosConnection(db, userId) };
       }
 
       if (queryName === 'create-google-photos-picker-session') {
