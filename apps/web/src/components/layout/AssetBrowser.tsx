@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { Image, Video, File as FileIcon } from 'lucide-react';
 import { TwoColumnPanel } from './TwoColumnPanel';
+import { JsonView } from './JsonView';
 
 interface AssetDto {
   publicId: string;
@@ -96,6 +97,12 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
                   </div>
                 )}
               </div>
+            )}
+            {selected.metadata && (
+              <details className="asset-detail-metadata">
+                <summary>Raw metadata</summary>
+                <JsonView config={selected.metadata} />
+              </details>
             )}
           </div>
         )
