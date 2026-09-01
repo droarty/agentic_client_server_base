@@ -665,8 +665,16 @@ describe('save-picked-media-items', () => {
     });
     const saved = result['assets'] as Array<Record<string, unknown>>;
     expect(saved).toHaveLength(2);
-    expect(saved.find((a) => a['name'] === 'one.jpg')).toMatchObject({ assetType: 'google_photo', sourceUrl: 'https://example.com/1' });
-    expect(saved.find((a) => a['name'] === 'two.mp4')).toMatchObject({ assetType: 'google_video', sourceUrl: 'https://example.com/2' });
+    expect(saved.find((a) => a['name'] === 'one.jpg')).toMatchObject({
+      assetType: 'google_photo',
+      sourceUrl: 'https://example.com/1',
+      metadata: { id: 'media-1' },
+    });
+    expect(saved.find((a) => a['name'] === 'two.mp4')).toMatchObject({
+      assetType: 'google_video',
+      sourceUrl: 'https://example.com/2',
+      metadata: { id: 'media-2' },
+    });
   });
 
   test('re-importing the same session does not create duplicate rows', async () => {

@@ -656,7 +656,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
               name: item.mediaFile.filename,
               sourceUrl: item.mediaFile.baseUrl,
               sourceId: item.id,
-              metadata: { mediaFile: item.mediaFile, createTime: item.createTime, type: item.type },
+              metadata: { id: item.id, mediaFile: item.mediaFile, createTime: item.createTime, type: item.type },
             })
             .onConflictDoNothing({
               target: [assets.userId, assets.assetType, assets.sourceId],
