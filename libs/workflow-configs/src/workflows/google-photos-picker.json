@@ -129,7 +129,8 @@
               { "actionType": "update", "path": "$temp.pickerUri", "value": "" },
               { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" },
               { "actionType": "update", "path": "$temp.result", "value": "~{ message.assets.length & ' item(s) imported' }" },
-              { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": null }
+              { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": null },
+              { "actionType": "update", "path": "$state.pickedAssets", "value": "$message.assets" }
             ]
           }
         }

@@ -44,6 +44,10 @@ export interface CreateDocumentRequest {
   groupId?: string;
   targetUserId?: string;
   parentId?: string;
+  // ISO timestamp. Optional — most documents never expire; a caller sets
+  // this for short-lived, hidden artifacts (e.g. a Google Photos picker
+  // session). No cleanup job reads this yet.
+  expiresAt?: string;
 }
 
 export interface SetUserPermissionRequest {

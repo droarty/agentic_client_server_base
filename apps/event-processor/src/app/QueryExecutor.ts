@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
-import { eq, and, ne, notInArray, inArray, isNull, desc, sql, type SQL } from 'drizzle-orm';
+import { eq, and, notInArray, inArray, isNull, desc, sql, type SQL } from 'drizzle-orm';
 import {
   type Database,
   artifacts,
@@ -36,7 +36,7 @@ type ArtifactRow = typeof artifacts.$inferSelect;
 type AssetRow = typeof assets.$inferSelect;
 
 // Types the workflow config JSON DSL never sets state on directly.
-const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review'];
+const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review', 'google-photos-picker'];
 
 export function createQueryExecutor(deps: QueryExecutorDeps) {
   const { db, configDir, logWorkflowStep, invalidateWorkflowConfig } = deps;
@@ -152,7 +152,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       if (queryName === 'get-user-documents') {
         const userId = context.user?.['id'] as string | undefined;
         if (!userId) return { documents: [] };
-        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId), ne(artifacts.type, 'user-dashboard')));
+        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId), notInArray(artifacts.type, SYSTEM_DOC_EXCLUSIONS)));
         return { documents };
       }
 
@@ -244,7 +244,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           return { newDoc: artifact, newChannelId: channel.channelId };
         });
 
-        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId!), notInArray(artifacts.type, ['user-dashboard', 'log-review'])));
+        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId!), notInArray(artifacts.type, SYSTEM_DOC_EXCLUSIONS)));
         return {
           document: toDocSummary(newDoc, newChannelId),
           documents,
