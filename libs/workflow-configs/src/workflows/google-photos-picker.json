@@ -129,8 +129,8 @@
             "clientMessageType": "update-state",
             "actions": [
               { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": "~{ message.sessionId ? message.sessionId : null }" },
-              { "actionType": "update", "path": "$temp.pickerUri", "value": "$message.pickerUri" },
-              { "actionType": "update", "path": "$temp.pollIntervalSeconds", "value": "$message.pollIntervalSeconds" },
+              { "actionType": "update", "path": "$temp.pickerUri", "value": "~{ message.sessionId ? message.pickerUri : null }" },
+              { "actionType": "update", "path": "$temp.pollIntervalSeconds", "value": "~{ message.sessionId ? message.pollIntervalSeconds : null }" },
               { "actionType": "update", "path": "$temp.pickerActive", "value": "~{ $exists(message.sessionId) }" },
               { "actionType": "update", "path": "$temp.result", "value": "~{ message.sessionId ? '' : ('Failed to start Google Photos: ' & ($exists(message.error) ? message.error : 'please try again')) }" }
             ]
