@@ -1,0 +1,28 @@
+# Deploy from the repo root so the Docker build context includes the whole
+# Nx workspace: flyctl deploy --config fly.api.toml
+#
+# `app` must be replaced with a name registered via `fly apps create`
+# (app names are globally unique across all Fly customers).
+app = "CHANGE-ME-acsb-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "apps/api/Dockerfile"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
