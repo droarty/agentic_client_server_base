@@ -13,9 +13,9 @@ interface AssetDto {
   createdAt: string;
 }
 
-// Google's photo-viewer link renders the actual image inline — sidesteps the
-// baseUrl's Authorization-header requirement entirely (see the "baseUrl
-// requires Authorization: Bearer" note this preview used to be blocked by).
+// Doesn't render as an <img>/<video> src (confirmed by testing) — Google's
+// photo-viewer page, not a raw media URL. Links out to it instead, until a
+// later PR downloads and persists the actual bytes ourselves.
 function googlePhotoViewUrl(sourceId: string): string {
   return `https://photos.google.com/lr/photo/${sourceId}`;
 }
@@ -38,10 +38,6 @@ const DEFAULT_ASSET_ICON = FileIcon;
 
 function iconForAssetType(assetType: string) {
   return ASSET_TYPE_ICONS[assetType] ?? DEFAULT_ASSET_ICON;
-}
-
-function isMediaType(assetType: string) {
-  return assetType === 'google_photo' || assetType === 'google_video';
 }
 
 export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
@@ -75,30 +71,21 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
           <p className="asset-detail-empty">Select an asset to view details.</p>
         ) : (
           <div className="asset-detail">
-            <h3>{selected.name ?? '(untitled)'}</h3>
+            <h3>
+              {selected.sourceId ? (
+                <a href={googlePhotoViewUrl(selected.sourceId)} target="_blank" rel="noopener noreferrer">
+                  {selected.name ?? '(untitled)'}
+                </a>
+              ) : (
+                selected.name ?? '(untitled)'
+              )}
+            </h3>
             <dl>
               <dt>Type</dt>
               <dd>{selected.assetType}</dd>
               <dt>Added</dt>
               <dd>{new Date(selected.createdAt).toLocaleString()}</dd>
             </dl>
-            {isMediaType(selected.assetType) && (
-              <div className="asset-preview">
-                {selected.assetType === 'google_photo' && selected.sourceId ? (
-                  <img src={googlePhotoViewUrl(selected.sourceId)} alt={selected.name ?? ''} />
-                ) : selected.assetType === 'google_video' && selected.sourceUrl ? (
-                  <video src={selected.sourceUrl} controls />
-                ) : (
-                  <div className="asset-preview-placeholder">
-                    {(() => {
-                      const Icon = iconForAssetType(selected.assetType);
-                      return <Icon size={48} />;
-                    })()}
-                    <p>Preview unavailable — the source link may have expired.</p>
-                  </div>
-                )}
-              </div>
-            )}
             {selected.metadata && (
               <details className="asset-detail-metadata">
                 <summary>Raw metadata</summary>
