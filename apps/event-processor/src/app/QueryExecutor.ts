@@ -98,7 +98,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
   // the sequential id is a DB-internal implementation detail.
   function toAssetDto(asset: AssetRow) {
     return {
-      id: asset.publicId,
+      publicId: asset.publicId,
       assetType: asset.assetType,
       name: asset.name,
       sourceUrl: asset.sourceUrl,

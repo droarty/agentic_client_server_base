@@ -511,7 +511,7 @@ describe('get-user-assets', () => {
     const result = await execute('get-user-assets', makeContext(USER_ID));
     const returned = result['assets'] as Array<Record<string, unknown>>;
     expect(returned).toHaveLength(1);
-    expect(returned[0]['id']).toBe(mine.publicId);
+    expect(returned[0]['publicId']).toBe(mine.publicId);
     expect(returned[0]['name']).toBe('mine.jpg');
     expect(returned[0]).not.toHaveProperty('userId');
   });
