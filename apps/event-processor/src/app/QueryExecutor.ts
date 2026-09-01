@@ -104,6 +104,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       assetType: asset.assetType,
       name: asset.name,
       sourceUrl: asset.sourceUrl,
+      sourceId: asset.sourceId,
       metadata: asset.metadata,
       createdAt: asset.createdAt,
     };

@@ -8,8 +8,16 @@ interface AssetDto {
   assetType: string;
   name: string | null;
   sourceUrl: string | null;
+  sourceId: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+}
+
+// Google's photo-viewer link renders the actual image inline — sidesteps the
+// baseUrl's Authorization-header requirement entirely (see the "baseUrl
+// requires Authorization: Bearer" note this preview used to be blocked by).
+function googlePhotoViewUrl(sourceId: string): string {
+  return `https://photos.google.com/lr/photo/${sourceId}`;
 }
 
 interface Props {
@@ -81,12 +89,10 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
             </dl>
             {isMediaType(selected.assetType) && (
               <div className="asset-preview">
-                {selected.sourceUrl && !previewFailed ? (
-                  selected.assetType === 'google_video' ? (
-                    <video src={selected.sourceUrl} controls onError={() => setPreviewFailed(true)} />
-                  ) : (
-                    <img src={selected.sourceUrl} alt={selected.name ?? ''} onError={() => setPreviewFailed(true)} />
-                  )
+                {selected.assetType === 'google_photo' && selected.sourceId && !previewFailed ? (
+                  <img src={googlePhotoViewUrl(selected.sourceId)} alt={selected.name ?? ''} onError={() => setPreviewFailed(true)} />
+                ) : selected.assetType === 'google_video' && selected.sourceUrl && !previewFailed ? (
+                  <video src={selected.sourceUrl} controls onError={() => setPreviewFailed(true)} />
                 ) : (
                   <div className="asset-preview-placeholder">
                     {(() => {
