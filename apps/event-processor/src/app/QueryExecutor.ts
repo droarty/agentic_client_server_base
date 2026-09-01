@@ -686,8 +686,13 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const whereClause = assetTypeFilter
           ? and(eq(assets.userId, userId), eq(assets.assetType, assetTypeFilter))
           : eq(assets.userId, userId);
-        const rows = await db.select().from(assets).where(whereClause).orderBy(desc(assets.createdAt));
-        return { assets: rows.map(toAssetDto) };
+        const rows = await db
+          .select({ asset: assets, addedByEmail: users.email })
+          .from(assets)
+          .innerJoin(users, eq(assets.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(assets.createdAt));
+        return { assets: rows.map(({ asset, addedByEmail }) => ({ ...toAssetDto(asset), addedByEmail })) };
       }
 
       return {};

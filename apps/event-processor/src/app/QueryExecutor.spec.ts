@@ -535,6 +535,7 @@ describe('get-user-assets', () => {
     expect(returned[0]['publicId']).toBe(mine.publicId);
     expect(returned[0]['name']).toBe('mine.jpg');
     expect(returned[0]).not.toHaveProperty('userId');
+    expect(returned[0]['addedByEmail']).toBeDefined();
   });
 
   test('filters by assetType when provided', async () => {

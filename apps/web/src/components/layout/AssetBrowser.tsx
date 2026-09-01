@@ -11,6 +11,7 @@ interface AssetDto {
   sourceId: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  addedByEmail: string;
 }
 
 // Doesn't render as an <img>/<video> src (confirmed by testing) — Google's
@@ -85,6 +86,8 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
               <dd>{selected.assetType}</dd>
               <dt>Added</dt>
               <dd>{new Date(selected.createdAt).toLocaleString()}</dd>
+              <dt>Added by</dt>
+              <dd>{selected.addedByEmail}</dd>
             </dl>
             {selected.metadata && (
               <details className="asset-detail-metadata">
