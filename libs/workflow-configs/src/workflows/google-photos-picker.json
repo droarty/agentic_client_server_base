@@ -51,13 +51,19 @@
                         "emits": { "click": "startPickerSession" }
                       },
                       {
-                        "componentType": "openUrlButton",
-                        "props": { "url": "@temp.pickerUri", "label": "Open Google Photos Picker" }
-                      },
-                      {
-                        "componentType": "simpleTimer",
-                        "props": { "active": "@temp.pickerActive", "duration": "@temp.pollIntervalSeconds", "repeats": 120 },
-                        "emits": { "complete": "pollPickerSession" }
+                        "componentType": "showIf",
+                        "props": { "source": "@temp.pickerUri" },
+                        "children": [
+                          {
+                            "componentType": "openUrlButton",
+                            "props": { "url": "@temp.pickerUri", "label": "Open Google Photos Picker" }
+                          },
+                          {
+                            "componentType": "simpleTimer",
+                            "props": { "active": "@temp.pickerActive", "duration": "@temp.pollIntervalSeconds", "repeats": 120 },
+                            "emits": { "complete": "pollPickerSession" }
+                          }
+                        ]
                       }
                     ]
                   },

@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
+import axios from 'axios';
 import { eq, and, notInArray, inArray, isNull, desc, sql, type SQL } from 'drizzle-orm';
 import {
   type Database,
@@ -680,7 +681,14 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
 
       return {};
     } catch (err) {
-      logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail: String(err) });
+      // For an HTTP error from an external API (e.g. Google's Picker API),
+      // String(err) is just "AxiosError: Request failed with status code
+      // 403" — the actual reason lives in the response body, which is what
+      // you need to know to fix a Cloud Console config issue.
+      const errorDetail = axios.isAxiosError(err)
+        ? `${String(err)} — response: ${JSON.stringify(err.response?.data)}`
+        : String(err);
+      logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail });
       return {};
     }
   };
