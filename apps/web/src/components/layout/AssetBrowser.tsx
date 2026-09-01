@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from 'react';
+import { type ComponentType } from 'react';
 import { Image, Video, File as FileIcon } from 'lucide-react';
 import { TwoColumnPanel } from './TwoColumnPanel';
 import { JsonView } from './JsonView';
@@ -48,11 +48,6 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
   const assetList = Array.isArray(assets) ? (assets as AssetDto[]) : [];
   const selected = (selectedAsset as AssetDto | null | undefined) ?? null;
 
-  const [previewFailed, setPreviewFailed] = useState(false);
-  useEffect(() => {
-    setPreviewFailed(false);
-  }, [selected?.publicId]);
-
   return (
     <TwoColumnPanel
       left={
@@ -89,10 +84,10 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
             </dl>
             {isMediaType(selected.assetType) && (
               <div className="asset-preview">
-                {selected.assetType === 'google_photo' && selected.sourceId && !previewFailed ? (
-                  <img src={googlePhotoViewUrl(selected.sourceId)} alt={selected.name ?? ''} onError={() => setPreviewFailed(true)} />
-                ) : selected.assetType === 'google_video' && selected.sourceUrl && !previewFailed ? (
-                  <video src={selected.sourceUrl} controls onError={() => setPreviewFailed(true)} />
+                {selected.assetType === 'google_photo' && selected.sourceId ? (
+                  <img src={googlePhotoViewUrl(selected.sourceId)} alt={selected.name ?? ''} />
+                ) : selected.assetType === 'google_video' && selected.sourceUrl ? (
+                  <video src={selected.sourceUrl} controls />
                 ) : (
                   <div className="asset-preview-placeholder">
                     {(() => {
