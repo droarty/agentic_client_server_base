@@ -37,7 +37,7 @@ const EXPECTED_TABLES = [
   'workflow_configs',
   'workflow_logs',
   'assets',
-  'google_photos_tokens',
+  'service_tokens',
 ];
 
 describe('migrations produce the expected schema', () => {
@@ -126,6 +126,20 @@ describe('migrations produce the expected schema', () => {
         INSERT INTO assets (user_id, asset_type, source_id) VALUES (${userId}, 'google_photo', 'dup-source-id')
       `)
     ).rejects.toThrow();
+  });
+
+  test('service_tokens rejects a duplicate (userId, tokenType) but allows a second tokenType for the same user', async () => {
+    const userResult = await db.execute(sql`
+      INSERT INTO users (email) VALUES (${`u-${Math.random()}@test.com`}) RETURNING id
+    `);
+    const userId = userResult.rows[0]?.['id'] as string;
+    const insertToken = (tokenType: string) => db.execute(sql`
+      INSERT INTO service_tokens (user_id, token_type, access_token, refresh_token, expires_at, scope)
+      VALUES (${userId}, ${tokenType}, 'a', 'r', now(), 's')
+    `);
+    await insertToken('google_photos');
+    await expect(insertToken('google_photos')).rejects.toThrow();
+    await expect(insertToken('dropbox')).resolves.toBeDefined();
   });
 });
 

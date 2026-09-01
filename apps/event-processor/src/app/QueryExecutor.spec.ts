@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type { Pool } from 'pg';
-import { createDb, artifacts, channels, users, workflowLogs, assets, googlePhotosTokens, type Database } from '@agentic-client-server-base/db-schema';
+import { createDb, artifacts, channels, users, workflowLogs, assets, serviceTokens, GOOGLE_PHOTOS_TOKEN_TYPE, type Database } from '@agentic-client-server-base/db-schema';
 import { startTestPostgres, type TestPostgresHandle } from '@agentic-client-server-base/db-schema/test-helpers';
 import { createQueryExecutor } from './QueryExecutor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
@@ -75,11 +75,12 @@ async function insertAsset(overrides: Partial<typeof assets.$inferInsert> = {}) 
   return asset;
 }
 
-async function insertGooglePhotosToken(overrides: Partial<typeof googlePhotosTokens.$inferInsert> = {}) {
+async function insertGooglePhotosToken(overrides: Partial<typeof serviceTokens.$inferInsert> = {}) {
   const [token] = await db
-    .insert(googlePhotosTokens)
+    .insert(serviceTokens)
     .values({
       userId: USER_ID,
+      tokenType: GOOGLE_PHOTOS_TOKEN_TYPE,
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
@@ -140,7 +141,7 @@ beforeEach(async () => {
   await db.delete(channels);
   await db.delete(artifacts);
   await db.delete(assets);
-  await db.delete(googlePhotosTokens);
+  await db.delete(serviceTokens);
   await db.delete(users);
   const [u1] = await db.insert(users).values({ email: `u1-${randomUUID()}@test.com` }).returning();
   const [u2] = await db.insert(users).values({ email: `u2-${randomUUID()}@test.com` }).returning();

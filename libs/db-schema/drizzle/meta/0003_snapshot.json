@@ -1,5 +1,5 @@
 {
-  "id": "190c5a95-9039-4552-8b6b-2e11ff2bce4c",
+  "id": "327188e0-8872-4d2a-9cbc-286094ae135c",
   "prevId": "e145229a-5f7b-4671-96a6-c904d8d2aac2",
   "version": "7",
   "dialect": "postgresql",
@@ -1179,8 +1179,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.google_photos_tokens": {
-      "name": "google_photos_tokens",
+    "public.service_tokens": {
+      "name": "service_tokens",
       "schema": "",
       "columns": {
         "id": {
@@ -1193,6 +1193,12 @@
         "user_id": {
           "name": "user_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_type": {
+          "name": "token_type",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1235,11 +1241,33 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "service_tokens_user_id_token_type_key": {
+          "name": "service_tokens_user_id_token_type_key",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "token_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "google_photos_tokens_user_id_users_id_fk": {
-          "name": "google_photos_tokens_user_id_users_id_fk",
-          "tableFrom": "google_photos_tokens",
+        "service_tokens_user_id_users_id_fk": {
+          "name": "service_tokens_user_id_users_id_fk",
+          "tableFrom": "service_tokens",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
@@ -1252,15 +1280,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "google_photos_tokens_user_id_unique": {
-          "name": "google_photos_tokens_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

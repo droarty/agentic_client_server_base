@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { eq } from 'drizzle-orm';
-import { googlePhotosTokens } from '@agentic-client-server-base/db-schema';
+import { eq, and } from 'drizzle-orm';
+import { serviceTokens, GOOGLE_PHOTOS_TOKEN_TYPE } from '@agentic-client-server-base/db-schema';
 import { getDb } from '../db/connect';
 import { env } from '../config/env';
 
@@ -56,27 +56,31 @@ export async function saveGooglePhotosTokens(userId: string, tokens: GoogleToken
 
   if (tokens.refresh_token) {
     await db
-      .insert(googlePhotosTokens)
+      .insert(serviceTokens)
       .values({
         userId,
+        tokenType: GOOGLE_PHOTOS_TOKEN_TYPE,
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         expiresAt,
         scope: tokens.scope,
       })
       .onConflictDoUpdate({
-        target: googlePhotosTokens.userId,
+        target: [serviceTokens.userId, serviceTokens.tokenType],
         set: { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, expiresAt, scope: tokens.scope, updatedAt: new Date() },
       });
     return;
   }
 
-  const [existing] = await db.select().from(googlePhotosTokens).where(eq(googlePhotosTokens.userId, userId));
+  const [existing] = await db
+    .select()
+    .from(serviceTokens)
+    .where(and(eq(serviceTokens.userId, userId), eq(serviceTokens.tokenType, GOOGLE_PHOTOS_TOKEN_TYPE)));
   if (!existing) {
     throw new Error('Google did not return a refresh token and no existing Google Photos connection was found for this user');
   }
   await db
-    .update(googlePhotosTokens)
+    .update(serviceTokens)
     .set({ accessToken: tokens.access_token, expiresAt, scope: tokens.scope, updatedAt: new Date() })
-    .where(eq(googlePhotosTokens.userId, userId));
+    .where(and(eq(serviceTokens.userId, userId), eq(serviceTokens.tokenType, GOOGLE_PHOTOS_TOKEN_TYPE)));
 }

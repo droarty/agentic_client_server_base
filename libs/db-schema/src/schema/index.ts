@@ -5,4 +5,4 @@ export * from './artifacts';
 export * from './channels';
 export * from './workflow';
 export * from './assets';
-export * from './google-photos-tokens';
+export * from './service-tokens';

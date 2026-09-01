@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { eq } from 'drizzle-orm';
-import { type Database, googlePhotosTokens } from '@agentic-client-server-base/db-schema';
+import { eq, and } from 'drizzle-orm';
+import { type Database, serviceTokens, GOOGLE_PHOTOS_TOKEN_TYPE } from '@agentic-client-server-base/db-schema';
 import { env } from '../config/env';
 
 const pickerClient = axios.create({ baseURL: 'https://photospicker.googleapis.com', timeout: 10000 });
@@ -22,7 +22,10 @@ interface RefreshTokenResponse {
 // service (event-processor's env) — an accepted tradeoff of driving the
 // picker flow through the workflow engine rather than apps/api's REST layer.
 export async function getValidAccessToken(db: Database, userId: string): Promise<string | null> {
-  const [row] = await db.select().from(googlePhotosTokens).where(eq(googlePhotosTokens.userId, userId));
+  const [row] = await db
+    .select()
+    .from(serviceTokens)
+    .where(and(eq(serviceTokens.userId, userId), eq(serviceTokens.tokenType, GOOGLE_PHOTOS_TOKEN_TYPE)));
   if (!row) return null;
 
   if (row.expiresAt.getTime() - REFRESH_MARGIN_MS > Date.now()) {
@@ -41,9 +44,9 @@ export async function getValidAccessToken(db: Database, userId: string): Promise
 
   const expiresAt = new Date(Date.now() + data.expires_in * 1000);
   await db
-    .update(googlePhotosTokens)
+    .update(serviceTokens)
     .set({ accessToken: data.access_token, expiresAt, scope: data.scope, updatedAt: new Date() })
-    .where(eq(googlePhotosTokens.userId, userId));
+    .where(and(eq(serviceTokens.userId, userId), eq(serviceTokens.tokenType, GOOGLE_PHOTOS_TOKEN_TYPE)));
 
   return data.access_token;
 }
