@@ -1,0 +1,72 @@
+{
+  "name": "asset-browser",
+  "version": "1.0.0",
+  "initialState": {},
+  "handlers": {
+    "initializeState": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": {}
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "assetBrowser",
+                    "props": { "assets": "@temp.assets", "selectedAsset": "@temp.selectedAsset" },
+                    "emits": { "select": "select-asset" }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-user-assets", "responseType": "assets-loaded" }
+        }
+      ]
+    },
+    "assets-loaded": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" }
+            ]
+          }
+        }
+      ]
+    },
+    "select-asset": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedAsset", "value": "$message.selectedAsset" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -17,13 +17,17 @@ function verifyState(state: string): string {
   return payload.userId;
 }
 
+// Returns the auth URL as JSON rather than redirecting directly — this route
+// requires an Authorization header (authMiddleware), which a plain browser
+// navigation (e.g. an <a href>) can't send. The frontend calls this via an
+// authenticated AJAX request, then navigates the browser itself.
 export function connectGooglePhotos(req: AuthRequest, res: Response): void {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
     res.status(503).json({ message: 'Google OAuth is not configured' });
     return;
   }
   const state = signState(req.userId as string);
-  res.redirect(buildGooglePhotosAuthUrl(state));
+  res.json({ authUrl: buildGooglePhotosAuthUrl(state) });
 }
 
 export async function googlePhotosCallback(req: Request, res: Response): Promise<void> {
