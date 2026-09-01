@@ -37,8 +37,8 @@
                     "emits": { "click": "startPickerSession" }
                   },
                   {
-                    "componentType": "textDisplay",
-                    "props": { "text": "@temp.pickerUri" }
+                    "componentType": "openUrlButton",
+                    "props": { "url": "@temp.pickerUri", "label": "Open Google Photos Picker" }
                   },
                   {
                     "componentType": "simpleTimer",
