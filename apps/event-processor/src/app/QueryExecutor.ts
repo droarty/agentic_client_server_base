@@ -608,6 +608,16 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const accessToken = await getValidAccessToken(db, userId);
         if (!accessToken) return { error: 'Google Photos is not connected' };
         const session = await createPickerSession(accessToken);
+        // The picker document's own expiresAt started as a generous "draft"
+        // window (set before any session existed); now that we know the
+        // real, much shorter window Google itself gives this session, tie
+        // the artifact's lifetime to that instead — it should live exactly
+        // as long as the session it's tracking, not an arbitrary flat TTL.
+        const channel = context.message['channel'] as string | undefined;
+        const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
+        if (artifactId && session.expireTime) {
+          await db.update(artifacts).set({ expiresAt: new Date(session.expireTime) }).where(eq(artifacts.id, artifactId));
+        }
         return {
           sessionId: session.id,
           pickerUri: session.pickerUri,

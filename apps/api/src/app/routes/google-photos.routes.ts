@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { connectGooglePhotos, googlePhotosCallback } from '../controllers/google-photos.controller';
+import { connectGooglePhotos, googlePhotosCallback, getPickerDocument } from '../controllers/google-photos.controller';
 
 export const googlePhotosRoutes = Router();
 
@@ -8,6 +8,11 @@ export const googlePhotosRoutes = Router();
 // distinct from the login flow (see plan for the incremental-authorization
 // rationale).
 googlePhotosRoutes.get('/connect', authMiddleware, connectGooglePhotos);
+
+// Find-or-create rather than always-create — see getOrCreateGooglePhotosPickerDocument
+// for why (a page reload mid-session must rejoin the same document, not
+// abandon it for a fresh empty one).
+googlePhotosRoutes.get('/picker-document', authMiddleware, getPickerDocument);
 
 // Not behind authMiddleware — this is Google's redirect back, which carries
 // no Authorization header. The authenticated user's identity travels via the

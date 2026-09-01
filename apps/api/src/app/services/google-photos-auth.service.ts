@@ -1,8 +1,14 @@
 import axios from 'axios';
-import { eq, and } from 'drizzle-orm';
-import { serviceTokens, GOOGLE_PHOTOS_TOKEN_TYPE } from '@agentic-client-server-base/db-schema';
+import * as path from 'path';
+import * as fs from 'fs';
+import { eq, and, or, isNull, gt, desc } from 'drizzle-orm';
+import { serviceTokens, GOOGLE_PHOTOS_TOKEN_TYPE, artifacts, channels } from '@agentic-client-server-base/db-schema';
+import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-configs';
 import { getDb } from '../db/connect';
 import { env } from '../config/env';
+
+const PICKER_ARTIFACT_TYPE = 'google-photos-picker';
+const PICKER_ARTIFACT_TTL_MS = 24 * 60 * 60 * 1000;
 
 // Confirm this exact scope string in Google Cloud Console / current Photos
 // API docs before shipping — not confirmed via live docs at plan time.
@@ -83,4 +89,61 @@ export async function saveGooglePhotosTokens(userId: string, tokens: GoogleToken
     .update(serviceTokens)
     .set({ accessToken: tokens.access_token, expiresAt, scope: tokens.scope, updatedAt: new Date() })
     .where(and(eq(serviceTokens.userId, userId), eq(serviceTokens.tokenType, GOOGLE_PHOTOS_TOKEN_TYPE)));
+}
+
+// Reuses the caller's most recent non-expired picker artifact instead of
+// always creating a fresh one. Originally this always-created-fresh on every
+// page mount — but a real picking session spans a multi-minute cross-tab
+// interaction (open Google's picker, come back), which is exactly the kind
+// of interaction a browser is prone to reload a backgrounded tab for. On
+// reload the page would create a brand-new, empty document, silently
+// abandoning an in-progress or just-completed session. Reusing an existing
+// unexpired one means a reload rejoins the same session instead.
+export async function getOrCreateGooglePhotosPickerDocument(userId: string): Promise<string> {
+  const db = getDb();
+
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(artifacts)
+      .where(
+        and(
+          eq(artifacts.type, PICKER_ARTIFACT_TYPE),
+          eq(artifacts.userId, userId),
+          or(isNull(artifacts.expiresAt), gt(artifacts.expiresAt, new Date()))
+        )
+      )
+      .orderBy(desc(artifacts.createdAt))
+      .limit(1);
+
+    let artifact = existing;
+    if (!artifact) {
+      let initialState: Record<string, unknown> | undefined;
+      const configPath = path.join(WORKFLOW_CONFIG_DIR, `${PICKER_ARTIFACT_TYPE}.json`);
+      if (fs.existsSync(configPath)) {
+        const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+        initialState = wfConfig.initialState;
+      }
+      [artifact] = await tx
+        .insert(artifacts)
+        .values({
+          name: 'Google Photos Import',
+          type: PICKER_ARTIFACT_TYPE,
+          userId,
+          expiresAt: new Date(Date.now() + PICKER_ARTIFACT_TTL_MS),
+          ...(initialState !== undefined ? { state: initialState } : {}),
+        })
+        .returning();
+    }
+
+    let [channel] = await tx.select().from(channels).where(eq(channels.artifactId, artifact.id));
+    if (!channel) {
+      [channel] = await tx
+        .insert(channels)
+        .values({ workflowType: PICKER_ARTIFACT_TYPE, userId, artifactId: artifact.id })
+        .returning();
+    }
+
+    return channel.channelId;
+  });
 }

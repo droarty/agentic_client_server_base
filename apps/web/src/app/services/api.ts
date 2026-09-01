@@ -66,6 +66,11 @@ export async function apiConnectGooglePhotos(): Promise<string> {
   return data.authUrl;
 }
 
+export async function apiGetGooglePhotosPickerDocument(): Promise<{ channelId: string }> {
+  const { data } = await client.get<{ channelId: string }>('/api/google-photos/picker-document');
+  return data;
+}
+
 export async function apiGetDocument(id: string): Promise<Artifact> {
   const { data } = await client.get<Artifact>(`/api/documents/${id}`);
   return data;

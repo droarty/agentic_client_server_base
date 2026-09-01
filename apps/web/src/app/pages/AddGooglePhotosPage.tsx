@@ -2,11 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { LayoutDocumentView } from '../components/LayoutDocumentView';
-import { apiCreateDocument } from '../services/api';
-
-// 24 hours is a starting default — easy to tune later, not load-bearing since
-// no cleanup job reads expiresAt yet.
-const PICKER_ARTIFACT_TTL_MS = 24 * 60 * 60 * 1000;
+import { apiGetGooglePhotosPickerDocument } from '../services/api';
 
 export function AddGooglePhotosPage() {
   const [channelId, setChannelId] = useState<string | null>(null);
@@ -25,11 +21,12 @@ export function AddGooglePhotosPage() {
   }, []);
 
   useEffect(() => {
-    apiCreateDocument({
-      name: 'Google Photos Import',
-      workflowType: 'google-photos-picker',
-      expiresAt: new Date(Date.now() + PICKER_ARTIFACT_TTL_MS).toISOString(),
-    }).then((doc) => setChannelId(doc.currentChannelId));
+    // Find-or-create: reuses an in-progress (or just-completed, still
+    // unexpired) picker document rather than always starting fresh — so a
+    // page reload mid-session (e.g. a backgrounded tab getting discarded
+    // while you're away in Google's picker) rejoins the same session
+    // instead of silently abandoning it for an empty one.
+    apiGetGooglePhotosPickerDocument().then(({ channelId }) => setChannelId(channelId));
   }, []);
 
   return (

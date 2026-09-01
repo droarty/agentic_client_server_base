@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { buildGooglePhotosAuthUrl, exchangeCodeForTokens, saveGooglePhotosTokens } from '../services/google-photos-auth.service';
+import {
+  buildGooglePhotosAuthUrl,
+  exchangeCodeForTokens,
+  saveGooglePhotosTokens,
+  getOrCreateGooglePhotosPickerDocument,
+} from '../services/google-photos-auth.service';
 import { env } from '../config/env';
 
 // The connect->callback round trip goes through Google, which won't carry an
@@ -28,6 +33,11 @@ export function connectGooglePhotos(req: AuthRequest, res: Response): void {
   }
   const state = signState(req.userId as string);
   res.json({ authUrl: buildGooglePhotosAuthUrl(state) });
+}
+
+export async function getPickerDocument(req: AuthRequest, res: Response): Promise<void> {
+  const channelId = await getOrCreateGooglePhotosPickerDocument(req.userId as string);
+  res.json({ channelId });
 }
 
 export async function googlePhotosCallback(req: Request, res: Response): Promise<void> {
