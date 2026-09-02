@@ -1,0 +1,11 @@
+name = "r2-dev-gateway"
+main = "worker.ts"
+compatibility_date = "2026-09-01"
+
+# No account_id: this Worker is never deployed to Cloudflare's edge — it only
+# ever runs locally via `wrangler dev`, which needs no login/account and
+# persists R2 state under .wrangler/state/v3/r2 relative to this file.
+
+[[r2_buckets]]
+binding = "STORAGE_BUCKET"
+bucket_name = "dev-storage-bucket"

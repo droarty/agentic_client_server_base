@@ -12,6 +12,15 @@ export const env = {
   // Picker API. See google-photos-picker.client.ts.
   GOOGLE_CLIENT_ID: process.env['GOOGLE_CLIENT_ID'] || '',
   GOOGLE_CLIENT_SECRET: process.env['GOOGLE_CLIENT_SECRET'] || '',
+  // Object storage: 'wrangler-dev' routes through apps/r2-dev-gateway (a
+  // local-only Worker run via `wrangler dev`) for local development;
+  // 'r2' talks to the real Cloudflare R2 S3-compatible endpoint.
+  STORAGE_BACKEND: (process.env['STORAGE_BACKEND'] || 'wrangler-dev') as 'wrangler-dev' | 'r2',
+  R2_DEV_GATEWAY_URL: process.env['R2_DEV_GATEWAY_URL'] || 'http://localhost:8787',
+  R2_ACCOUNT_ID: process.env['R2_ACCOUNT_ID'] || '',
+  R2_ACCESS_KEY_ID: process.env['R2_ACCESS_KEY_ID'] || '',
+  R2_SECRET_ACCESS_KEY: process.env['R2_SECRET_ACCESS_KEY'] || '',
+  R2_BUCKET_NAME: process.env['R2_BUCKET_NAME'] || '',
 } as const;
 
 // A shared secret authenticates the gateway's calls to POST /internal/events.
@@ -19,4 +28,20 @@ export const env = {
 // refuse to boot rather than silently run unauthenticated.
 if (env.NODE_ENV === 'production' && !env.INTERNAL_SERVICE_TOKEN) {
   throw new Error('INTERNAL_SERVICE_TOKEN must be set in production');
+}
+
+// STORAGE_BACKEND=wrangler-dev talks to a localhost-only dev gateway that
+// doesn't exist in staging/prod — refuse to boot in production unless
+// explicitly pointed at real R2 with full credentials, rather than silently
+// falling back to an unreachable localhost URL.
+if (env.NODE_ENV === 'production') {
+  if (env.STORAGE_BACKEND !== 'r2') {
+    throw new Error("STORAGE_BACKEND must be 'r2' in production");
+  }
+  const missingR2Vars = (['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME'] as const).filter(
+    (key) => !env[key]
+  );
+  if (missingR2Vars.length > 0) {
+    throw new Error(`Missing required R2 env vars in production: ${missingR2Vars.join(', ')}`);
+  }
 }

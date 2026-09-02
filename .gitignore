@@ -5,6 +5,7 @@ dist/
 .nx/cache
 .nx/workspace-data
 tmp/
+.wrangler/
 coverage/
 *.log
 .DS_Store

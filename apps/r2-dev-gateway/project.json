@@ -1,0 +1,15 @@
+{
+  "name": "r2-dev-gateway",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/r2-dev-gateway",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "wrangler dev --config apps/r2-dev-gateway/wrangler.toml --port 8787"
+      }
+    }
+  },
+  "tags": ["type:app", "scope:r2-dev-gateway"]
+}
