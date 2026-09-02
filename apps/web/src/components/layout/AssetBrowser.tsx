@@ -115,7 +115,7 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
                   selected.assetType === 'google_video' ? (
                     <video src={selected.sourceUrl} controls onError={() => setPreviewFailed(true)} />
                   ) : (
-                    <img src={selected.sourceUrl} alt={selected.name ?? ''} onError={() => setPreviewFailed(true)} />
+                    <img src={selected.sourceUrl} alt={selected.name ?? ''} style={{ maxWidth: '400px' }} onError={() => setPreviewFailed(true)} />
                   )
                 ) : (
                   <div className="asset-preview-placeholder">
