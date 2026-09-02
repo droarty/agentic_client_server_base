@@ -4,6 +4,9 @@
   "license": "MIT",
   "private": true,
   "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=24"
+  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@embedded-postgres/darwin-arm64",
@@ -86,7 +89,7 @@
     "@types/jest": "^29.5.12",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.14.2",
+    "@types/node": "^24.13.3",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/pg": "^8.21.0",
