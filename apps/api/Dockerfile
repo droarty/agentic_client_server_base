@@ -1,6 +1,6 @@
 # Build context is the repo root (Nx needs the whole workspace to build one
 # app's dependency graph): docker build -f apps/api/Dockerfile .
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /repo
 RUN corepack enable
 # A one-shot Docker build gets no benefit from Nx's persistent daemon, and its
@@ -15,7 +15,7 @@ RUN pnpm exec nx build api
 # emitting a minimal package.json + pnpm-lock.yaml alongside main.js — install
 # just those into the runtime image instead of copying the whole monorepo's
 # node_modules.
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 RUN corepack enable
 COPY --from=builder /repo/dist/apps/api ./
