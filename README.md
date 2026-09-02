@@ -100,7 +100,7 @@ tools/
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - Docker (for local PostgreSQL — see setup below)
 
 ## Setup
