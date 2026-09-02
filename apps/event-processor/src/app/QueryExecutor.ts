@@ -26,12 +26,14 @@ import {
   listPickedMediaItems,
   parsePollIntervalSeconds,
 } from './services/google-photos-picker.client';
+import { AssetTransformJob } from './AssetTransformManager';
 
 interface QueryExecutorDeps {
   db: Database;
   configDir: string;
   logWorkflowStep: (entry: WorkflowLogEntry) => void;
   invalidateWorkflowConfig?: (name: string) => void;
+  assetTransformManager: { publish(job: AssetTransformJob): void };
 }
 
 type ArtifactRow = typeof artifacts.$inferSelect;
@@ -41,7 +43,7 @@ type AssetRow = typeof assets.$inferSelect;
 const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review', 'google-photos-picker'];
 
 export function createQueryExecutor(deps: QueryExecutorDeps) {
-  const { db, configDir, logWorkflowStep, invalidateWorkflowConfig } = deps;
+  const { db, configDir, logWorkflowStep, invalidateWorkflowConfig, assetTransformManager } = deps;
 
   function bumpPatchVersion(version: string): string {
     const parts = version.split('.');
@@ -106,6 +108,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       sourceUrl: asset.sourceUrl,
       sourceId: asset.sourceId,
       metadata: asset.metadata,
+      transformStatus: asset.transformStatus,
       createdAt: asset.createdAt,
     };
   }
@@ -644,19 +647,37 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         const accessToken = await getValidAccessToken(db, userId);
         if (!accessToken) return { assets: [], error: 'Google Photos is not connected' };
 
+        const channel = context.message['channel'] as string;
+        const user = context.user as { id: string; email: string } | undefined;
         const pickedItems = await listPickedMediaItems(accessToken, sessionId);
         const savedAssets: ReturnType<typeof toAssetDto>[] = [];
 
+        // Insert-or-skip only — the actual download/convert/upload happens
+        // asynchronously (assetTransformManager.publish, fire-and-forget), so
+        // this returns as soon as every picked item has a row. New rows come
+        // back with transformStatus: 'downloading' and sourceUrl: null; the
+        // client sees each one flip to done/failed live via a later
+        // asset-transform-completed event on this same channel.
         for (const item of pickedItems) {
           const assetType = item.type === 'VIDEO' ? 'google_video' : 'google_photo';
+          const [existing] = await db
+            .select()
+            .from(assets)
+            .where(and(eq(assets.userId, userId), eq(assets.assetType, assetType), eq(assets.sourceId, item.id)));
+          if (existing) {
+            savedAssets.push(toAssetDto(existing));
+            continue;
+          }
+
           const [inserted] = await db
             .insert(assets)
             .values({
               userId,
               assetType,
               name: item.mediaFile.filename,
-              sourceUrl: item.mediaFile.baseUrl,
+              sourceUrl: null,
               sourceId: item.id,
+              transformStatus: 'downloading',
               metadata: { id: item.id, mediaFile: item.mediaFile, createTime: item.createTime, type: item.type },
             })
             .onConflictDoNothing({
@@ -673,7 +694,11 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
                 .from(assets)
                 .where(and(eq(assets.userId, userId), eq(assets.assetType, assetType), eq(assets.sourceId, item.id)))
             )[0];
-          if (row) savedAssets.push(toAssetDto(row));
+          if (!row) continue;
+          savedAssets.push(toAssetDto(row));
+          if (inserted) {
+            assetTransformManager.publish({ channel, user, assetId: row.id, item });
+          }
         }
 
         return { assets: savedAssets };

@@ -36,6 +36,13 @@
       "when": 1788284858494,
       "tag": "0004_aspiring_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788366882871,
+      "tag": "0005_cold_wolf_cub",
+      "breakpoints": true
     }
   ]
 }

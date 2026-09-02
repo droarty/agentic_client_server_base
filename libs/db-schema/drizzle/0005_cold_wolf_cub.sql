@@ -1,0 +1,1 @@
+ALTER TABLE "assets" ADD COLUMN "transform_status" text DEFAULT 'none' NOT NULL;

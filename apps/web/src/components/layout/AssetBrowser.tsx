@@ -1,4 +1,4 @@
-import { type ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Image, Video, File as FileIcon } from 'lucide-react';
 import { TwoColumnPanel } from './TwoColumnPanel';
 import { JsonView } from './JsonView';
@@ -10,13 +10,19 @@ interface AssetDto {
   sourceUrl: string | null;
   sourceId: string | null;
   metadata: Record<string, unknown> | null;
+  transformStatus: string;
   createdAt: string;
   addedByEmail: string;
 }
 
-// Doesn't render as an <img>/<video> src (confirmed by testing) — Google's
-// photo-viewer page, not a raw media URL. Links out to it instead, until a
-// later PR downloads and persists the actual bytes ourselves.
+function isMediaType(assetType: string) {
+  return assetType === 'google_photo' || assetType === 'google_video';
+}
+
+// Google's photo-viewer page, not a raw media URL — doesn't work as an
+// img/video src (confirmed by testing). Kept as a "view on Google Photos"
+// link alongside the inline preview below, which now renders our own
+// persisted copy (sourceUrl) instead.
 function googlePhotoViewUrl(sourceId: string): string {
   return `https://photos.google.com/lr/photo/${sourceId}`;
 }
@@ -45,6 +51,11 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
   const assetList = Array.isArray(assets) ? (assets as AssetDto[]) : [];
   const selected = (selectedAsset as AssetDto | null | undefined) ?? null;
 
+  const [previewFailed, setPreviewFailed] = useState(false);
+  useEffect(() => {
+    setPreviewFailed(false);
+  }, [selected?.publicId]);
+
   return (
     <TwoColumnPanel
       left={
@@ -60,6 +71,7 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
                   <button type="button" onClick={() => onSelect?.({ selectedAsset: asset })}>
                     <Icon size={16} />
                     <span>{asset.name ?? '(untitled)'}</span>
+                    <span className="asset-status">{asset.transformStatus}</span>
                   </button>
                 </li>
               );
@@ -89,6 +101,33 @@ export function AssetBrowser({ assets, selectedAsset, onSelect }: Props) {
               <dt>Added by</dt>
               <dd>{selected.addedByEmail}</dd>
             </dl>
+            {isMediaType(selected.assetType) && (
+              <div className="asset-preview">
+                {selected.transformStatus === 'downloading' ? (
+                  <div className="asset-preview-placeholder">
+                    <p>Processing…</p>
+                  </div>
+                ) : selected.transformStatus === 'failed' ? (
+                  <div className="asset-preview-placeholder">
+                    <p>Import failed — see raw metadata for details.</p>
+                  </div>
+                ) : selected.sourceUrl && !previewFailed ? (
+                  selected.assetType === 'google_video' ? (
+                    <video src={selected.sourceUrl} controls onError={() => setPreviewFailed(true)} />
+                  ) : (
+                    <img src={selected.sourceUrl} alt={selected.name ?? ''} style={{ maxWidth: '400px' }} onError={() => setPreviewFailed(true)} />
+                  )
+                ) : (
+                  <div className="asset-preview-placeholder">
+                    {(() => {
+                      const Icon = iconForAssetType(selected.assetType);
+                      return <Icon size={48} />;
+                    })()}
+                    <p>Preview unavailable.</p>
+                  </div>
+                )}
+              </div>
+            )}
             {selected.metadata && (
               <details className="asset-detail-metadata">
                 <summary>Raw metadata</summary>

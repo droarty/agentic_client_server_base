@@ -115,3 +115,46 @@ export async function listPickedMediaItems(accessToken: string, sessionId: strin
   });
   return data.mediaItems ?? [];
 }
+
+export interface MediaDownloadPlan {
+  url: string;
+  resultingMimeType: string;
+  // Set only when a conversion actually happened (HEIC/HEIF -> JPEG).
+  originalMimeType?: string;
+}
+
+const HEIC_MIME_TYPES = new Set(['image/heic', 'image/heif']);
+
+// Per Google's docs, appending `=d` to baseUrl downloads the original bytes
+// unmodified. Appending a resize suffix instead makes Google re-encode the
+// result, and for a HEIC/HEIF source that re-encode comes back as JPEG — so
+// reusing the resize param at the original dimensions is a free HEIC->JPEG
+// conversion (most non-Safari browsers can't render HEIC inline).
+export function planMediaDownload(item: PickedMediaItem): MediaDownloadPlan {
+  const { baseUrl, mimeType, mediaFileMetadata } = item.mediaFile;
+  if (item.type === 'PHOTO' && HEIC_MIME_TYPES.has(mimeType)) {
+    const width = mediaFileMetadata?.['width'];
+    const height = mediaFileMetadata?.['height'];
+    if (typeof width === 'number' && typeof height === 'number') {
+      return { url: `${baseUrl}=w${width}-h${height}`, resultingMimeType: 'image/jpeg', originalMimeType: mimeType };
+    }
+    // No dimensions on record (unexpected but not fatal) — fall through to
+    // a plain download; it'll stay HEIC and hit the frontend's
+    // can't-render-inline placeholder, same as before this existed.
+  }
+  return { url: `${baseUrl}=d`, resultingMimeType: mimeType };
+}
+
+const mediaDownloadClient = axios.create({ timeout: 30000 });
+
+// baseUrl (with or without a suffix) points at lh3.googleusercontent.com, a
+// different host than pickerClient's photospicker.googleapis.com baseURL —
+// plain axios call, no shared client. Requires the same OAuth bearer token
+// as the Picker API itself; not fetchable anonymously.
+export async function downloadPickedMediaItem(accessToken: string, url: string): Promise<Buffer> {
+  const { data } = await mediaDownloadClient.get<ArrayBuffer>(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    responseType: 'arraybuffer',
+  });
+  return Buffer.from(data);
+}

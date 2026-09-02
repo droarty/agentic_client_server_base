@@ -17,9 +17,10 @@ export const assets = pgTable('assets', {
   // future asset types shouldn't require an enum migration.
   assetType: text('asset_type').notNull(),
   name: text('name'),
-  // Source's URL for the asset at import time — for Google Photos this is a
-  // baseUrl that expires ~60 minutes after being minted, so it's a snapshot,
-  // not a durable link.
+  // URL to our own persisted copy of the media (set once transformStatus
+  // reaches 'done') — null until then. Never the source's own transient URL
+  // (e.g. Google's baseUrl, which expires ~60 minutes after being minted and
+  // needs an auth header anyway); that lives in metadata.mediaFile.baseUrl.
   sourceUrl: text('source_url'),
   // Stable identifier at the source, independent of sourceUrl's staleness —
   // used to dedupe re-imports of the same item.
@@ -27,6 +28,12 @@ export const assets = pgTable('assets', {
   // Arbitrary provider-specific payload — deliberately schemaless, same
   // rationale as artifacts.state.
   metadata: jsonb('metadata').notNull().default({}),
+  // Lifecycle of the async work that turns a freshly-imported item into a
+  // browser-servable asset (download from the source, optionally convert,
+  // upload to storage). 'none' is the default for asset types that never
+  // need this (or haven't started it yet); Google Photos ingestion sets
+  // 'downloading' immediately at insert and resolves to 'done'/'failed'.
+  transformStatus: text('transform_status').notNull().default('none'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
