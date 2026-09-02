@@ -1,7 +1,8 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
-import { eq, and, ne, notInArray, inArray, isNull, desc, sql, type SQL } from 'drizzle-orm';
+import axios from 'axios';
+import { eq, and, notInArray, inArray, isNull, desc, sql, type SQL } from 'drizzle-orm';
 import {
   type Database,
   artifacts,
@@ -14,8 +15,17 @@ import {
   workflowLogs,
   artifactGroupPermissions,
   artifactUserPermissions,
+  assets,
 } from '@agentic-client-server-base/db-schema';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
+import {
+  getValidAccessToken,
+  hasGooglePhotosConnection,
+  createPickerSession,
+  getPickerSessionStatus,
+  listPickedMediaItems,
+  parsePollIntervalSeconds,
+} from './services/google-photos-picker.client';
 
 interface QueryExecutorDeps {
   db: Database;
@@ -25,9 +35,10 @@ interface QueryExecutorDeps {
 }
 
 type ArtifactRow = typeof artifacts.$inferSelect;
+type AssetRow = typeof assets.$inferSelect;
 
 // Types the workflow config JSON DSL never sets state on directly.
-const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review'];
+const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review', 'google-photos-picker'];
 
 export function createQueryExecutor(deps: QueryExecutorDeps) {
   const { db, configDir, logWorkflowStep, invalidateWorkflowConfig } = deps;
@@ -85,6 +96,20 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
     };
   }
 
+  // publicId (not the internal integer id) is what ever leaves this layer —
+  // the sequential id is a DB-internal implementation detail.
+  function toAssetDto(asset: AssetRow) {
+    return {
+      publicId: asset.publicId,
+      assetType: asset.assetType,
+      name: asset.name,
+      sourceUrl: asset.sourceUrl,
+      sourceId: asset.sourceId,
+      metadata: asset.metadata,
+      createdAt: asset.createdAt,
+    };
+  }
+
   // The 5 queries that used to fetch artifacts then separately fetch matching
   // channels and join by artifactId in application code — now a single JOIN.
   async function listDocsWithChannels(whereClause: SQL) {
@@ -115,7 +140,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
   return async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
     try {
       if (queryName === 'get-available-types') {
-        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow', 'workflow-builder']);
+        const systemExclusions = new Set(['user-dashboard', 'log-review', 'group-dashboard', 'create-new-group-workflow', 'manage-members-workflow', 'browse-documents-workflow', 'create-new-document-workflow', 'workflow-builder', 'asset-browser', 'google-photos-picker']);
         const files = fs.readdirSync(configDir);
         const filesystemTypes = files
           .filter((f: string) => f.endsWith('.json'))
@@ -130,7 +155,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       if (queryName === 'get-user-documents') {
         const userId = context.user?.['id'] as string | undefined;
         if (!userId) return { documents: [] };
-        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId), ne(artifacts.type, 'user-dashboard')));
+        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId), notInArray(artifacts.type, SYSTEM_DOC_EXCLUSIONS)));
         return { documents };
       }
 
@@ -222,7 +247,7 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
           return { newDoc: artifact, newChannelId: channel.channelId };
         });
 
-        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId!), notInArray(artifacts.type, ['user-dashboard', 'log-review'])));
+        const documents = await listDocsWithChannels(and(eq(artifacts.userId, userId!), notInArray(artifacts.type, SYSTEM_DOC_EXCLUSIONS)));
         return {
           document: toDocSummary(newDoc, newChannelId),
           documents,
@@ -572,9 +597,114 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         return { result: 'Document deleted' };
       }
 
+      if (queryName === 'get-google-photos-connection-status') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { connected: false };
+        return { connected: await hasGooglePhotosConnection(db, userId) };
+      }
+
+      if (queryName === 'create-google-photos-picker-session') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { error: 'Not authenticated' };
+        const accessToken = await getValidAccessToken(db, userId);
+        if (!accessToken) return { error: 'Google Photos is not connected' };
+        const session = await createPickerSession(accessToken);
+        // The picker document's own expiresAt started as a generous "draft"
+        // window (set before any session existed); now that we know the
+        // real, much shorter window Google itself gives this session, tie
+        // the artifact's lifetime to that instead — it should live exactly
+        // as long as the session it's tracking, not an arbitrary flat TTL.
+        const channel = context.message['channel'] as string | undefined;
+        const artifactId = channel ? await getArtifactIdForChannel(channel) : null;
+        if (artifactId && session.expireTime) {
+          await db.update(artifacts).set({ expiresAt: new Date(session.expireTime) }).where(eq(artifacts.id, artifactId));
+        }
+        return {
+          sessionId: session.id,
+          pickerUri: session.pickerUri,
+          pollIntervalSeconds: parsePollIntervalSeconds(session.pollingConfig?.pollInterval),
+          expireTime: session.expireTime,
+        };
+      }
+
+      if (queryName === 'get-picker-session-status') {
+        const userId = context.user?.['id'] as string | undefined;
+        const sessionId = context.state?.['googlePhotosSessionId'] as string | undefined;
+        if (!userId || !sessionId) return { mediaItemsSet: false };
+        const accessToken = await getValidAccessToken(db, userId);
+        if (!accessToken) return { mediaItemsSet: false };
+        const session = await getPickerSessionStatus(accessToken, sessionId);
+        return { sessionId, mediaItemsSet: !!session.mediaItemsSet };
+      }
+
+      if (queryName === 'save-picked-media-items') {
+        const userId = context.user?.['id'] as string | undefined;
+        const sessionId = context.state?.['googlePhotosSessionId'] as string | undefined;
+        if (!userId || !sessionId) return { assets: [] };
+        const accessToken = await getValidAccessToken(db, userId);
+        if (!accessToken) return { assets: [], error: 'Google Photos is not connected' };
+
+        const pickedItems = await listPickedMediaItems(accessToken, sessionId);
+        const savedAssets: ReturnType<typeof toAssetDto>[] = [];
+
+        for (const item of pickedItems) {
+          const assetType = item.type === 'VIDEO' ? 'google_video' : 'google_photo';
+          const [inserted] = await db
+            .insert(assets)
+            .values({
+              userId,
+              assetType,
+              name: item.mediaFile.filename,
+              sourceUrl: item.mediaFile.baseUrl,
+              sourceId: item.id,
+              metadata: { id: item.id, mediaFile: item.mediaFile, createTime: item.createTime, type: item.type },
+            })
+            .onConflictDoNothing({
+              target: [assets.userId, assets.assetType, assets.sourceId],
+              where: sql`${assets.sourceId} IS NOT NULL`,
+            })
+            .returning();
+
+          const row =
+            inserted ??
+            (
+              await db
+                .select()
+                .from(assets)
+                .where(and(eq(assets.userId, userId), eq(assets.assetType, assetType), eq(assets.sourceId, item.id)))
+            )[0];
+          if (row) savedAssets.push(toAssetDto(row));
+        }
+
+        return { assets: savedAssets };
+      }
+
+      if (queryName === 'get-user-assets') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { assets: [] };
+        const assetTypeFilter = context.message['assetType'] as string | undefined;
+        const whereClause = assetTypeFilter
+          ? and(eq(assets.userId, userId), eq(assets.assetType, assetTypeFilter))
+          : eq(assets.userId, userId);
+        const rows = await db
+          .select({ asset: assets, addedByEmail: users.email })
+          .from(assets)
+          .innerJoin(users, eq(assets.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(assets.createdAt));
+        return { assets: rows.map(({ asset, addedByEmail }) => ({ ...toAssetDto(asset), addedByEmail })) };
+      }
+
       return {};
     } catch (err) {
-      logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail: String(err) });
+      // For an HTTP error from an external API (e.g. Google's Picker API),
+      // String(err) is just "AxiosError: Request failed with status code
+      // 403" — the actual reason lives in the response body, which is what
+      // you need to know to fix a Cloud Console config issue.
+      const errorDetail = axios.isAxiosError(err)
+        ? `${String(err)} — response: ${JSON.stringify(err.response?.data)}`
+        : String(err);
+      logWorkflowStep({ createdAt: new Date(), channel: (context.message['channel'] as string) || '', docType: '', handlerName: queryName, logType: 'error', errorMessage: 'executeQuery error', errorDetail });
       return {};
     }
   };

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AuthResponse, User, UpdateUserRequest, Artifact, GroupBreadcrumbItem } from '@agentic-client-server-base/shared-types';
+import { AuthResponse, User, UpdateUserRequest, Artifact, GroupBreadcrumbItem, CreateDocumentRequest } from '@agentic-client-server-base/shared-types';
 
 export const API_URL = (typeof process !== 'undefined' && process.env['API_URL']) || 'http://localhost:3000';
 
@@ -56,8 +56,18 @@ export async function apiGetDocuments(): Promise<Artifact[]> {
   return data;
 }
 
-export async function apiCreateDocument(name: string): Promise<Artifact> {
-  const { data } = await client.post<Artifact>('/api/documents', { name });
+export async function apiCreateDocument(request: CreateDocumentRequest): Promise<Artifact> {
+  const { data } = await client.post<Artifact>('/api/documents', request);
+  return data;
+}
+
+export async function apiConnectGooglePhotos(): Promise<string> {
+  const { data } = await client.get<{ authUrl: string }>('/api/google-photos/connect');
+  return data.authUrl;
+}
+
+export async function apiGetGooglePhotosPickerDocument(): Promise<{ channelId: string }> {
+  const { data } = await client.get<{ channelId: string }>('/api/google-photos/picker-document');
   return data;
 }
 

@@ -1,0 +1,178 @@
+{
+  "name": "google-photos-picker",
+  "version": "1.0.0",
+  "initialState": {},
+  "handlers": {
+    "initializeState": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-state",
+            "initialState": {}
+          }
+        }
+      ]
+    },
+    "defaultView": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  {
+                    "componentType": "textDisplay",
+                    "props": { "text": "Google Photos" }
+                  },
+                  {
+                    "componentType": "showIfNot",
+                    "props": { "source": "@temp.hasGooglePhotosConnection" },
+                    "children": [
+                      {
+                        "componentType": "connectGooglePhotosButton",
+                        "props": { "label": "Connect Google Photos" }
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "showIf",
+                    "props": { "source": "@temp.hasGooglePhotosConnection" },
+                    "children": [
+                      {
+                        "componentType": "actionButton",
+                        "props": { "label": "Pick from Google Photos" },
+                        "emits": { "click": "startPickerSession" }
+                      },
+                      {
+                        "componentType": "showIf",
+                        "props": { "source": "@temp.pickerUri" },
+                        "children": [
+                          {
+                            "componentType": "openUrlButton",
+                            "props": { "url": "@temp.pickerUri", "label": "Open Google Photos Picker" }
+                          },
+                          {
+                            "componentType": "simpleTimer",
+                            "props": { "active": "@temp.pickerActive", "duration": "@temp.pollIntervalSeconds", "repeats": 120 },
+                            "emits": { "complete": "pollPickerSession" }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "textDisplay",
+                    "props": { "text": "@temp.result" }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-user-assets", "responseType": "assets-loaded" }
+        },
+        {
+          "route": "database-query",
+          "query": { "name": "get-google-photos-connection-status", "responseType": "connection-status-checked" }
+        }
+      ]
+    },
+    "assets-loaded": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" }
+            ]
+          }
+        }
+      ]
+    },
+    "connection-status-checked": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.hasGooglePhotosConnection", "value": "$message.connected" }
+            ]
+          }
+        }
+      ]
+    },
+    "startPickerSession": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "create-google-photos-picker-session", "responseType": "picker-session-created" }
+        }
+      ]
+    },
+    "picker-session-created": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": "~{ message.sessionId ? message.sessionId : null }" },
+              { "actionType": "update", "path": "$temp.pickerUri", "value": "~{ message.sessionId ? message.pickerUri : null }" },
+              { "actionType": "update", "path": "$temp.pollIntervalSeconds", "value": "~{ message.sessionId ? message.pollIntervalSeconds : null }" },
+              { "actionType": "update", "path": "$temp.pickerActive", "value": "~{ $exists(message.sessionId) }" },
+              { "actionType": "update", "path": "$temp.result", "value": "~{ message.sessionId ? '' : ('Failed to start Google Photos: ' & ($exists(message.error) ? message.error : 'please try again')) }" }
+            ]
+          }
+        }
+      ]
+    },
+    "pollPickerSession": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "get-picker-session-status", "responseType": "picker-status-checked" }
+        }
+      ]
+    },
+    "picker-status-checked": {
+      "condition": "$message.mediaItemsSet",
+      "steps": [
+        {
+          "route": "database-query",
+          "query": { "name": "save-picked-media-items", "responseType": "media-items-saved" }
+        }
+      ]
+    },
+    "media-items-saved": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.pickerActive", "value": false },
+              { "actionType": "update", "path": "$temp.pickerUri", "value": "" },
+              { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" },
+              { "actionType": "update", "path": "$temp.result", "value": "~{ $count(message.assets) & ' item(s) imported: ' & $join(message.assets.name, ', ') }" },
+              { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": null },
+              { "actionType": "update", "path": "$state.pickedAssets", "value": "$message.assets" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

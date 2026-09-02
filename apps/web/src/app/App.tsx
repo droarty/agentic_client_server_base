@@ -10,6 +10,8 @@ import { AuthorDashboardPage } from './pages/AuthorDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { LogReviewPage } from './pages/LogReviewPage';
+import { AssetBrowserPage } from './pages/AssetBrowserPage';
+import { AddGooglePhotosPage } from './pages/AddGooglePhotosPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { DevPage } from './pages/DevPage';
 
@@ -32,6 +34,8 @@ export function App() {
 
           <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="/channel/:channelId/logs" element={<PrivateRoute><LogReviewPage /></PrivateRoute>} />
+          <Route path="/assets" element={<PrivateRoute><AssetBrowserPage /></PrivateRoute>} />
+          <Route path="/assets/add/google-photos" element={<PrivateRoute><AddGooglePhotosPage /></PrivateRoute>} />
 
           <Route path="/" element={<Navigate to="/user" replace />} />
           <Route path="*" element={<Navigate to="/user" replace />} />

@@ -67,6 +67,15 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   actionButton: lazy(() =>
     import('@/components/layout/ActionButton').then((m) => ({ default: m.ActionButton as ComponentType<LayoutComponentProps> }))
   ),
+  openUrlButton: lazy(() =>
+    import('@/components/layout/OpenUrlButton').then((m) => ({ default: m.OpenUrlButton as ComponentType<LayoutComponentProps> }))
+  ),
+  assetBrowser: lazy(() =>
+    import('@/components/layout/AssetBrowser').then((m) => ({ default: m.AssetBrowser as ComponentType<LayoutComponentProps> }))
+  ),
+  connectGooglePhotosButton: lazy(() =>
+    import('@/components/layout/ConnectGooglePhotosButton').then((m) => ({ default: m.ConnectGooglePhotosButton as ComponentType<LayoutComponentProps> }))
+  ),
   progressBar: lazy(() =>
     import('@/components/layout/ProgressBar').then((m) => ({ default: m.ProgressBar as ComponentType<LayoutComponentProps> }))
   ),

@@ -1,5 +1,7 @@
 import { Response, NextFunction } from 'express';
-import { eq, and, or, inArray, desc } from 'drizzle-orm';
+import * as path from 'path';
+import * as fs from 'fs';
+import { eq, and, or, inArray, notInArray, desc } from 'drizzle-orm';
 import {
   artifacts,
   channels,
@@ -8,7 +10,9 @@ import {
   membershipRoles,
   artifactGroupPermissions,
   artifactUserPermissions,
+  workflowConfigs,
 } from '@agentic-client-server-base/db-schema';
+import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-configs';
 import { getDb } from '../db/connect';
 import { AuthRequest } from '../middleware/auth.middleware';
 import {
@@ -22,6 +26,13 @@ import {
 import type { CreateDocumentRequest, SetUserPermissionRequest } from '@agentic-client-server-base/shared-types';
 
 type ArtifactRow = typeof artifacts.$inferSelect;
+
+// Mirrors apps/event-processor/src/app/QueryExecutor.ts's SYSTEM_DOC_EXCLUSIONS
+// (duplicated rather than shared, matching this codebase's existing pattern for
+// small cross-app constants like GOOGLE_CLIENT_ID). Types here are hidden from
+// the user's regular document list — either system-owned (dashboards) or, like
+// google-photos-picker, a short-lived artifact the user never manages directly.
+const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review', 'google-photos-picker'];
 
 function toArtifactSummaryDto(artifact: ArtifactRow, currentChannelId: string) {
   return {
@@ -84,7 +95,8 @@ export async function listDocuments(req: AuthRequest, res: Response, next: NextF
       : [];
     const permittedIds = [...new Set([...userPermRows.map((r) => r.artifactId), ...groupPermRows.map((r) => r.artifactId)])];
 
-    const whereClause = permittedIds.length > 0 ? or(eq(artifacts.userId, userId), inArray(artifacts.id, permittedIds))! : eq(artifacts.userId, userId);
+    const ownershipClause = permittedIds.length > 0 ? or(eq(artifacts.userId, userId), inArray(artifacts.id, permittedIds))! : eq(artifacts.userId, userId);
+    const whereClause = and(ownershipClause, notInArray(artifacts.type, SYSTEM_DOC_EXCLUSIONS))!;
     const docs = await db.select().from(artifacts).where(whereClause).orderBy(desc(artifacts.createdAt));
     const channelMap = await getChannelMapForArtifacts(docs.map((d) => d.id));
     res.json(docs.map((d) => toArtifactSummaryDto(d, channelMap.get(d.id) ?? '')));
@@ -96,7 +108,7 @@ export async function listDocuments(req: AuthRequest, res: Response, next: NextF
 export async function createDocument(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const { name, workflowType, groupId, targetUserId, parentId } = req.body as Partial<CreateDocumentRequest>;
+    const { name, workflowType, groupId, targetUserId, parentId, expiresAt } = req.body as Partial<CreateDocumentRequest>;
     if (!name?.trim()) {
       res.status(400).json({ message: 'name is required' });
       return;
@@ -104,6 +116,20 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
     if (!workflowType?.trim()) {
       res.status(400).json({ message: 'workflowType is required' });
       return;
+    }
+    const resolvedExpiresAt = expiresAt ? new Date(expiresAt) : undefined;
+
+    // Seed `state` from the workflow config's `initialState`, matching the
+    // WS-driven create-document QueryExecutor branch — this REST path
+    // previously inserted with no state at all.
+    let initialState: Record<string, unknown> | undefined;
+    const configPath = path.join(WORKFLOW_CONFIG_DIR, `${workflowType.trim()}.json`);
+    if (fs.existsSync(configPath)) {
+      const wfConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { initialState?: Record<string, unknown> };
+      initialState = wfConfig.initialState;
+    } else {
+      const [customConfig] = await db.select({ initialState: workflowConfigs.initialState }).from(workflowConfigs).where(eq(workflowConfigs.name, workflowType.trim()));
+      if (customConfig?.initialState) initialState = customConfig.initialState as Record<string, unknown>;
     }
 
     let permissions: { groupId: string; access: 'admin' | 'read' }[] = [];
@@ -154,6 +180,8 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
             groupId: resolvedGroupId,
             parentId: resolvedParentId,
             permissionManagerMode: 'group_admin',
+            ...(initialState !== undefined ? { state: initialState } : {}),
+            ...(resolvedExpiresAt ? { expiresAt: resolvedExpiresAt } : {}),
           })
           .returning();
         if (permissions.length > 0) {
@@ -178,6 +206,8 @@ export async function createDocument(req: AuthRequest, res: Response, next: Next
           groupId: resolvedGroupId,
           parentId: resolvedParentId,
           permissionManagerMode: 'owner',
+          ...(initialState !== undefined ? { state: initialState } : {}),
+          ...(resolvedExpiresAt ? { expiresAt: resolvedExpiresAt } : {}),
         })
         .returning();
       if (permissions.length > 0) {

@@ -4,6 +4,9 @@
   "license": "MIT",
   "private": true,
   "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=24"
+  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "@embedded-postgres/darwin-arm64",
@@ -16,7 +19,8 @@
       "@embedded-postgres/windows-x64",
       "chromedriver",
       "esbuild",
-      "nx"
+      "nx",
+      "workerd"
     ]
   },
   "workspaces": [
@@ -42,13 +46,16 @@
     "restart:processor": "bash scripts/restart-processor.sh",
     "restart:web": "bash scripts/restart-web.sh",
     "restart:all": "bash scripts/restart-all.sh",
+    "restart:r2-gateway": "bash scripts/restart-r2-gateway.sh",
     "seed:workflows": "node scripts/seed-workflow-configs.js",
     "create-root-group": "node scripts/create-new-root-group.js",
     "db:generate": "drizzle-kit generate --config libs/db-schema/drizzle.config.ts",
-    "db:migrate": "TS_NODE_PROJECT=libs/db-schema/tsconfig.lib.json node -r ts-node/register -r tsconfig-paths/register libs/db-schema/src/migrate.ts"
+    "db:migrate": "TS_NODE_PROJECT=libs/db-schema/tsconfig.lib.json node -r ts-node/register -r tsconfig-paths/register libs/db-schema/src/migrate.ts",
+    "verify:r2": "TS_NODE_PROJECT=apps/event-processor/tsconfig.app.json node -r ts-node/register -r tsconfig-paths/register scripts/verify-r2-roundtrip.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@aws-sdk/client-s3": "^3.1124.0",
     "@msgpack/msgpack": "^3.1.3",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-slot": "^1.2.4",
@@ -74,6 +81,7 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260901.1",
     "@nx/esbuild": "^20.0.0",
     "@nx/jest": "^20.0.0",
     "@nx/js": "^20.0.0",
@@ -86,7 +94,7 @@
     "@types/jest": "^29.5.12",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.14.2",
+    "@types/node": "^24.13.3",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/pg": "^8.21.0",
@@ -116,6 +124,7 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.2",
-    "wdio-chromedriver-service": "^8.1.1"
+    "wdio-chromedriver-service": "^8.1.1",
+    "wrangler": "^4.128.0"
   }
 }

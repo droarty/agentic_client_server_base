@@ -54,7 +54,8 @@
                       ]
                     }
                   },
-                  { "name": "Build New Workflow", "_id": "build-workflow", "emits_msg": "open-workflow-builder" }
+                  { "name": "Build New Workflow", "_id": "build-workflow", "emits_msg": "open-workflow-builder" },
+                  { "name": "My Assets", "_id": "my-assets", "emits_msg": "open-assets" }
                 ]
               }
             ]
@@ -192,6 +193,17 @@
           "transform": {
             "clientMessageType": "redirect",
             "url": "~{ '/group/' & message._id }"
+          }
+        }
+      ]
+    },
+    "open-assets": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "redirect",
+            "url": "/assets"
           }
         }
       ]

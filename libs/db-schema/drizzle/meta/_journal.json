@@ -22,6 +22,20 @@
       "when": 1786724800637,
       "tag": "0002_jsonb_array_remove",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788275579561,
+      "tag": "0003_free_whirlwind",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788284858494,
+      "tag": "0004_aspiring_vampiro",
+      "breakpoints": true
     }
   ]
 }

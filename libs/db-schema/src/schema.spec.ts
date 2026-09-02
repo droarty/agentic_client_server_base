@@ -36,6 +36,8 @@ const EXPECTED_TABLES = [
   'channels',
   'workflow_configs',
   'workflow_logs',
+  'assets',
+  'service_tokens',
 ];
 
 describe('migrations produce the expected schema', () => {
@@ -55,6 +57,36 @@ describe('migrations produce the expected schema', () => {
     expect(result.rows[0]?.['data_type']).toBe('jsonb');
   });
 
+  test('assets.metadata column is jsonb', async () => {
+    const result = await db.execute(sql`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'assets' AND column_name = 'metadata'
+    `);
+    expect(result.rows[0]?.['data_type']).toBe('jsonb');
+  });
+
+  test('assets.id is an integer identity column, distinct from public_id', async () => {
+    const idResult = await db.execute(sql`
+      SELECT data_type, is_identity FROM information_schema.columns
+      WHERE table_name = 'assets' AND column_name = 'id'
+    `);
+    expect(idResult.rows[0]?.['data_type']).toBe('integer');
+    expect(idResult.rows[0]?.['is_identity']).toBe('YES');
+
+    const publicIdResult = await db.execute(sql`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'assets' AND column_name = 'public_id'
+    `);
+    expect(publicIdResult.rows[0]?.['data_type']).toBe('uuid');
+
+    const uniqueResult = await db.execute(sql`
+      SELECT tc.constraint_type FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = tc.constraint_name
+      WHERE tc.table_name = 'assets' AND kcu.column_name = 'public_id' AND tc.constraint_type = 'UNIQUE'
+    `);
+    expect(uniqueResult.rows).toHaveLength(1);
+  });
+
   test('foreign keys with ON DELETE CASCADE are present on artifact_group_permissions', async () => {
     const result = await db.execute(sql`
       SELECT rc.delete_rule
@@ -66,6 +98,48 @@ describe('migrations produce the expected schema', () => {
     for (const row of result.rows) {
       expect(row['delete_rule']).toBe('CASCADE');
     }
+  });
+
+  test('assets.user_id foreign key is ON DELETE CASCADE', async () => {
+    const result = await db.execute(sql`
+      SELECT rc.delete_rule
+      FROM information_schema.referential_constraints rc
+      JOIN information_schema.table_constraints tc ON tc.constraint_name = rc.constraint_name
+      WHERE tc.table_name = 'assets'
+    `);
+    expect(result.rows.length).toBeGreaterThan(0);
+    for (const row of result.rows) {
+      expect(row['delete_rule']).toBe('CASCADE');
+    }
+  });
+
+  test('assets partial unique index rejects a duplicate (userId, assetType, sourceId)', async () => {
+    const userResult = await db.execute(sql`
+      INSERT INTO users (email) VALUES (${`u-${Math.random()}@test.com`}) RETURNING id
+    `);
+    const userId = userResult.rows[0]?.['id'] as string;
+    await db.execute(sql`
+      INSERT INTO assets (user_id, asset_type, source_id) VALUES (${userId}, 'google_photo', 'dup-source-id')
+    `);
+    await expect(
+      db.execute(sql`
+        INSERT INTO assets (user_id, asset_type, source_id) VALUES (${userId}, 'google_photo', 'dup-source-id')
+      `)
+    ).rejects.toThrow();
+  });
+
+  test('service_tokens rejects a duplicate (userId, tokenType) but allows a second tokenType for the same user', async () => {
+    const userResult = await db.execute(sql`
+      INSERT INTO users (email) VALUES (${`u-${Math.random()}@test.com`}) RETURNING id
+    `);
+    const userId = userResult.rows[0]?.['id'] as string;
+    const insertToken = (tokenType: string) => db.execute(sql`
+      INSERT INTO service_tokens (user_id, token_type, access_token, refresh_token, expires_at, scope)
+      VALUES (${userId}, ${tokenType}, 'a', 'r', now(), 's')
+    `);
+    await insertToken('google_photos');
+    await expect(insertToken('google_photos')).rejects.toThrow();
+    await expect(insertToken('dropbox')).resolves.toBeDefined();
   });
 });
 

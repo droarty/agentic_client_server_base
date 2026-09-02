@@ -130,10 +130,11 @@ When `LayoutDocumentView` mounts on a channel it sends **two independent message
 | GET | `/api/documents/:id` | JWT | Get document (includes messages) |
 
 ## Workflow conventions
-- **Plan mode**: When finished planning, show the plan contents, then call ExitPlanMode. Once the user approves, the very first actions before writing any code must be: (1) create a GitHub issue, (2) create and checkout a feature branch (`issue-N-short-description`). Never begin implementation without doing these two steps first.
+- **Plan mode**: When finished planning, show the plan contents, then call ExitPlanMode — this is the approval gate; never create the issue before the user approves the plan through it. Once approved: (1) create a GitHub issue, (2) create and checkout a feature branch (`issue-N-short-description`), (3) implement the planned code, (4) once implementation is complete, create the PR (a normal PR, not a draft). Never open the PR before the code is written.
 - **Branch rule**: ALL code changes must be made on a feature branch. Never commit or make edits directly on main.
 - **GitHub issues**: Always paste the entire plan into the issue body.
 - **PR merges**: Never merge a PR into main. Only the user can merge via GitHub.
+- **Commit signing**: All commits must be signed. `commit.gpgsign` is set to `true` in this repo's git config (SSH signing, `gpg.format=ssh`) so this happens automatically — don't pass `-S` manually and don't disable it. If a commit ever ends up unsigned (e.g. made outside this config), re-sign it (`git commit --amend -S`, or `git rebase <base> --exec "git commit --amend --no-edit -S"` for a range) before pushing.
 
 ## Key conventions
 - **Shared-types / access-control / workflow-configs / db-schema changes** require restarting both `api` and `event-processor` (nodemon only watches each app's own `src/`) — run `pnpm run restart:all` automatically, no confirmation needed

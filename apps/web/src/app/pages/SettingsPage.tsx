@@ -55,6 +55,7 @@ export function SettingsPage() {
         <h1>Settings</h1>
         <nav>
           <Link to="/dashboard" className="btn-secondary">Dashboard</Link>
+          <Link to="/assets" className="btn-secondary">My Assets</Link>
           <button onClick={logout} className="btn-secondary">Logout</button>
         </nav>
       </header>

@@ -30,6 +30,15 @@ const chSubscribed     = new Set<string>();
 const vhEmitted        = new Set<string>();                   // key: "channelId:viewHandler"
 const pendingUpdates   = new Map<string, UpdateStateMessage[]>();
 const redirectCallbacks = new Map<string, Set<(url: string) => void>>();
+// Reference counts, keyed independently of `listeners` — mountChannel/unmountChannel
+// need to know "is any LayoutDocumentView instance still using this
+// channelId (or this channelId+viewHandler pair) right now" at the moment a
+// given instance unmounts. `listeners` can't answer that: its entry for the
+// unmounting instance is removed by useSyncExternalStore's own teardown,
+// which runs as a separate effect and isn't guaranteed to have fired yet
+// when unmountChannel's effect cleanup runs.
+const channelMountCounts = new Map<string, number>();
+const vhMountCounts      = new Map<string, number>();
 
 export function onRedirect(channelId: string, cb: (url: string) => void): () => void {
   if (!redirectCallbacks.has(channelId)) redirectCallbacks.set(channelId, new Set());
@@ -222,6 +231,10 @@ export function mountChannel(
 ): void {
   if (!channelId) return;
 
+  channelMountCounts.set(channelId, (channelMountCounts.get(channelId) ?? 0) + 1);
+  const key = `${channelId}:${viewHandler}`;
+  vhMountCounts.set(key, (vhMountCounts.get(key) ?? 0) + 1);
+
   if (!chSubscribed.has(channelId)) {
     chSubscribed.add(channelId);
     eventManager.subscribe(channelId, (msg) => handleMessage(channelId, msg));
@@ -233,7 +246,6 @@ export function mountChannel(
     emit('initializeState');
   }
 
-  const key = `${channelId}:${viewHandler}`;
   if (!vhEmitted.has(key)) {
     vhEmitted.add(key);
     emit(viewHandler);
@@ -242,9 +254,21 @@ export function mountChannel(
 
 export function unmountChannel(channelId: string, viewHandler: string): void {
   if (!channelId) return;
-  const prefix = `${channelId}:`;
-  const stillListening = [...listeners.keys()].some((key) => key.startsWith(prefix) && listeners.get(key)?.size);
-  if (stillListening) return;
-  vhEmitted.delete(`${channelId}:initializeState`);
-  vhEmitted.delete(`${channelId}:${viewHandler}`);
+
+  const key = `${channelId}:${viewHandler}`;
+  const vhCount = (vhMountCounts.get(key) ?? 1) - 1;
+  if (vhCount <= 0) {
+    vhMountCounts.delete(key);
+    vhEmitted.delete(key);
+  } else {
+    vhMountCounts.set(key, vhCount);
+  }
+
+  const chCount = (channelMountCounts.get(channelId) ?? 1) - 1;
+  if (chCount <= 0) {
+    channelMountCounts.delete(channelId);
+    vhEmitted.delete(`${channelId}:initializeState`);
+  } else {
+    channelMountCounts.set(channelId, chCount);
+  }
 }

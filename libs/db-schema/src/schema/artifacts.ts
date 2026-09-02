@@ -17,6 +17,10 @@ export const artifacts = pgTable('artifacts', {
   // Arbitrary workflow-engine-owned JSON blob — the one genuinely schemaless piece,
   // deliberately left as JSONB rather than normalized.
   state: jsonb('state'),
+  // Nullable — most artifacts never expire. Set for short-lived, hidden
+  // artifacts (e.g. a Google Photos picker session) so a future cleanup job
+  // has something to act on. No such job exists yet; this only records intent.
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
