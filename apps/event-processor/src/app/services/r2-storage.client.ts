@@ -127,3 +127,19 @@ export function selectStorageClient(backend: 'wrangler-dev' | 'r2'): StorageClie
 }
 
 export const storageClient: StorageClient = selectStorageClient(env.STORAGE_BACKEND);
+
+// StorageClient mirrors the R2Bucket API surface (all async) — URL
+// construction is sync and has no R2Bucket equivalent, so it stays a
+// standalone export rather than an interface method.
+//
+// wrangler-dev's gateway is a plain, unauthenticated HTTP server reachable
+// from both event-processor and the browser at the same localhost URL in
+// dev — no signed URL or proxy needed. Real R2 has no public URL without
+// extra setup (custom domain / public bucket) that hasn't been configured,
+// so fail loudly there rather than hand back a URL that won't actually load.
+export function getStorageObjectUrl(key: string): string {
+  if (env.STORAGE_BACKEND === 'wrangler-dev') {
+    return `${env.R2_DEV_GATEWAY_URL}/objects/${encodeURIComponent(key)}`;
+  }
+  throw new Error("getStorageObjectUrl is not supported for the 'r2' backend yet");
+}

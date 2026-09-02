@@ -26,6 +26,7 @@ import { WORKFLOW_CONFIG_DIR } from '@agentic-client-server-base/workflow-config
 import { env } from './app/config/env';
 import { createApp } from './app/app';
 import { AIEventManager } from './app/AIEventManager';
+import { AssetTransformManager } from './app/AssetTransformManager';
 import { WorkflowEngine, AiStepConfig, WorkflowLogEntry, ChannelContext } from './app/WorkflowEngine';
 import { createQueryExecutor } from './app/QueryExecutor';
 import { createDatabasePersistor } from './app/DatabasePersistor';
@@ -177,12 +178,18 @@ async function computeChannelAccessLevel(userId: string, channel: string): Promi
   return ACCESS_RANK[userLevel] >= ACCESS_RANK[groupLevel] ? userLevel : groupLevel;
 }
 
+// Constructed before executeQuery — save-picked-media-items calls
+// assetTransformManager.publish(...) directly (fire-and-forget), so
+// QueryExecutorDeps needs the instance up front, not a lazily-resolved one.
+const assetTransformManager = new AssetTransformManager({ db, logWorkflowStep, handleInboundEvent });
+
 const cacheInvalidator: { fn?: (name: string) => void } = {};
 const executeQuery = createQueryExecutor({
   db,
   configDir: WORKFLOW_CONFIG_DIR,
   logWorkflowStep,
   invalidateWorkflowConfig: (name) => cacheInvalidator.fn?.(name),
+  assetTransformManager,
 });
 const persistToDatabase = createDatabasePersistor({ db, logWorkflowStep });
 

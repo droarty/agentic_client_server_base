@@ -70,6 +70,21 @@
                   {
                     "componentType": "textDisplay",
                     "props": { "text": "@temp.result" }
+                  },
+                  {
+                    "componentType": "showIf",
+                    "props": { "source": "@temp.hasDownloadingAssets" },
+                    "children": [
+                      {
+                        "componentType": "textDisplay",
+                        "props": { "text": "Download happens in the background. You can navigate away from this page and downloading will continue." }
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "assetBrowser",
+                    "props": { "assets": "@temp.assets", "selectedAsset": "@temp.selectedAsset" },
+                    "emits": { "select": "select-asset" }
                   }
                 ]
               }
@@ -93,7 +108,8 @@
           "transform": {
             "clientMessageType": "update-state",
             "actions": [
-              { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" }
+              { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" },
+              { "actionType": "update", "path": "$temp.hasDownloadingAssets", "value": "~{ $count(message.assets[transformStatus = 'downloading']) > 0 }" }
             ]
           }
         }
@@ -166,9 +182,42 @@
               { "actionType": "update", "path": "$temp.pickerActive", "value": false },
               { "actionType": "update", "path": "$temp.pickerUri", "value": "" },
               { "actionType": "update", "path": "$temp.assets", "value": "$message.assets" },
+              { "actionType": "update", "path": "$temp.hasDownloadingAssets", "value": "~{ $count(message.assets[transformStatus = 'downloading']) > 0 }" },
               { "actionType": "update", "path": "$temp.result", "value": "~{ $count(message.assets) & ' item(s) imported: ' & $join(message.assets.name, ', ') }" },
               { "actionType": "update", "path": "$state.googlePhotosSessionId", "value": null },
               { "actionType": "update", "path": "$state.pickedAssets", "value": "$message.assets" }
+            ]
+          }
+        }
+      ]
+    },
+    "select-asset": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.selectedAsset", "value": "$message.selectedAsset" }
+            ]
+          }
+        }
+      ]
+    },
+    "asset-transform-completed": {
+      "steps": [
+        {
+          "route": ["client", "database"],
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update-in", "path": "$temp.assets", "findKey": "publicId", "findValue": "$message.assetPublicId", "subPath": "sourceUrl", "value": "$message.sourceUrl" },
+              { "actionType": "update-in", "path": "$temp.assets", "findKey": "publicId", "findValue": "$message.assetPublicId", "subPath": "transformStatus", "value": "$message.transformStatus" },
+              { "actionType": "update-in", "path": "$temp.assets", "findKey": "publicId", "findValue": "$message.assetPublicId", "subPath": "metadata", "value": "$message.metadata" },
+              { "actionType": "update-in", "path": "$state.pickedAssets", "findKey": "publicId", "findValue": "$message.assetPublicId", "subPath": "sourceUrl", "value": "$message.sourceUrl" },
+              { "actionType": "update-in", "path": "$state.pickedAssets", "findKey": "publicId", "findValue": "$message.assetPublicId", "subPath": "transformStatus", "value": "$message.transformStatus" },
+              { "actionType": "update-in", "path": "$state.pickedAssets", "findKey": "publicId", "findValue": "$message.assetPublicId", "subPath": "metadata", "value": "$message.metadata" },
+              { "actionType": "update", "path": "$temp.hasDownloadingAssets", "value": "~{ $count(state.pickedAssets[publicId != message.assetPublicId and transformStatus = 'downloading']) > 0 }" }
             ]
           }
         }

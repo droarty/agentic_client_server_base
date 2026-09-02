@@ -11,7 +11,7 @@ import {
   DeleteObjectCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
-import { createWranglerDevStorageClient, createR2StorageClient, selectStorageClient } from './r2-storage.client';
+import { createWranglerDevStorageClient, createR2StorageClient, selectStorageClient, getStorageObjectUrl } from './r2-storage.client';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const MockedS3Client = S3Client as jest.MockedClass<typeof S3Client>;
@@ -136,5 +136,33 @@ describe('selectStorageClient', () => {
     selectStorageClient('wrangler-dev');
     expect(mockedAxios.create).toHaveBeenCalledTimes(1);
     expect(MockedS3Client).not.toHaveBeenCalled();
+  });
+});
+
+describe('getStorageObjectUrl', () => {
+  test("under the default (wrangler-dev) test env, builds an encoded gateway URL", () => {
+    expect(getStorageObjectUrl('google-photos/user-1/media-1')).toBe(
+      'http://localhost:8787/objects/google-photos%2Fuser-1%2Fmedia-1'
+    );
+  });
+
+  test("throws for the 'r2' backend, which has no public URL configured", () => {
+    jest.isolateModules(() => {
+      jest.doMock('../config/env', () => ({
+        env: {
+          STORAGE_BACKEND: 'r2',
+          R2_DEV_GATEWAY_URL: 'http://localhost:8787',
+          R2_ACCOUNT_ID: 'test-account',
+          R2_ACCESS_KEY_ID: 'test-key',
+          R2_SECRET_ACCESS_KEY: 'test-secret',
+          R2_BUCKET_NAME: 'test-bucket',
+        },
+      }));
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const isolated = require('./r2-storage.client') as typeof import('./r2-storage.client');
+      expect(() => isolated.getStorageObjectUrl('key')).toThrow(
+        "getStorageObjectUrl is not supported for the 'r2' backend yet"
+      );
+    });
   });
 });

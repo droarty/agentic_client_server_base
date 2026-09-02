@@ -24,6 +24,7 @@ jest.mock('./services/google-photos-picker.client', () => ({
   parsePollIntervalSeconds: jest.fn(),
 }));
 const mockedPickerClient = jest.mocked(googlePhotosPickerClient);
+const mockedAssetTransformManager = { publish: jest.fn() };
 
 let pgHandle: TestPostgresHandle;
 let db: Database;
@@ -125,6 +126,7 @@ function makeExecutor() {
     db,
     configDir,
     logWorkflowStep: logWorkflowStep as unknown as (entry: WorkflowLogEntry) => void,
+    assetTransformManager: mockedAssetTransformManager,
   });
 }
 
@@ -641,7 +643,7 @@ describe('get-picker-session-status', () => {
 // ─── save-picked-media-items ──────────────────────────────────────────────────
 
 describe('save-picked-media-items', () => {
-  test('maps picked items into assets rows', async () => {
+  test('inserts new picked items as downloading (no sourceUrl yet) and fires the async transform for each', async () => {
     await insertGooglePhotosToken();
     mockedPickerClient.getValidAccessToken.mockResolvedValue('valid-access-token');
     mockedPickerClient.listPickedMediaItems.mockResolvedValue([
@@ -661,24 +663,42 @@ describe('save-picked-media-items', () => {
     const execute = makeExecutor();
     const result = await execute('save-picked-media-items', {
       message: { channel: CHANNEL },
-      user: { id: USER_ID },
+      user: { id: USER_ID, email: 'test@example.com' },
       state: { googlePhotosSessionId: 'session-1' },
     });
     const saved = result['assets'] as Array<Record<string, unknown>>;
     expect(saved).toHaveLength(2);
     expect(saved.find((a) => a['name'] === 'one.jpg')).toMatchObject({
       assetType: 'google_photo',
-      sourceUrl: 'https://example.com/1',
+      sourceUrl: null,
+      transformStatus: 'downloading',
       metadata: { id: 'media-1' },
     });
     expect(saved.find((a) => a['name'] === 'two.mp4')).toMatchObject({
       assetType: 'google_video',
-      sourceUrl: 'https://example.com/2',
+      sourceUrl: null,
+      transformStatus: 'downloading',
       metadata: { id: 'media-2' },
     });
+
+    // The transform itself (download/convert/upload) is not exercised here —
+    // it's fired off, not awaited. See asset-transform.spec.ts and
+    // AssetTransformManager.spec.ts for that behavior.
+    expect(mockedAssetTransformManager.publish).toHaveBeenCalledTimes(2);
+    expect(mockedAssetTransformManager.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: CHANNEL,
+        user: { id: USER_ID, email: 'test@example.com' },
+        assetId: expect.any(Number),
+        item: expect.objectContaining({ id: 'media-1' }),
+      })
+    );
+    expect(mockedAssetTransformManager.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ item: expect.objectContaining({ id: 'media-2' }) })
+    );
   });
 
-  test('re-importing the same session does not create duplicate rows', async () => {
+  test('re-importing the same session does not create duplicate rows or re-trigger the transform', async () => {
     await insertGooglePhotosToken();
     mockedPickerClient.getValidAccessToken.mockResolvedValue('valid-access-token');
     mockedPickerClient.listPickedMediaItems.mockResolvedValue([
@@ -690,12 +710,15 @@ describe('save-picked-media-items', () => {
       },
     ]);
     const execute = makeExecutor();
-    const context = { message: { channel: CHANNEL }, user: { id: USER_ID }, state: { googlePhotosSessionId: 'session-1' } };
+    const context = { message: { channel: CHANNEL }, user: { id: USER_ID, email: 'test@example.com' }, state: { googlePhotosSessionId: 'session-1' } };
     await execute('save-picked-media-items', context);
+    expect(mockedAssetTransformManager.publish).toHaveBeenCalledTimes(1);
+
     const secondResult = await execute('save-picked-media-items', context);
     expect((secondResult['assets'] as unknown[])).toHaveLength(1);
     const allRows = await db.select().from(assets).where(eq(assets.userId, USER_ID));
     expect(allRows).toHaveLength(1);
+    expect(mockedAssetTransformManager.publish).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -722,6 +745,7 @@ describe('error handling', () => {
       db: badDb,
       configDir,
       logWorkflowStep: logWorkflowStep as unknown as (entry: WorkflowLogEntry) => void,
+      assetTransformManager: mockedAssetTransformManager,
     });
     const result = await execute('get-user-documents', makeContext(USER_ID));
     expect(result).toEqual({});
