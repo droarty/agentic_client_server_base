@@ -26,6 +26,14 @@ if [ ! -e node_modules ]; then
   fi
 fi
 
+# wrangler dev also spawns a `workerd` control process bound to an ephemeral
+# port (not $PORT), so a port-only kill can leave it running and collide with
+# the next run ("Address already in use"). Match it by this worktree's own
+# node_modules path (resolved through the symlink) instead.
+NODE_MODULES_REAL=$(cd node_modules 2>/dev/null && pwd -P)
+if [ -n "$NODE_MODULES_REAL" ]; then
+  pkill -f "$NODE_MODULES_REAL/.pnpm.*workerd" 2>/dev/null || true
+fi
 lsof -ti :$PORT | xargs kill -9 2>/dev/null || true
 sleep 0.5
 (cd apps/r2-dev-gateway && npx wrangler dev --port $PORT) > /tmp/r2-dev-gateway.log 2>&1 &
