@@ -1,0 +1,15 @@
+{
+  // Rename to your chosen Worker name (determines the default
+  // <name>.<subdomain>.workers.dev URL, or attach a custom domain later
+  // via the Cloudflare dashboard). Deploy from the repo root so the
+  // "directory" path below resolves correctly:
+  //   pnpm nx build web && wrangler deploy --config apps/web/wrangler.jsonc
+  "name": "change-me-acsb-web",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "../../dist/apps/web",
+    // apps/web uses React Router's BrowserRouter, so deep-linked/refreshed
+    // client routes must fall back to index.html instead of 404ing.
+    "not_found_handling": "single-page-application"
+  }
+}
