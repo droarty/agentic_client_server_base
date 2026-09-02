@@ -43,6 +43,13 @@
       "when": 1788366882871,
       "tag": "0005_cold_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788383046226,
+      "tag": "0006_woozy_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

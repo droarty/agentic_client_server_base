@@ -79,6 +79,7 @@ async function insertAsset(overrides: Partial<typeof assets.$inferInsert> = {}) 
       assetType: 'google_photo',
       name: 'test.jpg',
       sourceUrl: 'https://example.com/base',
+      thumbnailSrc: null,
       sourceId: randomUUID(),
       metadata: {},
       ...overrides,
@@ -671,12 +672,14 @@ describe('save-picked-media-items', () => {
     expect(saved.find((a) => a['name'] === 'one.jpg')).toMatchObject({
       assetType: 'google_photo',
       sourceUrl: null,
+      thumbnailSrc: null,
       transformStatus: 'downloading',
       metadata: { id: 'media-1' },
     });
     expect(saved.find((a) => a['name'] === 'two.mp4')).toMatchObject({
       assetType: 'google_video',
       sourceUrl: null,
+      thumbnailSrc: null,
       transformStatus: 'downloading',
       metadata: { id: 'media-2' },
     });

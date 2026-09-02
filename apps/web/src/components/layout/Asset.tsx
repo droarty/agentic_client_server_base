@@ -6,6 +6,7 @@ export interface AssetDto {
   assetType: string;
   name: string | null;
   sourceUrl: string | null;
+  thumbnailSrc: string | null;
   sourceId: string | null;
   metadata: Record<string, unknown> | null;
   transformStatus: string;
@@ -62,8 +63,7 @@ export function Asset({ asset }: Props) {
           <video
             className="asset-preview-media"
             src={asset.sourceUrl}
-            autoPlay
-            muted
+            poster={asset.thumbnailSrc ?? undefined}
             controls
             playsInline
             onError={() => setPreviewFailed(true)}

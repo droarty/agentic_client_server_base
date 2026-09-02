@@ -22,6 +22,13 @@ export const assets = pgTable('assets', {
   // (e.g. Google's baseUrl, which expires ~60 minutes after being minted and
   // needs an auth header anyway); that lives in metadata.mediaFile.baseUrl.
   sourceUrl: text('source_url'),
+  // URL to our own persisted static thumbnail image — VIDEO assets only. A
+  // resized frame downloaded from the source (see planThumbnailDownload in
+  // google-photos-picker.client.ts) and persisted separately from the full
+  // video in sourceUrl, since the frontend needs a poster image it can show
+  // immediately without decoding/playing the video. Always null for PHOTO
+  // assets (their sourceUrl is already a directly-displayable static image).
+  thumbnailSrc: text('thumbnail_src'),
   // Stable identifier at the source, independent of sourceUrl's staleness —
   // used to dedupe re-imports of the same item.
   sourceId: text('source_id'),

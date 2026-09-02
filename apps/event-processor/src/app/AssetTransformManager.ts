@@ -53,6 +53,7 @@ export class AssetTransformManager {
         timestamp: new Date().toISOString(),
         assetPublicId: row.publicId,
         sourceUrl: row.sourceUrl,
+        thumbnailSrc: row.thumbnailSrc,
         transformStatus: row.transformStatus,
         metadata: row.metadata,
       },

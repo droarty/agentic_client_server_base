@@ -142,7 +142,52 @@ export function planMediaDownload(item: PickedMediaItem): MediaDownloadPlan {
     // a plain download; it'll stay HEIC and hit the frontend's
     // can't-render-inline placeholder, same as before this existed.
   }
+  if (item.type === 'VIDEO') {
+    // `=d` (a plain download) does not reliably return full video bytes for
+    // VIDEO items, unlike photos — `=dv` is the documented suffix for
+    // downloading actual video bytes. Caller (asset-transform.ts) must only
+    // invoke this once isVideoReady(item) is true; this function itself is
+    // a pure item->plan mapper and doesn't gate on readiness.
+    return { url: `${baseUrl}=dv`, resultingMimeType: mimeType };
+  }
   return { url: `${baseUrl}=d`, resultingMimeType: mimeType };
+}
+
+// Google's Picker API nests video readiness under
+// mediaFile.mediaFileMetadata.videoMetadata.processingStatus (not
+// videoMediaMetadata) — one level deeper than width/height, which sit
+// directly on mediaFileMetadata. Enum values per Google's docs:
+// UNSPECIFIED | PROCESSING | READY | FAILED.
+export type VideoProcessingStatus = 'UNSPECIFIED' | 'PROCESSING' | 'READY' | 'FAILED';
+
+export function getVideoProcessingStatus(item: PickedMediaItem): VideoProcessingStatus | undefined {
+  const videoMetadata = item.mediaFile.mediaFileMetadata?.['videoMetadata'] as Record<string, unknown> | undefined;
+  const status = videoMetadata?.['processingStatus'];
+  return typeof status === 'string' ? (status as VideoProcessingStatus) : undefined;
+}
+
+// The single source of truth for "is it safe to attempt the =dv download
+// yet" — used by asset-transform.ts to gate the full-video download.
+export function isVideoReady(item: PickedMediaItem): boolean {
+  return getVideoProcessingStatus(item) === 'READY';
+}
+
+const DEFAULT_THUMBNAIL_WIDTH = 512;
+const DEFAULT_THUMBNAIL_HEIGHT = 512;
+
+// Builds a download plan for a static JPEG thumbnail frame of a VIDEO item,
+// via the same resize-suffix mechanism already used for HEIC photos above —
+// applying a resize suffix to a video's baseUrl makes Google return a
+// static frame image, not video bytes, regardless of processingStatus (so
+// this is safe to call even before the video itself is READY). Falls back
+// to a sane default size if width/height aren't present in metadata.
+export function planThumbnailDownload(item: PickedMediaItem): MediaDownloadPlan {
+  const { baseUrl, mediaFileMetadata } = item.mediaFile;
+  const width = mediaFileMetadata?.['width'];
+  const height = mediaFileMetadata?.['height'];
+  const w = typeof width === 'number' ? width : DEFAULT_THUMBNAIL_WIDTH;
+  const h = typeof height === 'number' ? height : DEFAULT_THUMBNAIL_HEIGHT;
+  return { url: `${baseUrl}=w${w}-h${h}`, resultingMimeType: 'image/jpeg' };
 }
 
 const mediaDownloadClient = axios.create({ timeout: 30000 });

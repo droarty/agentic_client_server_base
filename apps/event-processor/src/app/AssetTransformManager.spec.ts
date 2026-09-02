@@ -34,7 +34,7 @@ beforeEach(() => {
 describe('AssetTransformManager', () => {
   test('on success, re-enters the workflow with an asset-transform-completed message', async () => {
     mockedRunAssetTransform.mockResolvedValue({
-      id: 42, publicId: 'public-1', sourceUrl: 'http://localhost:8787/objects/key', transformStatus: 'done', metadata: { mediaType: 'image/jpeg' },
+      id: 42, publicId: 'public-1', sourceUrl: 'http://localhost:8787/objects/key', thumbnailSrc: null, transformStatus: 'done', metadata: { mediaType: 'image/jpeg' },
     } as never);
 
     new AssetTransformManager({ db: {} as never, handleInboundEvent, logWorkflowStep }).publish(makeJob());
@@ -47,6 +47,7 @@ describe('AssetTransformManager', () => {
         channel: 'ch-1',
         assetPublicId: 'public-1',
         sourceUrl: 'http://localhost:8787/objects/key',
+        thumbnailSrc: null,
         transformStatus: 'done',
         metadata: { mediaType: 'image/jpeg' },
       }),
@@ -57,14 +58,14 @@ describe('AssetTransformManager', () => {
 
   test('on failure, still re-enters the workflow (with transformStatus: failed) instead of throwing', async () => {
     mockedRunAssetTransform.mockResolvedValue({
-      id: 42, publicId: 'public-1', sourceUrl: null, transformStatus: 'failed', metadata: { transformErrors: ['boom'] },
+      id: 42, publicId: 'public-1', sourceUrl: null, thumbnailSrc: null, transformStatus: 'failed', metadata: { transformErrors: ['boom'] },
     } as never);
 
     new AssetTransformManager({ db: {} as never, handleInboundEvent, logWorkflowStep }).publish(makeJob());
     await flushPromises();
 
     expect(handleInboundEvent).toHaveBeenCalledWith({
-      message: expect.objectContaining({ type: 'asset-transform-completed', transformStatus: 'failed', sourceUrl: null }),
+      message: expect.objectContaining({ type: 'asset-transform-completed', transformStatus: 'failed', sourceUrl: null, thumbnailSrc: null }),
       user: { id: 'user-1', email: 'user@test.com' },
     });
     expect(logWorkflowStep).toHaveBeenCalledWith(expect.objectContaining({ logType: 'error', channel: 'ch-1' }));

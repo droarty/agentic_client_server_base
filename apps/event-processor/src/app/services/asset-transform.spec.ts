@@ -29,6 +29,15 @@ function makeItem(overrides: Partial<PickedMediaItem['mediaFile']> = {}): Picked
   };
 }
 
+function makeVideoItem(overrides: Partial<PickedMediaItem['mediaFile']> = {}): PickedMediaItem {
+  return {
+    id: 'media-1',
+    createTime: '2026-01-01T00:00:00Z',
+    type: 'VIDEO',
+    mediaFile: { baseUrl: 'https://example.com/base', mimeType: 'video/mp4', filename: 'video.mp4', ...overrides },
+  };
+}
+
 function makeDb(finalRow: Record<string, unknown>) {
   const returning = jest.fn().mockResolvedValue([finalRow]);
   const where = jest.fn().mockReturnValue({ returning });
@@ -91,5 +100,70 @@ describe('runAssetTransform', () => {
     expect(mockedUpload).not.toHaveBeenCalled();
     expect(set).toHaveBeenCalledWith(expect.objectContaining({ transformStatus: 'failed' }));
     expect(row).toEqual(expect.objectContaining({ transformStatus: 'failed' }));
+  });
+});
+
+describe('runAssetTransform (VIDEO)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('ready video downloads thumbnail then full video, marks done with both URLs', async () => {
+    mockedGetValidAccessToken.mockResolvedValue('valid-token');
+    mockedDownload.mockResolvedValue(Buffer.from('bytes'));
+    mockedGetUrl.mockImplementation((key: string) =>
+      key.endsWith('-thumbnail') ? 'http://localhost:8787/objects/thumb' : 'http://localhost:8787/objects/video'
+    );
+    const { db, set } = makeDb({ id: ASSET_ID, transformStatus: 'done' });
+
+    const item = makeVideoItem({ mediaFileMetadata: { width: 640, height: 360, videoMetadata: { processingStatus: 'READY' } } });
+    await runAssetTransform(db, USER_ID, ASSET_ID, item);
+
+    expect(mockedDownload).toHaveBeenCalledTimes(2);
+    expect(mockedDownload).toHaveBeenNthCalledWith(1, 'valid-token', 'https://example.com/base=w640-h360');
+    expect(mockedDownload).toHaveBeenNthCalledWith(2, 'valid-token', 'https://example.com/base=dv');
+    expect(mockedUpload).toHaveBeenCalledTimes(2);
+    expect(mockedUpload).toHaveBeenNthCalledWith(1, 'google-photos/user-1/media-1-thumbnail', Buffer.from('bytes'), 'image/jpeg');
+    expect(mockedUpload).toHaveBeenNthCalledWith(2, 'google-photos/user-1/media-1', Buffer.from('bytes'), 'video/mp4');
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transformStatus: 'done',
+        sourceUrl: 'http://localhost:8787/objects/video',
+        thumbnailSrc: 'http://localhost:8787/objects/thumb',
+      })
+    );
+  });
+
+  test('not-ready video downloads thumbnail only, marks failed with thumbnailSrc set and no sourceUrl', async () => {
+    mockedGetValidAccessToken.mockResolvedValue('valid-token');
+    mockedDownload.mockResolvedValue(Buffer.from('bytes'));
+    mockedGetUrl.mockReturnValue('http://localhost:8787/objects/thumb');
+    const { db, set } = makeDb({ id: ASSET_ID, transformStatus: 'failed' });
+
+    const item = makeVideoItem({ mediaFileMetadata: { videoMetadata: { processingStatus: 'PROCESSING' } } });
+    await runAssetTransform(db, USER_ID, ASSET_ID, item);
+
+    expect(mockedDownload).toHaveBeenCalledTimes(1);
+    expect(mockedUpload).toHaveBeenCalledTimes(1);
+    const setCallArg = set.mock.calls[0][0];
+    expect(setCallArg).toEqual(
+      expect.objectContaining({ transformStatus: 'failed', thumbnailSrc: 'http://localhost:8787/objects/thumb' })
+    );
+    expect(setCallArg).not.toHaveProperty('sourceUrl');
+  });
+
+  test('thumbnail download failure falls through to the outer catch, marks failed with neither URL set', async () => {
+    mockedGetValidAccessToken.mockResolvedValue('valid-token');
+    mockedDownload.mockRejectedValue(new Error('network blip'));
+    const { db, set } = makeDb({ id: ASSET_ID, transformStatus: 'failed' });
+
+    const item = makeVideoItem({ mediaFileMetadata: { videoMetadata: { processingStatus: 'READY' } } });
+    await runAssetTransform(db, USER_ID, ASSET_ID, item);
+
+    expect(mockedUpload).not.toHaveBeenCalled();
+    const setCallArg = set.mock.calls[0][0];
+    expect(setCallArg).toEqual(expect.objectContaining({ transformStatus: 'failed' }));
+    expect(setCallArg).not.toHaveProperty('sourceUrl');
+    expect(setCallArg).not.toHaveProperty('thumbnailSrc');
   });
 });

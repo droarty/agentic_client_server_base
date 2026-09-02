@@ -1,4 +1,10 @@
-import { planMediaDownload, PickedMediaItem } from './google-photos-picker.client';
+import {
+  planMediaDownload,
+  planThumbnailDownload,
+  getVideoProcessingStatus,
+  isVideoReady,
+  PickedMediaItem,
+} from './google-photos-picker.client';
 
 function makeItem(overrides: Partial<PickedMediaItem['mediaFile']> = {}, type: 'PHOTO' | 'VIDEO' = 'PHOTO'): PickedMediaItem {
   return {
@@ -53,9 +59,54 @@ describe('planMediaDownload', () => {
     expect(plan).toEqual({ url: 'https://example.com/base=d', resultingMimeType: 'image/jpeg' });
   });
 
-  test('video always uses a plain download, even if mimeType were somehow HEIC', () => {
+  test('video uses the =dv suffix (readiness gating happens in asset-transform.ts, not here)', () => {
     const item = makeItem({ mimeType: 'video/mp4' }, 'VIDEO');
     const plan = planMediaDownload(item);
-    expect(plan).toEqual({ url: 'https://example.com/base=d', resultingMimeType: 'video/mp4' });
+    expect(plan).toEqual({ url: 'https://example.com/base=dv', resultingMimeType: 'video/mp4' });
+  });
+});
+
+describe('getVideoProcessingStatus / isVideoReady', () => {
+  test('READY status is read from mediaFileMetadata.videoMetadata.processingStatus', () => {
+    const item = makeItem({ mimeType: 'video/mp4', mediaFileMetadata: { videoMetadata: { processingStatus: 'READY' } } }, 'VIDEO');
+    expect(getVideoProcessingStatus(item)).toBe('READY');
+    expect(isVideoReady(item)).toBe(true);
+  });
+
+  test('PROCESSING status is not ready', () => {
+    const item = makeItem({ mimeType: 'video/mp4', mediaFileMetadata: { videoMetadata: { processingStatus: 'PROCESSING' } } }, 'VIDEO');
+    expect(getVideoProcessingStatus(item)).toBe('PROCESSING');
+    expect(isVideoReady(item)).toBe(false);
+  });
+
+  test('FAILED status is not ready', () => {
+    const item = makeItem({ mimeType: 'video/mp4', mediaFileMetadata: { videoMetadata: { processingStatus: 'FAILED' } } }, 'VIDEO');
+    expect(isVideoReady(item)).toBe(false);
+  });
+
+  test('missing videoMetadata is not ready', () => {
+    const item = makeItem({ mimeType: 'video/mp4', mediaFileMetadata: {} }, 'VIDEO');
+    expect(getVideoProcessingStatus(item)).toBeUndefined();
+    expect(isVideoReady(item)).toBe(false);
+  });
+
+  test('missing mediaFileMetadata entirely is not ready', () => {
+    const item = makeItem({ mimeType: 'video/mp4' }, 'VIDEO');
+    expect(getVideoProcessingStatus(item)).toBeUndefined();
+    expect(isVideoReady(item)).toBe(false);
+  });
+});
+
+describe('planThumbnailDownload', () => {
+  test('uses recorded width/height when present', () => {
+    const item = makeItem({ mimeType: 'video/mp4', mediaFileMetadata: { width: 1920, height: 1080 } }, 'VIDEO');
+    const plan = planThumbnailDownload(item);
+    expect(plan).toEqual({ url: 'https://example.com/base=w1920-h1080', resultingMimeType: 'image/jpeg' });
+  });
+
+  test('falls back to a default size when width/height are missing', () => {
+    const item = makeItem({ mimeType: 'video/mp4' }, 'VIDEO');
+    const plan = planThumbnailDownload(item);
+    expect(plan).toEqual({ url: 'https://example.com/base=w512-h512', resultingMimeType: 'image/jpeg' });
   });
 });
