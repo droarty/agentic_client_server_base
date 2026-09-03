@@ -110,7 +110,8 @@ export class UserEventManager {
       await addSocketToChannel(ws.socketId!, dashboardChannelId);
 
       this.send(ws, { type: 'auth_success', dashboardChannelId });
-    } catch {
+    } catch (err) {
+      console.error('WebSocket auth failed:', err);
       this.send(ws, { type: 'auth_error', message: 'Invalid token' });
       ws.close(4001, 'Authentication failed');
     }
