@@ -17,6 +17,8 @@ let fixturePool: Pool;
 
 beforeAll(async () => {
   process.env['JWT_SECRET'] = 'test-secret';
+  process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
+  process.env['GOOGLE_CLIENT_SECRET'] = 'test-client-secret';
 
   pgHandle = await startTestPostgres('api_auth_test');
   const created = createDb(pgHandle.connectionString);
