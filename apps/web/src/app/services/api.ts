@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { AuthResponse, User, UpdateUserRequest, Artifact, GroupBreadcrumbItem, CreateDocumentRequest } from '@agentic-client-server-base/shared-types';
 
-export const API_URL = (typeof process !== 'undefined' && process.env['API_URL']) || 'http://localhost:3000';
+export const API_URL = process.env['API_URL'];
 
 const client = axios.create({ baseURL: API_URL });
 

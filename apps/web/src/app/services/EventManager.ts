@@ -3,7 +3,7 @@ import { InboundMessage, OutboundMessage, WsClientMessage, WsServerMessage } fro
 
 type MessageCallback = (message: OutboundMessage) => void;
 
-const WS_URL = (typeof process !== 'undefined' && process.env['WS_URL']) || 'ws://localhost:3000';
+const WS_URL = process.env['WS_URL'];
 const MAX_RECONNECT_DELAY = 30000;
 
 class EventManager {
