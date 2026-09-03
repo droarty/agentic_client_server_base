@@ -6,3 +6,4 @@ export * from './channels';
 export * from './workflow';
 export * from './assets';
 export * from './service-tokens';
+export * from './global-admins';

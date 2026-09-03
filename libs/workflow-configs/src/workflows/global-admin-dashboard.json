@@ -1,0 +1,332 @@
+{
+  "name": "global-admin-dashboard",
+  "version": "1.0.0",
+  "initialState": {},
+  "handlers": {
+    "initializeState": {
+      "requiredAccess": "read",
+      "steps": [
+        { "route": "client", "transform": { "clientMessageType": "initialize-state", "initialState": {} } }
+      ]
+    },
+    "defaultView": {
+      "requiredAccess": "read",
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "initialize-view",
+            "viewHandler": "defaultView",
+            "layoutConfig": [
+              {
+                "componentType": "fullPanel",
+                "children": [
+                  { "componentType": "textDisplay", "props": { "text": "Global Admin Users" } },
+                  { "componentType": "actionButton", "props": { "label": "Add Global Admin" }, "emits": { "click": "open-add-admin-dialog" } },
+                  {
+                    "componentType": "forEach",
+                    "props": { "source": "@temp.admins" },
+                    "children": [
+                      {
+                        "componentType": "fullPanel",
+                        "children": [
+                          { "componentType": "textDisplay", "props": { "text": "@item.email" } },
+                          {
+                            "componentType": "actionButton",
+                            "props": { "label": "Delete", "_id": "@item._id", "email": "@item.email" },
+                            "emits": { "click": "open-remove-admin-dialog" }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "showIfEmpty",
+                    "props": { "source": "@temp.admins" },
+                    "children": [{ "componentType": "textDisplay", "props": { "text": "No global admins yet." } }]
+                  },
+                  { "componentType": "textDisplay", "props": { "text": "@temp.adminResult" } },
+
+                  {
+                    "componentType": "dialogPanel",
+                    "props": { "open": "@temp.addDialogOpen", "title": "Add global admin" },
+                    "emits": { "close": "close-add-admin-dialog" },
+                    "children": [
+                      {
+                        "componentType": "multiFieldInput",
+                        "props": { "fields": [{ "name": "email", "label": "Email", "placeholder": "user@example.com" }], "submitLabel": "Search" },
+                        "emits": { "submit": "find-user-by-email" }
+                      },
+                      { "componentType": "textDisplay", "props": { "text": "@temp.searchResult" } },
+                      {
+                        "componentType": "showIf",
+                        "props": { "source": "@temp.searchedUser" },
+                        "children": [
+                          { "componentType": "textDisplay", "props": { "text": "@temp.searchedUser.email" } },
+                          {
+                            "componentType": "actionButton",
+                            "props": { "label": "Confirm Add", "userId": "@temp.searchedUser._id" },
+                            "emits": { "click": "add-global-admin" }
+                          }
+                        ]
+                      },
+                      { "componentType": "actionButton", "props": { "label": "Cancel" }, "emits": { "click": "close-add-admin-dialog" } }
+                    ]
+                  },
+                  {
+                    "componentType": "dialogPanel",
+                    "props": { "open": "@temp.removeTargetId", "title": "Delete global admin" },
+                    "emits": { "close": "close-remove-admin-dialog" },
+                    "children": [
+                      { "componentType": "textDisplay", "props": { "text": "@temp.removeTargetEmail" } },
+                      { "componentType": "actionButton", "props": { "label": "Cancel" }, "emits": { "click": "close-remove-admin-dialog" } },
+                      {
+                        "componentType": "actionButton",
+                        "props": { "label": "Delete", "userId": "@temp.removeTargetId" },
+                        "emits": { "click": "remove-global-admin" }
+                      }
+                    ]
+                  },
+
+                  { "componentType": "textDisplay", "props": { "text": "Group Management" } },
+                  { "componentType": "actionButton", "props": { "label": "Create Group" }, "emits": { "click": "open-create-group-dialog" } },
+                  {
+                    "componentType": "forEach",
+                    "props": { "source": "@temp.rootGroups" },
+                    "children": [
+                      {
+                        "componentType": "fullPanel",
+                        "children": [
+                          { "componentType": "textDisplay", "props": { "text": "@item.name" } },
+                          {
+                            "componentType": "actionButton",
+                            "props": { "label": "Edit", "_id": "@item._id", "name": "@item.name" },
+                            "emits": { "click": "open-edit-group-dialog" }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "componentType": "showIfEmpty",
+                    "props": { "source": "@temp.rootGroups" },
+                    "children": [{ "componentType": "textDisplay", "props": { "text": "No root groups yet." } }]
+                  },
+                  { "componentType": "textDisplay", "props": { "text": "@temp.groupResult" } },
+
+                  {
+                    "componentType": "dialogPanel",
+                    "props": { "open": "@temp.createGroupDialogOpen", "title": "Create root group" },
+                    "emits": { "close": "close-create-group-dialog" },
+                    "children": [
+                      {
+                        "componentType": "multiFieldInput",
+                        "props": { "fields": [{ "name": "name", "label": "Group Name" }], "submitLabel": "Create" },
+                        "emits": { "submit": "create-root-group" }
+                      },
+                      { "componentType": "actionButton", "props": { "label": "Cancel" }, "emits": { "click": "close-create-group-dialog" } }
+                    ]
+                  },
+                  {
+                    "componentType": "dialogPanel",
+                    "props": { "open": "@temp.editGroupTargetId", "title": "Edit group name" },
+                    "emits": { "close": "close-edit-group-dialog" },
+                    "children": [
+                      {
+                        "componentType": "multiFieldInput",
+                        "props": {
+                          "fields": [{ "name": "name", "label": "Group Name" }],
+                          "values": { "name": "@temp.editGroupTargetName" },
+                          "submitLabel": "Save",
+                          "groupId": "@temp.editGroupTargetId"
+                        },
+                        "emits": { "submit": "update-group-name" }
+                      },
+                      { "componentType": "actionButton", "props": { "label": "Cancel" }, "emits": { "click": "close-edit-group-dialog" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "route": "parallel-queries",
+          "queries": [
+            { "name": "list-global-admins", "key": "admins" },
+            { "name": "list-root-groups", "key": "rootGroups" }
+          ],
+          "responseType": "dashboard-data-result"
+        }
+      ]
+    },
+    "dashboard-data-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.admins", "value": "$message.admins" },
+              { "actionType": "update", "path": "$temp.rootGroups", "value": "$message.rootGroups" }
+            ]
+          }
+        }
+      ]
+    },
+
+    "open-add-admin-dialog": {
+      "steps": [{ "route": "client", "transform": { "clientMessageType": "update-state", "actions": [{ "actionType": "update", "path": "$temp.addDialogOpen", "value": true }] } }]
+    },
+    "close-add-admin-dialog": {
+      "steps": [{
+        "route": "client",
+        "transform": {
+          "clientMessageType": "update-state",
+          "actions": [
+            { "actionType": "update", "path": "$temp.addDialogOpen", "value": false },
+            { "actionType": "update", "path": "$temp.searchedUser", "value": null },
+            { "actionType": "update", "path": "$temp.searchResult", "value": null }
+          ]
+        }
+      }]
+    },
+    "open-remove-admin-dialog": {
+      "condition": "$message._id",
+      "steps": [{
+        "route": "client",
+        "transform": {
+          "clientMessageType": "update-state",
+          "actions": [
+            { "actionType": "update", "path": "$temp.removeTargetId", "value": "$message._id" },
+            { "actionType": "update", "path": "$temp.removeTargetEmail", "value": "$message.email" }
+          ]
+        }
+      }]
+    },
+    "close-remove-admin-dialog": {
+      "steps": [{
+        "route": "client",
+        "transform": {
+          "clientMessageType": "update-state",
+          "actions": [
+            { "actionType": "update", "path": "$temp.removeTargetId", "value": null },
+            { "actionType": "update", "path": "$temp.removeTargetEmail", "value": null }
+          ]
+        }
+      }]
+    },
+    "find-user-by-email": {
+      "condition": "$message.email",
+      "steps": [{ "route": "database-query", "query": { "name": "find-user-by-email", "responseType": "user-search-result" } }]
+    },
+    "user-search-result": {
+      "steps": [{
+        "route": "client",
+        "transform": {
+          "clientMessageType": "update-state",
+          "actions": [
+            { "actionType": "update", "path": "$temp.searchedUser", "value": "$message.foundUser" },
+            { "actionType": "update", "path": "$temp.searchResult", "value": "$message.result" }
+          ]
+        }
+      }]
+    },
+    "add-global-admin": {
+      "condition": "$message.userId",
+      "steps": [{ "route": "database-query", "query": { "name": "add-global-admin", "responseType": "admin-mutation-result" } }]
+    },
+    "remove-global-admin": {
+      "condition": "$message.userId",
+      "steps": [{ "route": "database-query", "query": { "name": "remove-global-admin", "responseType": "admin-mutation-result" } }]
+    },
+    "admin-mutation-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.adminResult", "value": "$message.result" },
+              { "actionType": "update", "path": "$temp.addDialogOpen", "value": false },
+              { "actionType": "update", "path": "$temp.searchedUser", "value": null },
+              { "actionType": "update", "path": "$temp.searchResult", "value": null },
+              { "actionType": "update", "path": "$temp.removeTargetId", "value": null },
+              { "actionType": "update", "path": "$temp.removeTargetEmail", "value": null }
+            ]
+          }
+        },
+        { "route": "database-query", "query": { "name": "list-global-admins", "responseType": "admins-refreshed" } }
+      ]
+    },
+    "admins-refreshed": {
+      "steps": [{
+        "route": "client",
+        "transform": { "clientMessageType": "update-state", "actions": [{ "actionType": "update", "path": "$temp.admins", "value": "$message.admins" }] }
+      }]
+    },
+
+    "open-create-group-dialog": {
+      "steps": [{ "route": "client", "transform": { "clientMessageType": "update-state", "actions": [{ "actionType": "update", "path": "$temp.createGroupDialogOpen", "value": true }] } }]
+    },
+    "close-create-group-dialog": {
+      "steps": [{ "route": "client", "transform": { "clientMessageType": "update-state", "actions": [{ "actionType": "update", "path": "$temp.createGroupDialogOpen", "value": false }] } }]
+    },
+    "open-edit-group-dialog": {
+      "condition": "$message._id",
+      "steps": [{
+        "route": "client",
+        "transform": {
+          "clientMessageType": "update-state",
+          "actions": [
+            { "actionType": "update", "path": "$temp.editGroupTargetId", "value": "$message._id" },
+            { "actionType": "update", "path": "$temp.editGroupTargetName", "value": "$message.name" }
+          ]
+        }
+      }]
+    },
+    "close-edit-group-dialog": {
+      "steps": [{
+        "route": "client",
+        "transform": {
+          "clientMessageType": "update-state",
+          "actions": [
+            { "actionType": "update", "path": "$temp.editGroupTargetId", "value": null },
+            { "actionType": "update", "path": "$temp.editGroupTargetName", "value": null }
+          ]
+        }
+      }]
+    },
+    "create-root-group": {
+      "condition": "$message.name",
+      "steps": [{ "route": "database-query", "query": { "name": "create-root-group", "responseType": "group-mutation-result" } }]
+    },
+    "update-group-name": {
+      "condition": "$message.groupId",
+      "steps": [{ "route": "database-query", "query": { "name": "update-group-name", "responseType": "group-mutation-result" } }]
+    },
+    "group-mutation-result": {
+      "steps": [
+        {
+          "route": "client",
+          "transform": {
+            "clientMessageType": "update-state",
+            "actions": [
+              { "actionType": "update", "path": "$temp.groupResult", "value": "$message.result" },
+              { "actionType": "update", "path": "$temp.createGroupDialogOpen", "value": false },
+              { "actionType": "update", "path": "$temp.editGroupTargetId", "value": null },
+              { "actionType": "update", "path": "$temp.editGroupTargetName", "value": null }
+            ]
+          }
+        },
+        { "route": "database-query", "query": { "name": "list-root-groups", "responseType": "groups-refreshed" } }
+      ]
+    },
+    "groups-refreshed": {
+      "steps": [{
+        "route": "client",
+        "transform": { "clientMessageType": "update-state", "actions": [{ "actionType": "update", "path": "$temp.rootGroups", "value": "$message.rootGroups" }] }
+      }]
+    }
+  }
+}

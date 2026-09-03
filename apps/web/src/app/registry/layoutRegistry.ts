@@ -88,6 +88,9 @@ const registry: Partial<Record<string, LazyLayoutComponent>> = {
   namedView: lazy(() =>
     import('@/components/layout/NamedView').then((m) => ({ default: m.NamedView as ComponentType<LayoutComponentProps> }))
   ),
+  dialogPanel: lazy(() =>
+    import('@/components/layout/DialogPanel').then((m) => ({ default: m.DialogPanel as ComponentType<LayoutComponentProps> }))
+  ),
 };
 
 export function getLayoutComponent(componentType: string): LazyLayoutComponent | null {

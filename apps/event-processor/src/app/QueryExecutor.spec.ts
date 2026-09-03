@@ -5,7 +5,21 @@ import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type { Pool } from 'pg';
-import { createDb, artifacts, channels, users, workflowLogs, assets, serviceTokens, GOOGLE_PHOTOS_TOKEN_TYPE, type Database } from '@agentic-client-server-base/db-schema';
+import {
+  createDb,
+  artifacts,
+  channels,
+  users,
+  workflowLogs,
+  assets,
+  serviceTokens,
+  GOOGLE_PHOTOS_TOKEN_TYPE,
+  groups,
+  memberships,
+  membershipRoles,
+  globalAdmins,
+  type Database,
+} from '@agentic-client-server-base/db-schema';
 import { startTestPostgres, type TestPostgresHandle } from '@agentic-client-server-base/db-schema/test-helpers';
 import { createQueryExecutor } from './QueryExecutor';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
@@ -88,6 +102,15 @@ async function insertAsset(overrides: Partial<typeof assets.$inferInsert> = {}) 
   return asset;
 }
 
+async function insertGlobalAdmin(userId: string) {
+  await db.insert(globalAdmins).values({ userId });
+}
+
+async function insertGroup(overrides: Partial<typeof groups.$inferInsert> = {}) {
+  const [group] = await db.insert(groups).values({ name: 'Test Group', parentGroupId: null, ancestors: [], ...overrides }).returning();
+  return group;
+}
+
 async function insertGooglePhotosToken(overrides: Partial<typeof serviceTokens.$inferInsert> = {}) {
   const [token] = await db
     .insert(serviceTokens)
@@ -158,6 +181,10 @@ beforeEach(async () => {
   await db.delete(artifacts);
   await db.delete(assets);
   await db.delete(serviceTokens);
+  // Cascades to memberships -> membership_roles via their FKs; deleting
+  // users below cascades global_admins via its own FK, so neither needs a
+  // separate explicit delete here.
+  await db.delete(groups);
   await db.delete(users);
   const [u1] = await db.insert(users).values({ email: `u1-${randomUUID()}@test.com` }).returning();
   const [u2] = await db.insert(users).values({ email: `u2-${randomUUID()}@test.com` }).returning();
@@ -722,6 +749,202 @@ describe('save-picked-media-items', () => {
     const allRows = await db.select().from(assets).where(eq(assets.userId, USER_ID));
     expect(allRows).toHaveLength(1);
     expect(mockedAssetTransformManager.publish).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── list-global-admins ─────────────────────────────────────────────────────
+
+describe('list-global-admins', () => {
+  test('returns empty array for a non-admin caller', async () => {
+    const execute = makeExecutor();
+    const result = await execute('list-global-admins', makeContext(USER_ID));
+    expect(result).toEqual({ admins: [] });
+  });
+
+  test('returns the admin list with joined email for an admin caller', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('list-global-admins', makeContext(USER_ID));
+    expect(result['admins']).toEqual([{ _id: USER_ID, email: expect.any(String) }]);
+  });
+});
+
+// ─── find-user-by-email ─────────────────────────────────────────────────────
+
+describe('find-user-by-email', () => {
+  test('rejects a non-admin caller', async () => {
+    const execute = makeExecutor();
+    const result = await execute('find-user-by-email', makeContext(USER_ID, { email: 'someone@test.com' }));
+    expect(result).toEqual({ foundUser: null, result: 'Insufficient permissions' });
+  });
+
+  test('returns a not-found message for an unknown email', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('find-user-by-email', makeContext(USER_ID, { email: 'nobody@test.com' }));
+    expect(result).toEqual({ foundUser: null, result: 'No user found with email nobody@test.com' });
+  });
+
+  test('returns the found user for a known email', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const [target] = await db.select().from(users).where(eq(users.id, OTHER_USER_ID));
+    const execute = makeExecutor();
+    const result = await execute('find-user-by-email', makeContext(USER_ID, { email: target.email }));
+    expect(result).toEqual({ foundUser: { _id: OTHER_USER_ID, email: target.email }, result: null });
+  });
+});
+
+// ─── add-global-admin ───────────────────────────────────────────────────────
+
+describe('add-global-admin', () => {
+  test('rejects a non-admin caller', async () => {
+    const execute = makeExecutor();
+    const result = await execute('add-global-admin', makeContext(USER_ID, { userId: OTHER_USER_ID }));
+    expect(result).toEqual({ result: 'Insufficient permissions' });
+    const rows = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, OTHER_USER_ID));
+    expect(rows).toHaveLength(0);
+  });
+
+  test('adds a new global admin', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('add-global-admin', makeContext(USER_ID, { userId: OTHER_USER_ID }));
+    expect(result['result']).toMatch(/^Added .+ as a global admin$/);
+    const rows = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, OTHER_USER_ID));
+    expect(rows).toHaveLength(1);
+  });
+
+  test('returns a duplicate message without inserting twice', async () => {
+    await insertGlobalAdmin(USER_ID);
+    await insertGlobalAdmin(OTHER_USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('add-global-admin', makeContext(USER_ID, { userId: OTHER_USER_ID }));
+    expect(result['result']).toMatch(/already a global admin$/);
+  });
+
+  test('rejects an unknown target userId', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('add-global-admin', makeContext(USER_ID, { userId: NONEXISTENT_UUID }));
+    expect(result).toEqual({ result: 'User not found' });
+  });
+});
+
+// ─── remove-global-admin ────────────────────────────────────────────────────
+
+describe('remove-global-admin', () => {
+  test('rejects a non-admin caller', async () => {
+    await insertGlobalAdmin(OTHER_USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('remove-global-admin', makeContext(USER_ID, { userId: OTHER_USER_ID }));
+    expect(result).toEqual({ result: 'Insufficient permissions' });
+  });
+
+  test('removes an admin when more than one remains', async () => {
+    await insertGlobalAdmin(USER_ID);
+    await insertGlobalAdmin(OTHER_USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('remove-global-admin', makeContext(USER_ID, { userId: OTHER_USER_ID }));
+    expect(result).toEqual({ result: 'Global admin removed' });
+    const rows = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, OTHER_USER_ID));
+    expect(rows).toHaveLength(0);
+  });
+
+  test('blocks removing the last remaining admin', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('remove-global-admin', makeContext(USER_ID, { userId: USER_ID }));
+    expect(result).toEqual({ result: 'Cannot remove the last remaining global admin' });
+    const rows = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, USER_ID));
+    expect(rows).toHaveLength(1);
+  });
+});
+
+// ─── list-root-groups ───────────────────────────────────────────────────────
+
+describe('list-root-groups', () => {
+  test('returns empty array for a non-admin caller', async () => {
+    await insertGroup();
+    const execute = makeExecutor();
+    const result = await execute('list-root-groups', makeContext(USER_ID));
+    expect(result).toEqual({ rootGroups: [] });
+  });
+
+  test('returns all root groups system-wide, not membership-scoped, for an admin caller', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const root = await insertGroup({ name: 'Root A' });
+    const nonRoot = await insertGroup({ name: 'Root B' });
+    await db.insert(groups).values({ name: 'Child', parentGroupId: nonRoot.id, ancestors: [nonRoot.id] });
+    const execute = makeExecutor();
+    const result = await execute('list-root-groups', makeContext(USER_ID));
+    expect(result['rootGroups']).toEqual(
+      expect.arrayContaining([
+        { _id: root.id, name: 'Root A' },
+        { _id: nonRoot.id, name: 'Root B' },
+      ])
+    );
+    expect(result['rootGroups'] as unknown[]).toHaveLength(2);
+  });
+});
+
+// ─── create-root-group ──────────────────────────────────────────────────────
+
+describe('create-root-group', () => {
+  test('rejects a non-admin caller', async () => {
+    const execute = makeExecutor();
+    const result = await execute('create-root-group', makeContext(USER_ID, { name: 'New Group' }));
+    expect(result).toEqual({ result: 'Insufficient permissions' });
+  });
+
+  test('rejects a missing name', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('create-root-group', makeContext(USER_ID, {}));
+    expect(result).toEqual({ result: 'Missing required fields' });
+  });
+
+  test('creates a root group and makes the creator an owner', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('create-root-group', makeContext(USER_ID, { name: 'New Group' }));
+    expect(result).toEqual({ result: "Group 'New Group' created!" });
+
+    const [group] = await db.select().from(groups).where(eq(groups.name, 'New Group'));
+    expect(group.parentGroupId).toBeNull();
+    expect(group.ancestors).toEqual([]);
+
+    const [membership] = await db.select().from(memberships).where(eq(memberships.groupId, group.id));
+    expect(membership.userId).toBe(USER_ID);
+    const roleRows = await db.select().from(membershipRoles).where(eq(membershipRoles.membershipId, membership.id));
+    expect(roleRows.map((r) => r.role)).toEqual(['owner']);
+  });
+});
+
+// ─── update-group-name ──────────────────────────────────────────────────────
+
+describe('update-group-name', () => {
+  test('rejects a non-admin caller', async () => {
+    const group = await insertGroup();
+    const execute = makeExecutor();
+    const result = await execute('update-group-name', makeContext(USER_ID, { groupId: group.id, name: 'Renamed' }));
+    expect(result).toEqual({ result: 'Insufficient permissions' });
+  });
+
+  test('returns "Group not found" for a bogus groupId', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const execute = makeExecutor();
+    const result = await execute('update-group-name', makeContext(USER_ID, { groupId: NONEXISTENT_UUID, name: 'Renamed' }));
+    expect(result).toEqual({ result: 'Group not found' });
+  });
+
+  test('renames a root group the admin is not a member of', async () => {
+    await insertGlobalAdmin(USER_ID);
+    const group = await insertGroup({ name: 'Old Name' });
+    const execute = makeExecutor();
+    const result = await execute('update-group-name', makeContext(USER_ID, { groupId: group.id, name: 'New Name' }));
+    expect(result).toEqual({ result: "Group renamed to 'New Name'" });
+    const [updated] = await db.select().from(groups).where(eq(groups.id, group.id));
+    expect(updated.name).toBe('New Name');
   });
 });
 

@@ -10,6 +10,12 @@ const DASHBOARD_CARDS = [
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const cards = [
+    ...DASHBOARD_CARDS,
+    ...(user?.isGlobalAdmin
+      ? [{ path: '/dashboard/global-admin', label: 'Global Admin Dashboard', description: 'Manage global admins and root-level groups.' }]
+      : []),
+  ];
 
   return (
     <div className="page">
@@ -17,7 +23,7 @@ export function DashboardPage() {
       <main>
         <p className="dashboard-welcome">Welcome back, <strong>{user?.email}</strong></p>
         <div className="role-cards">
-          {DASHBOARD_CARDS.map((card) => (
+          {cards.map((card) => (
             <Link key={card.path} to={card.path} className="role-card">
               <h2>{card.label}</h2>
               <p>{card.description}</p>

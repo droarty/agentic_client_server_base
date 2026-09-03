@@ -16,6 +16,7 @@ import {
   artifactGroupPermissions,
   artifactUserPermissions,
   assets,
+  globalAdmins,
 } from '@agentic-client-server-base/db-schema';
 import { WorkflowContext, WorkflowLogEntry } from './WorkflowEngine';
 import {
@@ -40,7 +41,7 @@ type ArtifactRow = typeof artifacts.$inferSelect;
 type AssetRow = typeof assets.$inferSelect;
 
 // Types the workflow config JSON DSL never sets state on directly.
-const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review', 'google-photos-picker'];
+const SYSTEM_DOC_EXCLUSIONS = ['user-dashboard', 'group-dashboard', 'log-review', 'google-photos-picker', 'global-admin-dashboard'];
 
 export function createQueryExecutor(deps: QueryExecutorDeps) {
   const { db, configDir, logWorkflowStep, invalidateWorkflowConfig, assetTransformManager } = deps;
@@ -139,6 +140,11 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
       .from(membershipRoles)
       .where(and(eq(membershipRoles.membershipId, membership.id), inArray(membershipRoles.role, roles)));
     return roleRows.length > 0;
+  }
+
+  async function callerIsGlobalAdmin(userId: string): Promise<boolean> {
+    const rows = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, userId));
+    return rows.length > 0;
   }
 
   return async function executeQuery(queryName: string, context: WorkflowContext): Promise<Record<string, unknown>> {
@@ -536,6 +542,84 @@ export function createQueryExecutor(deps: QueryExecutorDeps) {
         // membership_roles rows cascade-delete via their FK to memberships.
         await db.delete(memberships).where(and(eq(memberships.userId, targetUserId), eq(memberships.groupId, groupId)));
         return { result: 'Member removed' };
+      }
+
+      if (queryName === 'list-global-admins') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { admins: [] };
+        if (!(await callerIsGlobalAdmin(userId))) return { admins: [] };
+        const rows = await db
+          .select({ userId: globalAdmins.userId, email: users.email })
+          .from(globalAdmins)
+          .innerJoin(users, eq(users.id, globalAdmins.userId));
+        return { admins: rows.map((r) => ({ _id: r.userId, email: r.email })) };
+      }
+
+      if (queryName === 'find-user-by-email') {
+        const userId = context.user?.['id'] as string | undefined;
+        const email = (context.message['email'] as string | undefined)?.trim().toLowerCase();
+        if (!userId || !email) return { foundUser: null, result: 'Missing required fields' };
+        if (!(await callerIsGlobalAdmin(userId))) return { foundUser: null, result: 'Insufficient permissions' };
+        const [targetUser] = await db.select().from(users).where(eq(users.email, email));
+        if (!targetUser) return { foundUser: null, result: `No user found with email ${email}` };
+        return { foundUser: { _id: targetUser.id, email: targetUser.email }, result: null };
+      }
+
+      if (queryName === 'add-global-admin') {
+        const userId = context.user?.['id'] as string | undefined;
+        const targetUserId = context.message['userId'] as string | undefined;
+        if (!userId || !targetUserId) return { result: 'Missing required fields' };
+        if (!(await callerIsGlobalAdmin(userId))) return { result: 'Insufficient permissions' };
+        const [targetUser] = await db.select().from(users).where(eq(users.id, targetUserId));
+        if (!targetUser) return { result: 'User not found' };
+        const [existing] = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, targetUserId));
+        if (existing) return { result: `${targetUser.email} is already a global admin` };
+        await db.insert(globalAdmins).values({ userId: targetUserId });
+        return { result: `Added ${targetUser.email} as a global admin` };
+      }
+
+      if (queryName === 'remove-global-admin') {
+        const userId = context.user?.['id'] as string | undefined;
+        const targetUserId = context.message['userId'] as string | undefined;
+        if (!userId || !targetUserId) return { result: 'Missing required fields' };
+        if (!(await callerIsGlobalAdmin(userId))) return { result: 'Insufficient permissions' };
+        const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(globalAdmins);
+        if (Number(count) <= 1) return { result: 'Cannot remove the last remaining global admin' };
+        await db.delete(globalAdmins).where(eq(globalAdmins.userId, targetUserId));
+        return { result: 'Global admin removed' };
+      }
+
+      if (queryName === 'list-root-groups') {
+        const userId = context.user?.['id'] as string | undefined;
+        if (!userId) return { rootGroups: [] };
+        if (!(await callerIsGlobalAdmin(userId))) return { rootGroups: [] };
+        const rows = await db.select().from(groups).where(isNull(groups.parentGroupId));
+        return { rootGroups: rows.map((g) => ({ _id: g.id, name: g.name })) };
+      }
+
+      if (queryName === 'create-root-group') {
+        const userId = context.user?.['id'] as string | undefined;
+        const groupName = (context.message['name'] as string | undefined)?.trim();
+        if (!userId || !groupName) return { result: 'Missing required fields' };
+        if (!(await callerIsGlobalAdmin(userId))) return { result: 'Insufficient permissions' };
+        await db.transaction(async (tx) => {
+          const [group] = await tx.insert(groups).values({ name: groupName, parentGroupId: null, ancestors: [] }).returning();
+          const [membership] = await tx.insert(memberships).values({ userId, groupId: group.id }).returning();
+          await tx.insert(membershipRoles).values({ membershipId: membership.id, role: 'owner' });
+        });
+        return { result: `Group '${groupName}' created!` };
+      }
+
+      if (queryName === 'update-group-name') {
+        const userId = context.user?.['id'] as string | undefined;
+        const targetGroupId = context.message['groupId'] as string | undefined;
+        const newName = (context.message['name'] as string | undefined)?.trim();
+        if (!userId || !targetGroupId || !newName) return { result: 'Missing required fields' };
+        if (!(await callerIsGlobalAdmin(userId))) return { result: 'Insufficient permissions' };
+        const [existingGroup] = await db.select().from(groups).where(eq(groups.id, targetGroupId));
+        if (!existingGroup) return { result: 'Group not found' };
+        await db.update(groups).set({ name: newName, updatedAt: new Date() }).where(eq(groups.id, targetGroupId));
+        return { result: `Group renamed to '${newName}'` };
       }
 
       if (queryName === 'get-recent-user-documents') {

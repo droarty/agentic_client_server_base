@@ -8,6 +8,8 @@ import { UserDashboardPage } from './pages/UserDashboardPage';
 import { GroupDashboardPage } from './pages/GroupDashboardPage';
 import { AuthorDashboardPage } from './pages/AuthorDashboardPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { GlobalAdminDashboardPage } from './pages/GlobalAdminDashboardPage';
+import { RequireGlobalAdmin } from './components/RequireGlobalAdmin';
 import { SettingsPage } from './pages/SettingsPage';
 import { LogReviewPage } from './pages/LogReviewPage';
 import { AssetBrowserPage } from './pages/AssetBrowserPage';
@@ -31,6 +33,7 @@ export function App() {
           <Route path="/dashboard/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/author" element={<PrivateRoute><AuthorDashboardPage /></PrivateRoute>} />
           <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
+          <Route path="/dashboard/global-admin" element={<PrivateRoute><RequireGlobalAdmin><GlobalAdminDashboardPage /></RequireGlobalAdmin></PrivateRoute>} />
 
           <Route path="/settings" element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="/channel/:channelId/logs" element={<PrivateRoute><LogReviewPage /></PrivateRoute>} />
