@@ -1,9 +1,11 @@
 {
-  // Rename to your chosen Worker name (determines the default
-  // <name>.<subdomain>.workers.dev URL, or attach a custom domain later
-  // via the Cloudflare dashboard). Deploy from the repo root so the
-  // "directory" path below resolves correctly:
-  //   pnpm nx build web && wrangler deploy --config apps/web/wrangler.jsonc
+  // "name" is an unused fallback — CI overrides it with `--name`, sourced
+  // from the CLOUDFLARE_WORKER_NAME GitHub Actions variable (see
+  // DEPLOY.md), so this doesn't need editing. The chosen name determines
+  // the default <name>.<subdomain>.workers.dev URL, or attach a custom
+  // domain later via the Cloudflare dashboard. Deploy from the repo root so
+  // the "directory" path below resolves correctly:
+  //   pnpm nx build web && wrangler deploy --config apps/web/wrangler.jsonc --name <name>
   "name": "change-me-acsb-web",
   "compatibility_date": "2026-09-01",
   "assets": {

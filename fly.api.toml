@@ -1,8 +1,11 @@
 # Deploy from the repo root so the Docker build context includes the whole
 # Nx workspace: flyctl deploy --config fly.api.toml
 #
-# `app` must be replaced with a name registered via `fly apps create`
-# (app names are globally unique across all Fly customers).
+# `app` is an unused fallback — CI overrides it with `--app`, sourced from the
+# FLY_API_APP_NAME GitHub Actions variable (see DEPLOY.md), so this doesn't
+# need editing. It still must be a name registered via `fly apps create`
+# (app names are globally unique across all Fly customers) if you deploy
+# manually without passing `--app`.
 app = "CHANGE-ME-acsb-api"
 primary_region = "iad"
 

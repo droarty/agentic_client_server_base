@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --config fly.api.toml --remote-only
+      - run: flyctl deploy --config fly.api.toml --app ${{ vars.FLY_API_APP_NAME }} --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -51,9 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --config fly.event-processor.toml --remote-only
+      - run: flyctl deploy --config fly.event-processor.toml --app ${{ vars.FLY_EVENT_PROCESSOR_APP_NAME }} --remote-only
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_EVENT_PROCESSOR_TOKEN }}
 
   deploy-web:
     needs: build-and-test
@@ -70,7 +70,7 @@ jobs:
         env:
           API_URL: ${{ vars.WEB_API_URL }}
           WS_URL: ${{ vars.WEB_WS_URL }}
-      - run: pnpm exec wrangler deploy --config apps/web/wrangler.jsonc
+      - run: pnpm exec wrangler deploy --config apps/web/wrangler.jsonc --name ${{ vars.CLOUDFLARE_WORKER_NAME }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
