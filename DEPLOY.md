@@ -40,11 +40,13 @@ The Cloudflare Workers URL for `CLIENT_URL`/`CORS_ORIGIN` isn't known until `web
 
 `API_URL`/`WS_URL` for `web` are **not runtime env vars** — they're baked in at build time (`tools/web-build.mjs`), so set them as GitHub Actions repository **variables** (`WEB_API_URL`/`WEB_WS_URL`, Settings → Secrets and variables → Actions → Variables — not secrets, since they're just public URLs) pointing at the deployed `api` app's hostname, e.g. `WEB_API_URL=https://<your-api-app-name>.fly.dev` and `WEB_WS_URL=wss://<your-api-app-name>.fly.dev` — same host, since `api` serves both REST and WebSocket traffic from one Express + `http` server (`apps/api/src/main.ts`), just different URL schemes. The `deploy-web` job in `.github/workflows/deploy.yml` passes them into the build as `API_URL`/`WS_URL`.
 
-GitHub Actions (`.github/workflows/deploy.yml`) needs its own copies as repo secrets:
+GitHub Actions (`.github/workflows/deploy.yml`) needs its own copies as secrets:
 - `FLY_API_TOKEN` — an app-scoped deploy token for `api`: `fly tokens create deploy --app <your-api-app-name>`
 - `FLY_EVENT_PROCESSOR_TOKEN` — the same, for `event-processor`: `fly tokens create deploy --app <your-event-processor-app-name>` (a single token can't deploy both apps — `fly tokens create deploy` tokens are scoped to one app)
 - `DATABASE_URL` (for the migration job)
 - `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` (for the `deploy-web` job's `wrangler deploy`)
+
+These are commonly set as **Environment secrets** under a GitHub Environment (Settings → Environments → e.g. `production`) rather than plain repository secrets — an Environment groups deployment secrets in one place and can add protection rules/deployment history in the GitHub UI. `migrate`, `deploy-api`, `deploy-event-processor`, and `deploy-web` all declare `environment: production` in `deploy.yml` for exactly this reason. **This matters**: a job only sees Environment secrets if it declares that `environment:` — `${{ secrets.X }}` silently resolves to an empty string (not a workflow error) if the job doesn't, so an environment-scoped secret with no matching `environment:` key fails confusingly at runtime (e.g. `DATABASE_URL must be set to run migrations`) rather than at the GitHub Actions config level. If you'd rather use plain repository secrets instead, remove the `environment: production` lines from those four jobs.
 
 And repo **variables**: `FLY_API_APP_NAME`, `FLY_EVENT_PROCESSOR_APP_NAME`, `CLOUDFLARE_WORKER_NAME` (the app/worker names chosen above — passed to `--app`/`--name` at deploy time instead of being hardcoded in `fly.*.toml`/`wrangler.jsonc`), plus `WEB_API_URL`/`WEB_WS_URL` from above.
 

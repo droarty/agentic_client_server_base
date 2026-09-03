@@ -22,6 +22,7 @@ jobs:
   migrate:
     needs: build-and-test
     if: github.event_name == 'workflow_dispatch' && success()
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +41,7 @@ jobs:
   deploy-api:
     needs: migrate
     if: github.event_name == 'workflow_dispatch' && success()
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +53,7 @@ jobs:
   deploy-event-processor:
     needs: migrate
     if: github.event_name == 'workflow_dispatch' && success()
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +65,7 @@ jobs:
   deploy-web:
     needs: build-and-test
     if: github.event_name == 'workflow_dispatch' && success()
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
