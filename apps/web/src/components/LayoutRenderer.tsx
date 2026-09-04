@@ -16,6 +16,24 @@ function resolveDotPath(obj: Record<string, unknown>, path: string): unknown {
   }, obj);
 }
 
+// Resolves "@"-prefixed strings anywhere within a prop value — not just at
+// the top level of `props` — so a JSON author can put a live state
+// reference inside an object/array-valued prop (e.g. multiFieldInput's
+// `values: { name: "@temp.editTargetName" }` to pre-fill a field) and have
+// it resolve the same way a plain top-level string prop does.
+function resolveValue(value: unknown, state: Record<string, unknown>): unknown {
+  if (typeof value === 'string') {
+    return value.startsWith('@') ? resolveDotPath(state, value.slice(1)) : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveValue(item, state));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolveValue(v, state)]));
+  }
+  return value;
+}
+
 function resolveProps(
   props: Record<string, unknown> | undefined,
   state: Record<string, unknown>
@@ -23,10 +41,7 @@ function resolveProps(
   if (!props) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(props)) {
-    result[key] =
-      typeof value === 'string' && value.startsWith('@')
-        ? resolveDotPath(state, value.slice(1))
-        : value;
+    result[key] = resolveValue(value, state);
   }
   return result;
 }
