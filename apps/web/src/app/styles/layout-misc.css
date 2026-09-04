@@ -4,6 +4,25 @@
   height: 100%;
 }
 
+/* FullPanel modifier: a single row of inline content (e.g. a list item —
+   label + action button on one line), via the optional className prop. */
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: auto;
+  height: auto;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.list-row .text-display {
+  padding: 0.5rem 0;
+}
+.list-row .action-button {
+  padding: 0;
+  border-top: none;
+  flex-shrink: 0;
+}
+
 /* TextDisplay */
 .text-display--empty {
   height: 100%;

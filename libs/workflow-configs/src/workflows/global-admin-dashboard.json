@@ -29,6 +29,7 @@
                     "children": [
                       {
                         "componentType": "fullPanel",
+                        "props": { "className": "list-row" },
                         "children": [
                           { "componentType": "textDisplay", "props": { "text": "@item.email" } },
                           {
@@ -96,6 +97,7 @@
                     "children": [
                       {
                         "componentType": "fullPanel",
+                        "props": { "className": "list-row" },
                         "children": [
                           { "componentType": "textDisplay", "props": { "text": "@item.name" } },
                           {
