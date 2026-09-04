@@ -46,6 +46,11 @@ export async function apiUpdateMe(updates: UpdateUserRequest): Promise<User> {
   return data;
 }
 
+export async function apiGetIsGlobalAdmin(): Promise<boolean> {
+  const { data } = await client.get<{ isGlobalAdmin: boolean }>('/api/users/me/global-admin');
+  return data.isGlobalAdmin;
+}
+
 export async function apiExchangeOAuthCode(code: string): Promise<string> {
   const { data } = await client.post<{ token: string }>('/api/auth/exchange', { code });
   return data.token;

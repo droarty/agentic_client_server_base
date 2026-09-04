@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { eq, ne, and, desc } from 'drizzle-orm';
-import { users } from '@agentic-client-server-base/db-schema';
+import { users, globalAdmins } from '@agentic-client-server-base/db-schema';
 import { getDb } from '../db/connect';
 import { serializeUser, type UserRecord } from './auth.service';
 
@@ -19,6 +19,17 @@ export async function getUserById(id: string): Promise<UserRecord | null> {
   const db = getDb();
   const [user] = await db.select().from(users).where(eq(users.id, id));
   return user ?? null;
+}
+
+// Deliberately not folded into serializeUser (which login/register/getMe/
+// updateMe all funnel through) — that would run this check on every single
+// authentication, when in practice only a couple of call sites (this status
+// check, the global-admin-dashboard's own server-side handlers) ever need
+// it.
+export async function isGlobalAdmin(userId: string): Promise<boolean> {
+  const db = getDb();
+  const rows = await db.select().from(globalAdmins).where(eq(globalAdmins.userId, userId));
+  return rows.length > 0;
 }
 
 export async function updateUser(

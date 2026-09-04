@@ -70,7 +70,6 @@ export interface User {
   email: string;
   hasPassword: boolean;
   ssoProviders: SsoProvider[];
-  isGlobalAdmin: boolean;
   createdAt: string;
   updatedAt: string;
 }

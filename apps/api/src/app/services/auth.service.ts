@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
-import { users, ssoProviders, globalAdmins } from '@agentic-client-server-base/db-schema';
+import { users, ssoProviders } from '@agentic-client-server-base/db-schema';
 import { getDb } from '../db/connect';
 import { env } from '../config/env';
 
@@ -20,10 +20,7 @@ export function generateToken(userId: string, email: string): string {
 
 export async function serializeUser(user: UserRecord) {
   const db = getDb();
-  const [providers, adminRows] = await Promise.all([
-    db.select().from(ssoProviders).where(eq(ssoProviders.userId, user.id)),
-    db.select().from(globalAdmins).where(eq(globalAdmins.userId, user.id)),
-  ]);
+  const providers = await db.select().from(ssoProviders).where(eq(ssoProviders.userId, user.id));
   return {
     _id: user.id,
     email: user.email,
@@ -33,7 +30,6 @@ export async function serializeUser(user: UserRecord) {
       email: p.email,
       displayName: p.displayName ?? undefined,
     })),
-    isGlobalAdmin: adminRows.length > 0,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
