@@ -10,6 +10,7 @@ interface FieldDef {
 interface Props {
   fields?: FieldDef[];
   submitLabel?: string;
+  submitSize?: 'default' | 'sm' | 'lg' | 'icon';
   values?: Record<string, string>;
   inputs?: Record<string, string>;
   onSubmit?: (payload: Record<string, unknown>) => void;
@@ -19,7 +20,7 @@ interface Props {
   [key: string]: unknown;
 }
 
-export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = {}, inputs, onSubmit, emit, targetId, channelId, ...extra }: Props) {
+export function MultiFieldInput({ fields = [], submitLabel = 'Submit', submitSize, values = {}, inputs, onSubmit, emit, targetId, channelId, ...extra }: Props) {
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map((f) => [f.name, inputs?.[f.name] ?? values[f.name] ?? '']))
   );
@@ -64,6 +65,7 @@ export function MultiFieldInput({ fields = [], submitLabel = 'Submit', values = 
       ))}
       <div className="multi-input-submit">
         <Button
+          size={submitSize}
           onClick={handleSubmit}
           disabled={!fields.every((f) => fieldValues[f.name]?.trim())}
         >
