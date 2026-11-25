@@ -1,5 +1,7 @@
-# Agentic Client/Server Base
-🚧🚧🚧 **Note: this is still very much a WIP**
+🚧🚧🚧 **Note: this project has been superceded and moved to a private repo**
+The private project is also still a WIP.  It now consists of a platform for any group to manage members, content, communication, etc.  It is super flexible, super secure, native group ai that you control.  AI is on or off or anywhere in between for each member or group you manage.  Calendars, Mail, Messaging, Documents, Websites, Forms, Surveys, Photo Albums, Blogs, Automated Workflows, Multiuser Collaboration, You can have a built in agent set up and automate things. Or you can bring your own agent to it.  You can configure agent privileges the same way you configure people privileges on content entities, groups, and users.  You can build complex workflows that are composed of client interactions, agentic interactions, artifact persistence, and scheduled tasks.  Use cases involve managing families, extended families, small organizations, classrooms, schools, etc.
+
+# Original effort: Agentic Client/Server Base
 
 This project is a demo of what I think might be some best practices for an agentic client/server stack that lets users create workflows for other users.  My primary use case for this is educators creating lessons for students, but it could be anyone creating workflows for any group.
 
